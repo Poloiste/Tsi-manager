@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles, Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen } from 'lucide-react';
 
 function App() {
-  // États pour Planning
+  // Ã‰tats pour Planning
   const [currentWeek, setCurrentWeek] = useState(10);
   const [selectedDay, setSelectedDay] = useState(null);
   const [customEvents, setCustomEvents] = useState([]);
@@ -15,7 +15,7 @@ function App() {
     subject: '',
     time: '',
     duration: '',
-    date: '' // Nouvelle propriété pour stocker la date exacte
+    date: '' // Nouvelle propriÃ©tÃ© pour stocker la date exacte
   });
 
   // Calendrier des semaines TSI
@@ -55,14 +55,14 @@ function App() {
     33: { dates: '8 au 12/6', label: 'S33' }
   };
 
-  // États pour Cours et Flashcards
+  // Ã‰tats pour Cours et Flashcards
   const [courses, setCourses] = useState([]);
   const [activeTab, setActiveTab] = useState('planning');
   const [showAddCourse, setShowAddCourse] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedSubject, setExpandedSubject] = useState(null);
   
-  // États pour Flashcards
+  // Ã‰tats pour Flashcards
   const [selectedCourseForFlashcards, setSelectedCourseForFlashcards] = useState(null);
   const [flashcards, setFlashcards] = useState([]);
   const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
@@ -80,19 +80,19 @@ function App() {
     oneDriveLinks: []
   });
 
-  // États pour gérer l'ajout de liens OneDrive
+  // Ã‰tats pour gÃ©rer l'ajout de liens OneDrive
   const [newOneDriveLink, setNewOneDriveLink] = useState('');
   const [newLinkName, setNewLinkName] = useState('');
   
   // URL du backend - MODIFIEZ ICI selon votre configuration
-  const BACKEND_URL = 'http://localhost:5001'; // Port 5001
+  const BACKEND_URL = 'https://tsi-manager-backend.onrender.com'; // Port 5001
 
   // Emploi du temps de base
   const baseSchedule = {
     'Lundi': [
-      { time: '8h-10h', subject: 'Méca', type: 'cours', room: 'D123 TSI1' },
+      { time: '8h-10h', subject: 'MÃ©ca', type: 'cours', room: 'D123 TSI1' },
       { time: '10h-13h', subject: 'Elec', type: 'TD', room: 'D123 TSI1' },
-      { time: '14h-15h', subject: 'Français', type: 'cours', room: 'D123 TSI1' },
+      { time: '14h-15h', subject: 'FranÃ§ais', type: 'cours', room: 'D123 TSI1' },
       { time: '16h-18h', subject: 'Anglais', type: 'cours', room: 'D123 TSI1' }
     ],
     'Mardi': [
@@ -118,34 +118,34 @@ function App() {
       { time: '9h-10h', subject: 'Anglais', type: 'cours', room: 'D123 TSI1' },
       { time: '10h-12h', subject: 'Physique', type: 'cours', room: 'D123 TSI1' },
       { time: '14h-15h', subject: 'Physique', type: 'TD', room: 'D123 TSI1' },
-      { time: '15h-16h', subject: 'Français', type: 'TD', room: 'D123 TSI1' }
+      { time: '15h-16h', subject: 'FranÃ§ais', type: 'TD', room: 'D123 TSI1' }
     ]
   };
 
   const eveningSchedule = {
     'Lundi': [
-      { time: '19h15-20h00', activity: 'Méca : relecture + exo clé', duration: 45 },
+      { time: '19h15-20h00', activity: 'MÃ©ca : relecture + exo clÃ©', duration: 45 },
       { time: '20h00-20h45', activity: 'Maths : exercices', duration: 45 },
-      { time: '20h45-21h15', activity: 'Pause / détente', duration: 30 },
-      { time: '21h15-21h45', activity: 'Détente', duration: 30 }
+      { time: '20h45-21h15', activity: 'Pause / dÃ©tente', duration: 30 },
+      { time: '21h15-21h45', activity: 'DÃ©tente', duration: 30 }
     ],
     'Mardi': [
       { time: '19h15-20h00', activity: 'Maths : relecture + formules', duration: 45 },
       { time: '20h00-20h45', activity: 'Physique : exercices', duration: 45 },
       { time: '20h45-21h15', activity: 'Informatique : TP', duration: 30 },
-      { time: '21h15-21h45', activity: 'Détente', duration: 30 }
+      { time: '21h15-21h45', activity: 'DÃ©tente', duration: 30 }
     ],
     'Mercredi': [
-      { time: '19h15-20h00', activity: 'Maths : méthodes', duration: 45 },
-      { time: '20h00-20h45', activity: 'Français : révision', duration: 45 },
+      { time: '19h15-20h00', activity: 'Maths : mÃ©thodes', duration: 45 },
+      { time: '20h00-20h45', activity: 'FranÃ§ais : rÃ©vision', duration: 45 },
       { time: '20h45-21h15', activity: 'Anglais : vocabulaire', duration: 30 },
       { time: '21h15-21h45', activity: 'Repos', duration: 30 }
     ],
     'Jeudi': [
       { time: '19h15-20h00', activity: 'Physique : cours + formules', duration: 45 },
-      { time: '20h00-20h45', activity: 'Méca : synthèse TP', duration: 45 },
-      { time: '20h45-21h15', activity: 'Français : lecture', duration: 30 },
-      { time: '21h15-21h45', activity: 'Détente', duration: 30 }
+      { time: '20h00-20h45', activity: 'MÃ©ca : synthÃ¨se TP', duration: 45 },
+      { time: '20h45-21h15', activity: 'FranÃ§ais : lecture', duration: 30 },
+      { time: '21h15-21h45', activity: 'DÃ©tente', duration: 30 }
     ],
     'Vendredi': [
       { time: '18h40-20h45', activity: 'Trajet retour', duration: 0 }
@@ -155,12 +155,12 @@ function App() {
     ],
     'Dimanche': [
       { time: '20h45-21h15', activity: 'Fiches semaine', duration: 30 },
-      { time: '21h15-21h45', activity: 'Préparation', duration: 30 }
+      { time: '21h15-21h45', activity: 'PrÃ©paration', duration: 30 }
     ]
   };
 
   const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-  const subjects = ['Maths', 'Physique', 'Méca', 'Elec', 'Anglais', 'Français', 'Informatique'];
+  const subjects = ['Maths', 'Physique', 'MÃ©ca', 'Elec', 'Anglais', 'FranÃ§ais', 'Informatique'];
   const daysUntil = Math.floor((new Date('2027-04-15') - new Date()) / (1000 * 60 * 60 * 24));
 
   // Fonctions
@@ -169,10 +169,10 @@ function App() {
     const today = new Date();
     
     customEvents.forEach(event => {
-      if (event.type === 'DS' || event.type === 'DM' || event.type === 'Colle' || event.type === 'Examen' || event.type === 'TP Noté') {
+      if (event.type === 'DS' || event.type === 'DM' || event.type === 'Colle' || event.type === 'Examen' || event.type === 'TP NotÃ©') {
         let daysUntil = 0;
         
-        // Si l'événement a une date exacte
+        // Si l'Ã©vÃ©nement a une date exacte
         if (event.date) {
           const eventDate = new Date(event.date);
           daysUntil = Math.floor((eventDate - today) / (1000 * 60 * 60 * 24));
@@ -212,7 +212,7 @@ function App() {
 
   const calculateReviewPriority = (course, weekContext = {}) => {
     if (!course.lastReviewed) {
-      return { priority: 100, reason: "Jamais révisé", daysUntilReview: 0, daysSinceReview: 0 };
+      return { priority: 100, reason: "Jamais rÃ©visÃ©", daysUntilReview: 0, daysSinceReview: 0 };
     }
 
     const lastReview = new Date(course.lastReviewed);
@@ -253,25 +253,25 @@ function App() {
                 course.subject.toLowerCase().includes(test.subject.toLowerCase())
       );
       if (testForThisSubject && testForThisSubject.daysUntil <= 7) {
-        reason = `🎯 ${testForThisSubject.type} dans ${testForThisSubject.daysUntil}j !`;
+        reason = `ðŸŽ¯ ${testForThisSubject.type} dans ${testForThisSubject.daysUntil}j !`;
       } else if (daysSinceReview >= optimalInterval * 1.5) {
-        reason = "⚠️ Révision urgente !";
+        reason = "âš ï¸ RÃ©vision urgente !";
       } else if (daysSinceReview >= optimalInterval) {
-        reason = "📌 À réviser maintenant";
+        reason = "ðŸ“Œ Ã€ rÃ©viser maintenant";
       } else if (daysUntilReview <= 1) {
-        reason = "🔜 Bientôt à réviser";
+        reason = "ðŸ”œ BientÃ´t Ã  rÃ©viser";
       } else {
-        reason = `✓ OK (${daysUntilReview}j)`;
+        reason = `âœ“ OK (${daysUntilReview}j)`;
       }
     } else {
       if (daysSinceReview >= optimalInterval * 1.5) {
-        reason = "⚠️ Révision urgente !";
+        reason = "âš ï¸ RÃ©vision urgente !";
       } else if (daysSinceReview >= optimalInterval) {
-        reason = "📌 À réviser maintenant";
+        reason = "ðŸ“Œ Ã€ rÃ©viser maintenant";
       } else if (daysUntilReview <= 1) {
-        reason = "🔜 Bientôt à réviser";
+        reason = "ðŸ”œ BientÃ´t Ã  rÃ©viser";
       } else {
-        reason = `✓ OK (${daysUntilReview}j)`;
+        reason = `âœ“ OK (${daysUntilReview}j)`;
       }
     }
 
@@ -352,10 +352,10 @@ function App() {
     const colors = {
       'Maths': 'from-blue-600 to-cyan-600',
       'Physique': 'from-purple-600 to-pink-600',
-      'Méca': 'from-green-600 to-emerald-600',
+      'MÃ©ca': 'from-green-600 to-emerald-600',
       'Elec': 'from-yellow-600 to-orange-600',
       'Anglais': 'from-red-600 to-rose-600',
-      'Français': 'from-indigo-600 to-violet-600',
+      'FranÃ§ais': 'from-indigo-600 to-violet-600',
       'Informatique': 'from-slate-600 to-gray-600'
     };
     return colors[subject] || 'from-slate-600 to-slate-700';
@@ -371,7 +371,7 @@ function App() {
         setCustomEvents(Array.isArray(eventsData) ? eventsData : []);
         setFlashcards(Array.isArray(flashcardsData) ? flashcardsData : []);
       } catch (e) {
-        console.log('Première utilisation');
+        console.log('PremiÃ¨re utilisation');
       }
       setIsLoading(false);
     };
@@ -468,7 +468,7 @@ function App() {
 
   const deleteCourse = (id) => {
     setCourses(courses.filter(c => c.id !== id));
-    // Supprimer aussi les flashcards associées
+    // Supprimer aussi les flashcards associÃ©es
     setFlashcards(flashcards.filter(f => f.courseId !== id));
   };
 
@@ -476,7 +476,7 @@ function App() {
   const startFlashcardSession = (course) => {
     const courseFlashcards = flashcards.filter(f => f.courseId === course.id);
     if (courseFlashcards.length === 0) {
-      alert('Aucune flashcard pour ce cours. Créez-en d\'abord !');
+      alert('Aucune flashcard pour ce cours. CrÃ©ez-en d\'abord !');
       return;
     }
     setSelectedCourseForFlashcards(course);
@@ -507,7 +507,7 @@ function App() {
     const courseFlashcards = flashcards.filter(f => f.courseId === selectedCourseForFlashcards.id);
     const currentFlashcard = courseFlashcards[currentFlashcardIndex];
     
-    // Mettre à jour les stats de la flashcard
+    // Mettre Ã  jour les stats de la flashcard
     setFlashcards(flashcards.map(f => {
       if (f.id === currentFlashcard.id) {
         return {
@@ -520,20 +520,20 @@ function App() {
       return f;
     }));
 
-    // Mettre à jour les stats de la session
+    // Mettre Ã  jour les stats de la session
     setFlashcardStats(prev => ({
       ...prev,
       correct: isCorrect ? prev.correct + 1 : prev.correct,
       incorrect: !isCorrect ? prev.incorrect + 1 : prev.incorrect
     }));
 
-    // Passer à la carte suivante
+    // Passer Ã  la carte suivante
     if (currentFlashcardIndex < courseFlashcards.length - 1) {
       setCurrentFlashcardIndex(currentFlashcardIndex + 1);
       setShowFlashcardAnswer(false);
     } else {
       // Fin de la session
-      alert(`Session terminée !\n✅ Correct: ${flashcardStats.correct + (isCorrect ? 1 : 0)}\n❌ Incorrect: ${flashcardStats.incorrect + (!isCorrect ? 1 : 0)}`);
+      alert(`Session terminÃ©e !\nâœ… Correct: ${flashcardStats.correct + (isCorrect ? 1 : 0)}\nâŒ Incorrect: ${flashcardStats.incorrect + (!isCorrect ? 1 : 0)}`);
       setSelectedCourseForFlashcards(null);
       markAsReviewed(selectedCourseForFlashcards.id, 10);
     }
@@ -551,33 +551,33 @@ function App() {
       setCurrentFlashcardIndex(currentFlashcardIndex + 1);
       setShowFlashcardAnswer(false);
     } else {
-      alert(`Session terminée !\n✅ Correct: ${flashcardStats.correct}\n❌ Incorrect: ${flashcardStats.incorrect}\n⏭️ Passées: ${flashcardStats.skipped + 1}`);
+      alert(`Session terminÃ©e !\nâœ… Correct: ${flashcardStats.correct}\nâŒ Incorrect: ${flashcardStats.incorrect}\nâ­ï¸ PassÃ©es: ${flashcardStats.skipped + 1}`);
       setSelectedCourseForFlashcards(null);
     }
   };
 
-  // Générer des flashcards avec l'IA
+  // GÃ©nÃ©rer des flashcards avec l'IA
   const generateFlashcardsWithAI = async (course) => {
     setIsGeneratingFlashcards(true);
     
     try {
-      const prompt = `Tu es un professeur expert en ${course.subject} niveau prépa TSI.
+      const prompt = `Tu es un professeur expert en ${course.subject} niveau prÃ©pa TSI.
       
-Génère exactement 5 flashcards de révision pour le chapitre : "${course.chapter}"
+GÃ©nÃ¨re exactement 5 flashcards de rÃ©vision pour le chapitre : "${course.chapter}"
 ${course.content ? `\nContenu du cours : ${course.content}` : ''}
 
-Format de réponse STRICT (JSON uniquement, sans markdown ni texte additionnel) :
+Format de rÃ©ponse STRICT (JSON uniquement, sans markdown ni texte additionnel) :
 [
   {
-    "question": "Question claire et précise",
-    "answer": "Réponse détaillée mais concise"
+    "question": "Question claire et prÃ©cise",
+    "answer": "RÃ©ponse dÃ©taillÃ©e mais concise"
   }
 ]
 
-Règles importantes :
+RÃ¨gles importantes :
 - Questions progressives du plus simple au plus complexe
-- Réponses complètes mais synthétiques
-- Adapté au niveau prépa TSI
+- RÃ©ponses complÃ¨tes mais synthÃ©tiques
+- AdaptÃ© au niveau prÃ©pa TSI
 - Couvre les notions essentielles du chapitre`;
 
       // Appel au backend local
@@ -605,7 +605,7 @@ Règles importantes :
       if (Array.isArray(data)) {
         generatedCards = data;
       } 
-      // Si votre backend retourne la réponse Claude
+      // Si votre backend retourne la rÃ©ponse Claude
       else if (data.content) {
         const responseText = data.content
           .filter(block => block.type === 'text')
@@ -624,7 +624,7 @@ Règles importantes :
         generatedCards = data.flashcards;
       }
 
-      // Ajouter les flashcards générées
+      // Ajouter les flashcards gÃ©nÃ©rÃ©es
       if (Array.isArray(generatedCards) && generatedCards.length > 0) {
         const newFlashcards = generatedCards.map((card, index) => ({
           id: Date.now() + index,
@@ -639,52 +639,52 @@ Règles importantes :
         }));
 
         setFlashcards([...flashcards, ...newFlashcards]);
-        alert(`✅ ${newFlashcards.length} flashcards générées avec succès !`);
+        alert(`âœ… ${newFlashcards.length} flashcards gÃ©nÃ©rÃ©es avec succÃ¨s !`);
       } else {
-        throw new Error('Aucune flashcard générée');
+        throw new Error('Aucune flashcard gÃ©nÃ©rÃ©e');
       }
 
     } catch (error) {
-      console.error('Erreur génération IA:', error);
+      console.error('Erreur gÃ©nÃ©ration IA:', error);
       
       if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
         const userChoice = window.confirm(
-          `❌ Impossible de se connecter au backend (${BACKEND_URL})
+          `âŒ Impossible de se connecter au backend (${BACKEND_URL})
 
 Options :
-- Cliquez "OK" pour créer des flashcards templates
-- Cliquez "Annuler" pour réessayer plus tard
+- Cliquez "OK" pour crÃ©er des flashcards templates
+- Cliquez "Annuler" pour rÃ©essayer plus tard
 
-Vérifiez que :
-1. Votre serveur backend est démarré
+VÃ©rifiez que :
+1. Votre serveur backend est dÃ©marrÃ©
 2. L'URL du backend est correcte
-3. Le CORS est configuré
+3. Le CORS est configurÃ©
 
-Voulez-vous créer des templates ?`
+Voulez-vous crÃ©er des templates ?`
         );
 
         if (userChoice) {
-          // Créer des flashcards template
+          // CrÃ©er des flashcards template
           const templateCards = [
             {
-              question: `Définition : Qu'est-ce que ${course.chapter} ?`,
-              answer: `[À compléter] Définition du concept de ${course.chapter} en ${course.subject}`
+              question: `DÃ©finition : Qu'est-ce que ${course.chapter} ?`,
+              answer: `[Ã€ complÃ©ter] DÃ©finition du concept de ${course.chapter} en ${course.subject}`
             },
             {
               question: `Formule principale de ${course.chapter}`,
-              answer: `[À compléter] Écrire la ou les formules clés avec leurs unités`
+              answer: `[Ã€ complÃ©ter] Ã‰crire la ou les formules clÃ©s avec leurs unitÃ©s`
             },
             {
               question: `Application pratique : Donner un exemple d'utilisation de ${course.chapter}`,
-              answer: `[À compléter] Décrire un cas concret d'application`
+              answer: `[Ã€ complÃ©ter] DÃ©crire un cas concret d'application`
             },
             {
-              question: `Pièges courants : Quelles erreurs éviter avec ${course.chapter} ?`,
-              answer: `[À compléter] Lister les erreurs fréquentes et comment les éviter`
+              question: `PiÃ¨ges courants : Quelles erreurs Ã©viter avec ${course.chapter} ?`,
+              answer: `[Ã€ complÃ©ter] Lister les erreurs frÃ©quentes et comment les Ã©viter`
             },
             {
               question: `Lien avec le programme : Comment ${course.chapter} se relie-t-il aux autres chapitres ?`,
-              answer: `[À compléter] Expliquer les liens avec les chapitres précédents et suivants`
+              answer: `[Ã€ complÃ©ter] Expliquer les liens avec les chapitres prÃ©cÃ©dents et suivants`
             }
           ];
 
@@ -701,10 +701,10 @@ Voulez-vous créer des templates ?`
           }));
 
           setFlashcards([...flashcards, ...newFlashcards]);
-          alert(`📝 5 flashcards templates créées !\n\nVous pouvez les modifier en les supprimant et recréant avec vos propres réponses.`);
+          alert(`ðŸ“ 5 flashcards templates crÃ©Ã©es !\n\nVous pouvez les modifier en les supprimant et recrÃ©ant avec vos propres rÃ©ponses.`);
         }
       } else {
-        alert(`❌ Erreur lors de la génération.\n${error.message}`);
+        alert(`âŒ Erreur lors de la gÃ©nÃ©ration.\n${error.message}`);
       }
     } finally {
       setIsGeneratingFlashcards(false);
@@ -729,11 +729,11 @@ Voulez-vous créer des templates ?`
         // Ajuster pour correspondre aux semaines TSI (S1 = semaine du 1er septembre)
         let calculatedWeek = diffWeeks + 1;
         
-        // Gérer les vacances (approximativement)
+        // GÃ©rer les vacances (approximativement)
         if (selectedDate >= new Date('2024-10-19') && selectedDate <= new Date('2024-11-03')) {
           calculatedWeek -= 2; // Vacances Toussaint
         } else if (selectedDate >= new Date('2024-12-21') && selectedDate <= new Date('2025-01-05')) {
-          calculatedWeek -= 2; // Vacances Noël
+          calculatedWeek -= 2; // Vacances NoÃ«l
         } else if (selectedDate >= new Date('2025-02-08') && selectedDate <= new Date('2025-02-23')) {
           calculatedWeek -= 2; // Vacances Hiver
         } else if (selectedDate >= new Date('2025-04-05') && selectedDate <= new Date('2025-04-21')) {
@@ -805,11 +805,11 @@ Voulez-vous créer des templates ?`
             
             <div className="flex items-center gap-1 bg-slate-900/50 border border-indigo-500/20 rounded-full p-1">
               {[
-                { id: 'planning', label: '📅 Planning' },
-                { id: 'flashcards', label: '🎴 Révision' },
-                { id: 'courses', label: '📚 Cours' },
-                { id: 'suggestions', label: '🎯 Suggestions' },
-                { id: 'stats', label: '📊 Stats' }
+                { id: 'planning', label: 'ðŸ“… Planning' },
+                { id: 'flashcards', label: 'ðŸŽ´ RÃ©vision' },
+                { id: 'courses', label: 'ðŸ“š Cours' },
+                { id: 'suggestions', label: 'ðŸŽ¯ Suggestions' },
+                { id: 'stats', label: 'ðŸ“Š Stats' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -845,7 +845,7 @@ Voulez-vous créer des templates ?`
                 <p className="text-indigo-300 text-lg">Emploi du temps adaptatif avec planning du soir</p>
               </div>
 
-              {/* Sélecteur de semaine */}
+              {/* SÃ©lecteur de semaine */}
               <div className="flex items-center justify-center gap-4 mb-8">
                 <button
                   onClick={() => setCurrentWeek(Math.max(1, currentWeek - 1))}
@@ -898,7 +898,7 @@ Voulez-vous créer des templates ?`
                       <div className="flex items-center justify-between mb-3">
                         <h3 className="font-bold text-white">{day}</h3>
                         {hasCustomEvents && (
-                          <span className="text-yellow-400 text-xs">●</span>
+                          <span className="text-yellow-400 text-xs">â—</span>
                         )}
                       </div>
                       <div className="text-xs text-indigo-300">
@@ -912,12 +912,12 @@ Voulez-vous créer des templates ?`
               {/* Detailed Schedule */}
               {selectedDay && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Journée */}
+                  {/* JournÃ©e */}
                   <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
                     <div className="flex items-center justify-between mb-6">
                       <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                         <Clock className="w-6 h-6 text-indigo-400" />
-                        Journée - {selectedDay}
+                        JournÃ©e - {selectedDay}
                       </h2>
                       <button
                         onClick={() => setSelectedDay(null)}
@@ -944,27 +944,27 @@ Voulez-vous créer des templates ?`
                                   </span>
                                   {isCustom && (
                                     <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded">
-                                      Personnalisé
+                                      PersonnalisÃ©
                                     </span>
                                   )}
                                   {item.date && (
                                     <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded">
-                                      📅 {new Date(item.date).toLocaleDateString('fr-FR')}
+                                      ðŸ“… {new Date(item.date).toLocaleDateString('fr-FR')}
                                     </span>
                                   )}
                                 </div>
                                 <h3 className="font-bold text-lg mb-1">{item.subject}</h3>
                                 <div className="flex items-center gap-4 text-sm opacity-80">
-                                  <span>🕐 {item.time}</span>
-                                  {item.room && <span>📍 {item.room}</span>}
-                                  {item.duration && <span>⏱️ {item.duration}</span>}
+                                  <span>ðŸ• {item.time}</span>
+                                  {item.room && <span>ðŸ“ {item.room}</span>}
+                                  {item.duration && <span>â±ï¸ {item.duration}</span>}
                                 </div>
                               </div>
                               {isCustom && (
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (window.confirm('Supprimer cet événement ?')) {
+                                    if (window.confirm('Supprimer cet Ã©vÃ©nement ?')) {
                                       deleteCustomEvent(item.id);
                                     }
                                   }}
@@ -980,7 +980,7 @@ Voulez-vous créer des templates ?`
                     </div>
                   </div>
 
-                  {/* Soirée */}
+                  {/* SoirÃ©e */}
                   <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
                     <h2 className="text-2xl font-bold text-white flex items-center gap-2 mb-6">
                       <BookOpen className="w-6 h-6 text-purple-400" />
@@ -1015,7 +1015,7 @@ Voulez-vous créer des templates ?`
           {activeTab === 'courses' && (
             <div className="w-full">
               <div className="mb-12 text-center">
-                <h2 className="text-5xl font-bold text-white mb-3">📚 Bibliothèque de Cours</h2>
+                <h2 className="text-5xl font-bold text-white mb-3">ðŸ“š BibliothÃ¨que de Cours</h2>
                 <p className="text-indigo-300 text-lg">Organisez et enrichissez vos cours avec OneDrive</p>
               </div>
 
@@ -1067,9 +1067,9 @@ Voulez-vous créer des templates ?`
                                       <p className="text-sm text-slate-400 mb-3">{course.content}</p>
                                     )}
                                     <div className="flex items-center gap-4 text-sm">
-                                      <span className="text-indigo-300">📅 {course.dateAdded}</span>
-                                      <span className="text-purple-300">🎯 Maîtrise: {course.mastery}%</span>
-                                      <span className="text-green-300">✓ {course.reviewCount} révision(s)</span>
+                                      <span className="text-indigo-300">ðŸ“… {course.dateAdded}</span>
+                                      <span className="text-purple-300">ðŸŽ¯ MaÃ®trise: {course.mastery}%</span>
+                                      <span className="text-green-300">âœ“ {course.reviewCount} rÃ©vision(s)</span>
                                     </div>
                                   </div>
                                   <button
@@ -1138,7 +1138,7 @@ Voulez-vous créer des templates ?`
                                     onClick={() => markAsReviewed(course.id)}
                                     className="px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm"
                                   >
-                                    Marquer révisé
+                                    Marquer rÃ©visÃ©
                                   </button>
                                 </div>
                               </div>
@@ -1157,12 +1157,12 @@ Voulez-vous créer des templates ?`
           {activeTab === 'flashcards' && (
             <div className="w-full">
               <div className="mb-12 text-center">
-                <h2 className="text-5xl font-bold text-white mb-3">🎴 Révision Active</h2>
-                <p className="text-indigo-300 text-lg">Flashcards pour maximiser la rétention</p>
+                <h2 className="text-5xl font-bold text-white mb-3">ðŸŽ´ RÃ©vision Active</h2>
+                <p className="text-indigo-300 text-lg">Flashcards pour maximiser la rÃ©tention</p>
               </div>
 
               {selectedCourseForFlashcards ? (
-                // Mode Session de révision
+                // Mode Session de rÃ©vision
                 <div className="max-w-3xl mx-auto">
                   <button
                     onClick={() => setSelectedCourseForFlashcards(null)}
@@ -1178,7 +1178,7 @@ Voulez-vous créer des templates ?`
 
                     return (
                       <div>
-                        {/* En-tête de session */}
+                        {/* En-tÃªte de session */}
                         <div className="mb-6 p-6 bg-slate-800/50 border border-slate-700/50 rounded-xl">
                           <div className="flex items-center justify-between mb-4">
                             <div>
@@ -1196,15 +1196,15 @@ Voulez-vous créer des templates ?`
                           {/* Stats de session */}
                           <div className="flex gap-4">
                             <div className="flex items-center gap-2">
-                              <span className="text-green-400">✅</span>
+                              <span className="text-green-400">âœ…</span>
                               <span className="text-white font-semibold">{flashcardStats.correct}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-red-400">❌</span>
+                              <span className="text-red-400">âŒ</span>
                               <span className="text-white font-semibold">{flashcardStats.incorrect}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-yellow-400">⏭️</span>
+                              <span className="text-yellow-400">â­ï¸</span>
                               <span className="text-white font-semibold">{flashcardStats.skipped}</span>
                             </div>
                           </div>
@@ -1221,11 +1221,11 @@ Voulez-vous créer des templates ?`
                                 <div>
                                   <div className="text-sm text-indigo-300 mb-4">Question</div>
                                   <p className="text-2xl font-bold text-white">{currentCard.question}</p>
-                                  <p className="text-sm text-slate-400 mt-6">👆 Cliquez pour voir la réponse</p>
+                                  <p className="text-sm text-slate-400 mt-6">ðŸ‘† Cliquez pour voir la rÃ©ponse</p>
                                 </div>
                               ) : (
                                 <div>
-                                  <div className="text-sm text-purple-300 mb-4">Réponse</div>
+                                  <div className="text-sm text-purple-300 mb-4">RÃ©ponse</div>
                                   <p className="text-xl text-white whitespace-pre-wrap">{currentCard.answer}</p>
                                 </div>
                               )}
@@ -1233,26 +1233,26 @@ Voulez-vous créer des templates ?`
                           </div>
                         </div>
 
-                        {/* Boutons de réponse */}
+                        {/* Boutons de rÃ©ponse */}
                         {showFlashcardAnswer && (
                           <div className="flex gap-4">
                             <button
                               onClick={() => handleFlashcardAnswer(false)}
                               className="flex-1 px-6 py-4 bg-red-600/30 border-2 border-red-500/50 text-red-300 rounded-xl hover:bg-red-600/50 transition-all font-bold text-lg"
                             >
-                              ❌ Incorrect
+                              âŒ Incorrect
                             </button>
                             <button
                               onClick={skipFlashcard}
                               className="px-6 py-4 bg-yellow-600/30 border-2 border-yellow-500/50 text-yellow-300 rounded-xl hover:bg-yellow-600/50 transition-all font-bold"
                             >
-                              ⏭️
+                              â­ï¸
                             </button>
                             <button
                               onClick={() => handleFlashcardAnswer(true)}
                               className="flex-1 px-6 py-4 bg-green-600/30 border-2 border-green-500/50 text-green-300 rounded-xl hover:bg-green-600/50 transition-all font-bold text-lg"
                             >
-                              ✅ Correct
+                              âœ… Correct
                             </button>
                           </div>
                         )}
@@ -1261,12 +1261,12 @@ Voulez-vous créer des templates ?`
                   })()}
                 </div>
               ) : (
-                // Mode Sélection de cours
+                // Mode SÃ©lection de cours
                 <div className="space-y-6">
                   {courses.length === 0 ? (
                     <div className="text-center py-12">
                       <BookOpen className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                      <p className="text-slate-400 text-lg">Ajoutez des cours pour créer des flashcards</p>
+                      <p className="text-slate-400 text-lg">Ajoutez des cours pour crÃ©er des flashcards</p>
                     </div>
                   ) : (
                     subjects.map(subject => {
@@ -1287,7 +1287,7 @@ Voulez-vous créer des templates ?`
                                 <div key={course.id} className="p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
                                   <h4 className="font-bold text-white mb-2">{course.chapter}</h4>
                                   <div className="flex items-center gap-2 mb-3 text-sm text-slate-400">
-                                    <span>🎴 {courseFlashcards.length} carte(s)</span>
+                                    <span>ðŸŽ´ {courseFlashcards.length} carte(s)</span>
                                   </div>
                                   
                                   <div className="flex gap-2 mb-2">
@@ -1296,14 +1296,14 @@ Voulez-vous créer des templates ?`
                                         onClick={() => startFlashcardSession(course)}
                                         className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold text-sm"
                                       >
-                                        🎯 Réviser
+                                        ðŸŽ¯ RÃ©viser
                                       </button>
                                     ) : (
                                       <button
                                         onClick={() => {
                                           const question = prompt('Question :');
                                           if (question) {
-                                            const answer = prompt('Réponse :');
+                                            const answer = prompt('RÃ©ponse :');
                                             if (answer) {
                                               addFlashcard(course.id, question, answer);
                                             }
@@ -1311,7 +1311,7 @@ Voulez-vous créer des templates ?`
                                         }}
                                         className="flex-1 px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm"
                                       >
-                                        ➕ Créer 1ère carte
+                                        âž• CrÃ©er 1Ã¨re carte
                                       </button>
                                     )}
                                     
@@ -1319,7 +1319,7 @@ Voulez-vous créer des templates ?`
                                       onClick={() => {
                                         const question = prompt('Question :');
                                         if (question) {
-                                          const answer = prompt('Réponse :');
+                                          const answer = prompt('RÃ©ponse :');
                                           if (answer) {
                                             addFlashcard(course.id, question, answer);
                                           }
@@ -1331,7 +1331,7 @@ Voulez-vous créer des templates ?`
                                     </button>
                                   </div>
 
-                                  {/* Bouton Générer avec IA */}
+                                  {/* Bouton GÃ©nÃ©rer avec IA */}
                                   <button
                                     onClick={() => generateFlashcardsWithAI(course)}
                                     disabled={isGeneratingFlashcards}
@@ -1340,12 +1340,12 @@ Voulez-vous créer des templates ?`
                                     {isGeneratingFlashcards ? (
                                       <>
                                         <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
-                                        Génération en cours...
+                                        GÃ©nÃ©ration en cours...
                                       </>
                                     ) : (
                                       <>
                                         <Sparkles className="w-4 h-4" />
-                                        Générer 5 cartes avec IA
+                                        GÃ©nÃ©rer 5 cartes avec IA
                                       </>
                                     )}
                                   </button>
@@ -1392,23 +1392,23 @@ Voulez-vous créer des templates ?`
           {activeTab === 'suggestions' && (
             <div className="w-full">
               <div className="mb-12 text-center">
-                <h2 className="text-5xl font-bold text-white mb-3">🎯 Suggestions Intelligentes</h2>
-                <p className="text-indigo-300 text-lg">Planning adaptatif basé sur vos cours et DS</p>
+                <h2 className="text-5xl font-bold text-white mb-3">ðŸŽ¯ Suggestions Intelligentes</h2>
+                <p className="text-indigo-300 text-lg">Planning adaptatif basÃ© sur vos cours et DS</p>
               </div>
 
               {courses.length === 0 ? (
                 <div className="text-center py-12">
                   <BookOpen className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-400 text-lg">Ajoutez des cours pour obtenir des suggestions de révision</p>
+                  <p className="text-slate-400 text-lg">Ajoutez des cours pour obtenir des suggestions de rÃ©vision</p>
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {/* Évaluations à venir */}
+                  {/* Ã‰valuations Ã  venir */}
                   {getUpcomingTests(currentWeek, 14).length > 0 && (
                     <div className="bg-gradient-to-r from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-2xl p-6">
                       <h3 className="text-2xl font-bold text-red-300 mb-4 flex items-center gap-2">
                         <AlertCircle className="w-6 h-6" />
-                        Évaluations à venir (14 jours)
+                        Ã‰valuations Ã  venir (14 jours)
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {getUpcomingTests(currentWeek, 14).map((test, idx) => (
@@ -1426,10 +1426,10 @@ Voulez-vous créer des templates ?`
                               <span>{test.day}</span>
                               {test.date && (
                                 <span className="text-blue-300">
-                                  • {new Date(test.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                                  â€¢ {new Date(test.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                                 </span>
                               )}
-                              <span>• {test.time}</span>
+                              <span>â€¢ {test.time}</span>
                             </div>
                           </div>
                         ))}
@@ -1451,7 +1451,7 @@ Voulez-vous créer des templates ?`
                               {day}
                             </h3>
                             <span className="px-4 py-2 bg-indigo-900/50 text-indigo-300 rounded-full text-sm font-semibold">
-                              {suggestions.length} révision(s) suggérée(s)
+                              {suggestions.length} rÃ©vision(s) suggÃ©rÃ©e(s)
                             </span>
                           </div>
 
@@ -1474,10 +1474,10 @@ Voulez-vous créer des templates ?`
                                     </div>
                                     <h4 className="text-lg font-bold text-white mb-2">{course.chapter}</h4>
                                     <div className="flex items-center gap-4 text-sm text-slate-400">
-                                      <span>🎯 Maîtrise: {course.mastery}%</span>
-                                      <span>🔄 {course.reviewCount} révision(s)</span>
+                                      <span>ðŸŽ¯ MaÃ®trise: {course.mastery}%</span>
+                                      <span>ðŸ”„ {course.reviewCount} rÃ©vision(s)</span>
                                       {course.lastReviewed && (
-                                        <span>📅 Dernière révision: {course.lastReviewed}</span>
+                                        <span>ðŸ“… DerniÃ¨re rÃ©vision: {course.lastReviewed}</span>
                                       )}
                                     </div>
                                   </div>
@@ -1486,15 +1486,15 @@ Voulez-vous créer des templates ?`
                                       onClick={() => markAsReviewed(course.id, 15)}
                                       className="px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm whitespace-nowrap"
                                     >
-                                      ✓ Marquer révisé
+                                      âœ“ Marquer rÃ©visÃ©
                                     </button>
                                   </div>
                                 </div>
 
-                                {/* Barre de priorité */}
+                                {/* Barre de prioritÃ© */}
                                 <div className="mt-3">
                                   <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs text-slate-400">Priorité de révision</span>
+                                    <span className="text-xs text-slate-400">PrioritÃ© de rÃ©vision</span>
                                     <span className="text-xs font-bold text-white">{Math.round(course.priority)}%</span>
                                   </div>
                                   <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
@@ -1512,7 +1512,7 @@ Voulez-vous créer des templates ?`
                                 {/* Liens OneDrive */}
                                 {course.oneDriveLinks && course.oneDriveLinks.length > 0 && (
                                   <div className="mt-3 p-3 bg-slate-800/50 rounded-lg">
-                                    <p className="text-xs text-slate-400 mb-2">📎 Documents disponibles:</p>
+                                    <p className="text-xs text-slate-400 mb-2">ðŸ“Ž Documents disponibles:</p>
                                     <div className="flex flex-wrap gap-2">
                                       {course.oneDriveLinks.map(link => (
                                         <a
@@ -1533,10 +1533,10 @@ Voulez-vous créer des templates ?`
                             ))}
                           </div>
 
-                          {/* Temps de travail suggéré */}
+                          {/* Temps de travail suggÃ©rÃ© */}
                           {eveningSchedule[day] && (
                             <div className="mt-6 p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-lg">
-                              <h4 className="text-sm font-bold text-indigo-300 mb-2">⏱️ Créneaux de travail suggérés:</h4>
+                              <h4 className="text-sm font-bold text-indigo-300 mb-2">â±ï¸ CrÃ©neaux de travail suggÃ©rÃ©s:</h4>
                               <div className="flex flex-wrap gap-2">
                                 {eveningSchedule[day].filter(slot => slot.duration > 0).map((slot, idx) => (
                                   <span key={idx} className="px-3 py-1 bg-indigo-800/50 text-indigo-200 rounded-full text-xs">
@@ -1551,7 +1551,7 @@ Voulez-vous créer des templates ?`
                     })}
                   </div>
 
-                  {/* Cours urgents à réviser */}
+                  {/* Cours urgents Ã  rÃ©viser */}
                   {(() => {
                     const upcomingTests = getUpcomingTests(currentWeek);
                     const weekContext = { upcomingTests };
@@ -1569,9 +1569,9 @@ Voulez-vous créer des templates ?`
                       <div className="bg-gradient-to-r from-red-900/30 to-pink-900/30 border border-red-500/30 rounded-2xl p-6">
                         <h3 className="text-2xl font-bold text-red-300 mb-4 flex items-center gap-2">
                           <AlertCircle className="w-6 h-6" />
-                          ⚠️ Révisions urgentes
+                          âš ï¸ RÃ©visions urgentes
                         </h3>
-                        <p className="text-red-200 mb-4 text-sm">Ces cours nécessitent une révision immédiate</p>
+                        <p className="text-red-200 mb-4 text-sm">Ces cours nÃ©cessitent une rÃ©vision immÃ©diate</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {urgentCourses.map(course => (
                             <div key={course.id} className="p-4 bg-slate-900/50 rounded-lg border border-red-500/30">
@@ -1584,13 +1584,13 @@ Voulez-vous créer des templates ?`
                               <h4 className="font-bold text-white mb-2">{course.chapter}</h4>
                               <div className="flex items-center justify-between">
                                 <span className="text-xs text-slate-400">
-                                  {course.daysSinceReview} jours depuis dernière révision
+                                  {course.daysSinceReview} jours depuis derniÃ¨re rÃ©vision
                                 </span>
                                 <button
                                   onClick={() => markAsReviewed(course.id, 15)}
                                   className="px-3 py-1 bg-green-600/30 border border-green-500/50 text-green-300 rounded text-xs hover:bg-green-600/50 transition-all font-semibold"
                                 >
-                                  ✓ Réviser
+                                  âœ“ RÃ©viser
                                 </button>
                               </div>
                             </div>
@@ -1608,7 +1608,7 @@ Voulez-vous créer des templates ?`
           {activeTab === 'stats' && (
             <div className="w-full">
               <div className="mb-12 text-center">
-                <h2 className="text-5xl font-bold text-white mb-3">📊 Statistiques</h2>
+                <h2 className="text-5xl font-bold text-white mb-3">ðŸ“Š Statistiques</h2>
                 <p className="text-indigo-300 text-lg">Vue d'ensemble de votre progression</p>
               </div>
               
@@ -1628,7 +1628,7 @@ Voulez-vous créer des templates ?`
                       {courses.reduce((sum, c) => sum + c.reviewCount, 0)}
                     </div>
                   </div>
-                  <p className="text-green-200 font-semibold">Révisions effectuées</p>
+                  <p className="text-green-200 font-semibold">RÃ©visions effectuÃ©es</p>
                 </div>
 
                 <div className="p-6 bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-2xl">
@@ -1638,7 +1638,7 @@ Voulez-vous créer des templates ?`
                       {courses.length > 0 ? Math.round(courses.reduce((sum, c) => sum + c.mastery, 0) / courses.length) : 0}%
                     </div>
                   </div>
-                  <p className="text-purple-200 font-semibold">Maîtrise moyenne</p>
+                  <p className="text-purple-200 font-semibold">MaÃ®trise moyenne</p>
                 </div>
 
                 <div className="p-6 bg-gradient-to-br from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-2xl">
@@ -1648,7 +1648,7 @@ Voulez-vous créer des templates ?`
                       {getUpcomingTests(currentWeek, 14).length}
                     </div>
                   </div>
-                  <p className="text-red-200 font-semibold">Évaluations à venir</p>
+                  <p className="text-red-200 font-semibold">Ã‰valuations Ã  venir</p>
                 </div>
               </div>
             </div>
@@ -1656,15 +1656,15 @@ Voulez-vous créer des templates ?`
         </div>
       </div>
 
-      {/* Modal Ajouter Événement */}
+      {/* Modal Ajouter Ã‰vÃ©nement */}
       {showAddEvent && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 rounded-2xl p-8 max-w-md w-full border border-indigo-500/30 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-2xl font-bold text-white mb-6">Ajouter un événement</h3>
+            <h3 className="text-2xl font-bold text-white mb-6">Ajouter un Ã©vÃ©nement</h3>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-indigo-300 mb-2">Matière</label>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">MatiÃ¨re</label>
                 <input
                   type="text"
                   value={newEvent.subject}
@@ -1685,16 +1685,16 @@ Voulez-vous créer des templates ?`
                   <option value="DM">DM</option>
                   <option value="Colle">Colle</option>
                   <option value="Examen">Examen</option>
-                  <option value="TP Noté">TP Noté</option>
+                  <option value="TP NotÃ©">TP NotÃ©</option>
                 </select>
               </div>
 
               <div className="p-4 bg-indigo-900/20 border border-indigo-500/30 rounded-lg">
-                <p className="text-xs text-indigo-300 mb-3">Choisir une méthode :</p>
+                <p className="text-xs text-indigo-300 mb-3">Choisir une mÃ©thode :</p>
                 
                 {/* Option 1 : Par date */}
                 <div className="mb-4">
-                  <label className="block text-sm font-semibold text-indigo-300 mb-2">📅 Date exacte (recommandé)</label>
+                  <label className="block text-sm font-semibold text-indigo-300 mb-2">ðŸ“… Date exacte (recommandÃ©)</label>
                   <input
                     type="date"
                     value={newEvent.date}
@@ -1703,7 +1703,7 @@ Voulez-vous créer des templates ?`
                   />
                   {newEvent.date && (
                     <p className="text-xs text-green-300 mt-1">
-                      ✓ {new Date(newEvent.date).toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      âœ“ {new Date(newEvent.date).toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </p>
                   )}
                 </div>
@@ -1713,7 +1713,7 @@ Voulez-vous créer des templates ?`
                 {/* Option 2 : Par semaine/jour */}
                 <div className="space-y-3">
                   <div>
-                    <label className="block text-sm font-semibold text-indigo-300 mb-2">📊 Semaine</label>
+                    <label className="block text-sm font-semibold text-indigo-300 mb-2">ðŸ“Š Semaine</label>
                     <select
                       value={newEvent.week}
                       onChange={(e) => setNewEvent({...newEvent, week: parseInt(e.target.value), date: ''})}
@@ -1729,7 +1729,7 @@ Voulez-vous créer des templates ?`
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-indigo-300 mb-2">📆 Jour</label>
+                    <label className="block text-sm font-semibold text-indigo-300 mb-2">ðŸ“† Jour</label>
                     <select
                       value={newEvent.day}
                       onChange={(e) => setNewEvent({...newEvent, day: e.target.value, date: ''})}
@@ -1756,7 +1756,7 @@ Voulez-vous créer des templates ?`
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-indigo-300 mb-2">Durée (optionnel)</label>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">DurÃ©e (optionnel)</label>
                 <input
                   type="text"
                   value={newEvent.duration}
@@ -1805,13 +1805,13 @@ Voulez-vous créer des templates ?`
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-indigo-300 mb-2">Matière</label>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">MatiÃ¨re</label>
                 <select
                   value={newCourse.subject}
                   onChange={(e) => setNewCourse({...newCourse, subject: e.target.value})}
                   className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
                 >
-                  <option value="">Sélectionner...</option>
+                  <option value="">SÃ©lectionner...</option>
                   {subjects.map(subject => (
                     <option key={subject} value={subject}>{subject}</option>
                   ))}
