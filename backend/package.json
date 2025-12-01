@@ -1,4 +1,4 @@
-﻿{
+{
   "name": "tsi-manager-backend",
   "version": "1.0.0",
   "main": "server.js",
@@ -6,6 +6,7 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.86.0",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
