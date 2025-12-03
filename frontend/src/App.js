@@ -1,5 +1,11 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles, Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, LogOut, Mail, Lock, User as UserIcon } from 'lucide-react';
+import { useAuth } from './AuthContext';
+import { supabase } from './supabaseClient';
+import Login from './Login';
+import { LogOut, Users, User } from 'lucide-react';
+const { user, logout, loading: authLoading } = useAuth();
+const [viewMode, setViewMode] = useState('personal'); // 'personal' ou 'shared'
 
 // ==================== SUPABASE CLIENT ====================
 const createClient = (supabaseUrl, supabaseKey) => {
@@ -7,7 +13,9 @@ const createClient = (supabaseUrl, supabaseKey) => {
     'apikey': supabaseKey,
     'Content-Type': 'application/json'
   };
-
+if (authLoading || !user) {
+  return <Login />;
+}
   return {
     auth: {
       signUp: async ({ email, password, options }) => {
