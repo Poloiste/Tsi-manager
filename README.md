@@ -130,33 +130,71 @@ L'application React s'ouvre automatiquement dans votre navigateur sur `http://lo
 
 ## Fonctionnalités
 
-- **Gestion du planning TSI** : Emploi du temps hebdomadaire avec planning du soir
-- **Bibliothèque de cours** : Organisez vos cours par matière avec liens OneDrive
-- **Système de révision** : Flashcards interactives avec génération automatique par IA
+- **Gestion du planning TSI** : Emploi du temps hebdomadaire avec planning du soir adaptatif
+  - Planning du soir s'adapte automatiquement selon les DS/Colles/DM à venir
+  - Révisions ciblées pour les évaluations dans les 7 prochains jours
+- **Bibliothèque de cours partagée** : Cours collaboratifs entre tous les étudiants TSI
+  - Organisez vos cours par matière avec liens OneDrive
+  - Tous les étudiants peuvent ajouter et consulter les cours
+  - Progression personnelle sur chaque cours
+- **Système de révision collaborative** : Flashcards partagées entre tous les étudiants
+  - Créez et partagez des flashcards
+  - Statistiques personnelles de révision
+  - Suivi de votre progression sur chaque carte
 - **Suggestions intelligentes** : Recommandations de révision basées sur vos DS et votre progression
+  - Analyse des évaluations à venir
+  - Priorisation automatique selon l'urgence
+  - Suggestions de créneaux de révision
 - **💬 Discussions** : Chat en temps réel pour l'entraide entre étudiants TSI
   - Salons par matière (Maths, Physique, Méca, Elec, Anglais, Français, Informatique)
   - Salon général pour discussions diverses
   - Messages en temps réel avec Supabase Realtime
   - Suppression de vos propres messages
-- **Statistiques** : Vue d'ensemble de votre progression
+- **Événements personnels** : DS, Colles, DM personnalisés par utilisateur
+- **Statistiques** : Vue d'ensemble de votre progression personnelle
 - **Interface utilisateur moderne** : Dark theme avec design responsive
 
 ## Configuration de la base de données
 
 ### Tables Supabase
 
-Pour activer la fonctionnalité de chat, vous devez exécuter le script SQL dans `database/schema.sql` sur votre instance Supabase :
+**IMPORTANT** : Vous devez exécuter le script SQL dans `database/schema.sql` sur votre instance Supabase pour créer toutes les tables nécessaires :
 
 1. Connectez-vous à votre projet Supabase
 2. Allez dans **SQL Editor**
 3. Copiez et exécutez le contenu de `database/schema.sql`
-4. Vérifiez que les tables `chat_channels` et `chat_messages` sont créées
+4. Vérifiez que toutes les tables sont créées
 
-Ce script crée :
-- Les tables nécessaires pour le chat
-- Les politiques de sécurité (RLS)
-- Les salons par défaut (Général, Maths, Physique, etc.)
+#### Tables créées par le script
+
+**Données partagées (visibles par tous les utilisateurs) :**
+- `shared_courses` - Cours partagés entre tous les étudiants
+- `shared_course_links` - Liens OneDrive partagés pour les cours
+- `shared_flashcards` - Flashcards partagées pour la révision
+
+**Données personnelles (filtrées par user_id) :**
+- `user_events` - Événements personnels (DS, Colles, DM)
+- `user_revision_progress` - Progression personnelle sur les cours
+- `user_flashcard_stats` - Statistiques personnelles sur les flashcards
+
+**Système de chat :**
+- `chat_channels` - Salons de discussion
+- `chat_messages` - Messages en temps réel
+
+#### Politiques de sécurité (RLS)
+
+Le script configure automatiquement les politiques de sécurité Row Level Security (RLS) :
+- **Données partagées** : Tous peuvent lire, utilisateurs authentifiés peuvent ajouter, créateurs peuvent supprimer
+- **Données personnelles** : Chaque utilisateur ne voit que ses propres données
+- **Chat** : Tous peuvent lire les messages, utilisateurs authentifiés peuvent envoyer, chacun peut supprimer ses messages
+
+### Migration depuis localStorage
+
+Si vous avez des données existantes dans localStorage, elles ne seront plus utilisées. Les données sont maintenant stockées dans Supabase :
+- Les **cours** sont maintenant partagés entre tous les utilisateurs
+- Les **flashcards** sont partagées entre tous les utilisateurs
+- Les **événements** (DS, Colles, DM) restent personnels mais sont stockés dans Supabase
+- La **progression** sur les cours est personnelle et stockée dans Supabase
 
 ## Technologies utilisées
 
