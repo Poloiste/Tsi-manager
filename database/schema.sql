@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 -- Index pour performance
 CREATE INDEX IF NOT EXISTS idx_messages_channel ON public.chat_messages(channel_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON public.chat_messages(created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_channels_name_type ON public.chat_channels(name, type) WHERE course_id IS NULL;
 
 -- RLS (Row Level Security)
 ALTER TABLE public.chat_channels ENABLE ROW LEVEL SECURITY;
@@ -58,4 +59,4 @@ INSERT INTO public.chat_channels (name, type, subject) VALUES
   ('Anglais', 'subject', 'Anglais'),
   ('Français', 'subject', 'Français'),
   ('Informatique', 'subject', 'Informatique')
-ON CONFLICT DO NOTHING;
+ON CONFLICT (name, type) WHERE course_id IS NULL DO NOTHING;

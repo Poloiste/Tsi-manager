@@ -94,6 +94,10 @@ function App() {
     oneDriveLinks: []
   });
 
+  // Constantes
+  const SCROLL_DELAY_MS = 100;
+  const DEFAULT_USERNAME = 'Anonyme';
+
   // États pour gérer l'ajout de liens OneDrive
   const [newOneDriveLink, setNewOneDriveLink] = useState('');
   const [newLinkName, setNewLinkName] = useState('');
@@ -446,16 +450,21 @@ function App() {
         table: 'chat_messages',
         filter: `channel_id=eq.${selectedChannel.id}`
       }, (payload) => {
-        setMessages(prev => [...prev, payload.new]);
+        // Éviter les doublons en vérifiant si le message existe déjà
+        setMessages(prev => {
+          const exists = prev.some(msg => msg.id === payload.new.id);
+          if (exists) return prev;
+          return [...prev, payload.new];
+        });
       })
       .on('postgres_changes', {
         event: 'DELETE',
         schema: 'public',
         table: 'chat_messages',
         filter: `channel_id=eq.${selectedChannel.id}`
-      }, () => {
-        // Recharger les messages en cas de suppression
-        fetchMessages(selectedChannel.id);
+      }, (payload) => {
+        // Retirer le message supprimé du state
+        setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
       })
       .subscribe();
     
@@ -839,7 +848,7 @@ Voulez-vous créer des templates ?`
       // Scroll vers le bas après chargement
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      }, SCROLL_DELAY_MS);
     } catch (error) {
       console.error('Erreur chargement messages:', error);
     } finally {
@@ -859,14 +868,14 @@ Voulez-vous créer des templates ?`
         .insert([{
           channel_id: selectedChannel.id,
           user_id: user.id,
-          user_name: user.user_metadata?.name || user.email?.split('@')[0] || 'Anonyme',
+          user_name: user.user_metadata?.name || user.email?.split('@')[0] || DEFAULT_USERNAME,
           content: newMessage.trim()
         }]);
       
       if (error) throw error;
       
       setNewMessage('');
-      // Les messages seront mis à jour via le realtime
+      // Les messages seront ajoutés via le realtime subscription
     } catch (error) {
       console.error('Erreur envoi message:', error);
       alert('Erreur lors de l\'envoi du message');
@@ -885,8 +894,8 @@ Voulez-vous créer des templates ?`
       
       if (error) throw error;
       
-      // Recharger les messages
-      await fetchMessages(selectedChannel.id);
+      // Retirer le message du state directement
+      setMessages(prev => prev.filter(msg => msg.id !== messageId));
     } catch (error) {
       console.error('Erreur suppression message:', error);
       alert('Erreur lors de la suppression du message');
