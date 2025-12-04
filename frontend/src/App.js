@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles, Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, LogOut } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles, Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, LogOut, Send, MessageCircle } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
+import { supabase } from './supabaseClient';
 // ==================== MAIN APP ====================
 function App() {
   const { user, loading, signOut } = useAuth();
@@ -75,6 +76,14 @@ function App() {
   const [flashcardStats, setFlashcardStats] = useState({ correct: 0, incorrect: 0, skipped: 0 });
   const [isGeneratingFlashcards, setIsGeneratingFlashcards] = useState(false);
   
+  // États pour Chat/Discussions
+  const [channels, setChannels] = useState([]);
+  const [selectedChannel, setSelectedChannel] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const messagesEndRef = useRef(null);
+  
   const [newCourse, setNewCourse] = useState({
     subject: '',
     chapter: '',
@@ -84,6 +93,11 @@ function App() {
     dateAdded: new Date().toISOString().split('T')[0],
     oneDriveLinks: []
   });
+
+  // Constantes
+  const SCROLL_DELAY_MS = 100;
+  const DEFAULT_USERNAME = 'Anonyme';
+  const MAX_MESSAGES_PER_FETCH = 100;
 
   // États pour gérer l'ajout de liens OneDrive
   const [newOneDriveLink, setNewOneDriveLink] = useState('');
@@ -403,6 +417,65 @@ function App() {
       localStorage.setItem('tsi-flashcards', JSON.stringify(flashcards));
     }
   }, [flashcards, isLoading]);
+
+  // Auto-scroll vers le bas quand de nouveaux messages arrivent
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Charger les salons au démarrage
+  useEffect(() => {
+    if (user) {
+      fetchChannels();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  // Charger les messages quand le salon change
+  useEffect(() => {
+    if (selectedChannel) {
+      fetchMessages(selectedChannel.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChannel]);
+
+  // Temps réel - S'abonner aux nouveaux messages
+  useEffect(() => {
+    if (!selectedChannel || !user) return;
+    
+    const channel = supabase
+      .channel(`messages:${selectedChannel.id}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: `channel_id=eq.${selectedChannel.id}`
+      }, (payload) => {
+        // Éviter les doublons en vérifiant si le message existe déjà
+        // Note: O(n) complexity acceptable pour MAX_MESSAGES_PER_FETCH (100) messages
+        // TODO: Pour un volume plus important, considérer un Map<id, message> ou Set<id>
+        setMessages(prev => {
+          const exists = prev.some(msg => msg.id === payload.new.id);
+          if (exists) return prev;
+          return [...prev, payload.new];
+        });
+      })
+      .on('postgres_changes', {
+        event: 'DELETE',
+        schema: 'public',
+        table: 'chat_messages',
+        filter: `channel_id=eq.${selectedChannel.id}`
+      }, (payload) => {
+        // Retirer le message supprimé du state
+        setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
+      })
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChannel, user]);
 
   // Loading check - must be after all hooks
   if (loading) {
@@ -736,6 +809,134 @@ Voulez-vous créer des templates ?`
     }
   };
 
+  // ==================== FONCTIONS CHAT ====================
+  
+  // Nettoyer et valider le nom d'utilisateur
+  const sanitizeUsername = (username) => {
+    if (!username) return DEFAULT_USERNAME;
+    
+    // Supprimer tous les caractères dangereux et limiter la longueur
+    // Autoriser uniquement lettres, chiffres, espaces, et quelques caractères courants
+    const cleaned = username
+      .replace(/[<>'"&/\\]/g, '') // Supprimer les caractères HTML/script dangereux
+      .replace(/\s+/g, ' ') // Normaliser les espaces
+      .trim()
+      .substring(0, 50); // Limiter à 50 caractères
+    
+    return cleaned || DEFAULT_USERNAME;
+  };
+  
+  // Charger les salons
+  const fetchChannels = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('chat_channels')
+        .select('*')
+        .order('type')
+        .order('name');
+      
+      if (error) throw error;
+      setChannels(data || []);
+      
+      // Sélectionner le premier salon par défaut
+      if (data && data.length > 0 && !selectedChannel) {
+        setSelectedChannel(data[0]);
+      }
+    } catch (error) {
+      console.error('Erreur chargement salons:', error);
+    }
+  };
+
+  // Charger les messages d'un salon
+  const fetchMessages = async (channelId) => {
+    if (!channelId) return;
+    
+    setIsLoadingMessages(true);
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('channel_id', channelId)
+        .order('created_at', { ascending: true })
+        .limit(MAX_MESSAGES_PER_FETCH);
+      
+      if (error) throw error;
+      setMessages(data || []);
+      
+      // Scroll vers le bas après chargement
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, SCROLL_DELAY_MS);
+    } catch (error) {
+      console.error('Erreur chargement messages:', error);
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
+
+  // Envoyer un message
+  const sendMessage = async (e) => {
+    e.preventDefault();
+    
+    if (!newMessage.trim() || !selectedChannel || !user) return;
+    
+    try {
+      const rawUsername = user.user_metadata?.name || user.email?.split('@')[0];
+      const { error } = await supabase
+        .from('chat_messages')
+        .insert([{
+          channel_id: selectedChannel.id,
+          user_id: user.id,
+          user_name: sanitizeUsername(rawUsername),
+          content: newMessage.trim()
+        }]);
+      
+      if (error) throw error;
+      
+      setNewMessage('');
+      // Les messages seront ajoutés via le realtime subscription
+    } catch (error) {
+      console.error('Erreur envoi message:', error);
+      alert('Erreur lors de l\'envoi du message');
+    }
+  };
+
+  // Supprimer un message
+  const deleteMessage = async (messageId) => {
+    if (!window.confirm('Supprimer ce message ?')) return;
+    
+    try {
+      const { error } = await supabase
+        .from('chat_messages')
+        .delete()
+        .eq('id', messageId);
+      
+      if (error) throw error;
+      
+      // La suppression du state sera gérée par la subscription realtime
+    } catch (error) {
+      console.error('Erreur suppression message:', error);
+      alert('Erreur lors de la suppression du message');
+    }
+  };
+
+  // Formater l'heure d'un message
+  const formatTime = (timestamp) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'À l\'instant';
+    if (diffMins < 60) return `Il y a ${diffMins}min`;
+    if (diffHours < 24) return `Il y a ${diffHours}h`;
+    if (diffDays < 7) return `Il y a ${diffDays}j`;
+    
+    return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+  };
+
   const addCustomEvent = () => {
     if (newEvent.subject && newEvent.time && (newEvent.week || newEvent.date)) {
       const eventToAdd = { ...newEvent, id: Date.now() };
@@ -831,6 +1032,7 @@ Voulez-vous créer des templates ?`
             <div className="flex items-center gap-1 bg-slate-900/50 border border-indigo-500/20 rounded-full p-1">
               {[
                 { id: 'planning', label: '📅 Planning' },
+                { id: 'chat', label: '💬 Discussions' },
                 { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
                 { id: 'suggestions', label: '🎯 Suggestions' },
@@ -1042,6 +1244,143 @@ Voulez-vous créer des templates ?`
                   </div>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* TAB CHAT/DISCUSSIONS */}
+          {activeTab === 'chat' && (
+            <div className="w-full">
+              <div className="mb-12 text-center">
+                <h2 className="text-5xl font-bold text-white mb-3">💬 Discussions</h2>
+                <p className="text-indigo-300 text-lg">Entraide entre étudiants TSI</p>
+              </div>
+
+              <div className="max-w-6xl mx-auto">
+                {/* Sélecteur de salon */}
+                <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
+                  {channels.map(channel => (
+                    <button
+                      key={channel.id}
+                      onClick={() => setSelectedChannel(channel)}
+                      className={`px-4 py-2 rounded-lg whitespace-nowrap font-semibold transition-all ${
+                        selectedChannel?.id === channel.id
+                          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                          : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
+                      }`}
+                    >
+                      {channel.name}
+                    </button>
+                  ))}
+                </div>
+
+                {selectedChannel ? (
+                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl overflow-hidden">
+                    {/* En-tête du salon */}
+                    <div className="p-4 bg-slate-900/50 border-b border-slate-700/50">
+                      <div className="flex items-center gap-2">
+                        <MessageCircle className="w-5 h-5 text-indigo-400" />
+                        <h3 className="text-xl font-bold text-white">{selectedChannel.name}</h3>
+                        {selectedChannel.subject && (
+                          <span className="px-2 py-1 bg-indigo-900/50 text-indigo-300 rounded text-xs">
+                            {selectedChannel.type === 'subject' ? 'Matière' : selectedChannel.type}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Zone de messages */}
+                    <div className="h-[500px] overflow-y-auto p-4 space-y-3">
+                      {isLoadingMessages ? (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center">
+                            <div className="animate-spin mb-4">
+                              <MessageCircle className="w-8 h-8 text-indigo-400 mx-auto" />
+                            </div>
+                            <p className="text-slate-400">Chargement des messages...</p>
+                          </div>
+                        </div>
+                      ) : messages.length === 0 ? (
+                        <div className="flex items-center justify-center h-full">
+                          <div className="text-center">
+                            <MessageCircle className="w-12 h-12 text-slate-600 mx-auto mb-4" />
+                            <p className="text-slate-400">Aucun message pour le moment</p>
+                            <p className="text-slate-500 text-sm mt-2">Soyez le premier à démarrer la conversation !</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {messages.map(msg => (
+                            <div
+                              key={msg.id}
+                              className={`p-4 rounded-xl ${
+                                msg.user_id === user?.id
+                                  ? 'bg-indigo-900/30 border border-indigo-500/30 ml-12'
+                                  : 'bg-slate-900/50 border border-slate-700/50 mr-12'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between mb-2">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className={`font-semibold ${
+                                      msg.user_id === user?.id ? 'text-indigo-300' : 'text-purple-300'
+                                    }`}>
+                                      {msg.user_name}
+                                      {msg.user_id === user?.id && (
+                                        <span className="ml-2 text-xs text-indigo-400">(vous)</span>
+                                      )}
+                                    </span>
+                                    <span className="text-xs text-slate-500">
+                                      {formatTime(msg.created_at)}
+                                    </span>
+                                  </div>
+                                  <p className="text-white whitespace-pre-wrap break-words">{msg.content}</p>
+                                </div>
+                                {msg.user_id === user?.id && (
+                                  <button
+                                    onClick={() => deleteMessage(msg.id)}
+                                    className="ml-2 p-1 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded transition-all"
+                                    title="Supprimer"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                          <div ref={messagesEndRef} />
+                        </>
+                      )}
+                    </div>
+
+                    {/* Zone de saisie */}
+                    <div className="p-4 bg-slate-900/50 border-t border-slate-700/50">
+                      <form onSubmit={sendMessage} className="flex gap-2">
+                        <input
+                          type="text"
+                          value={newMessage}
+                          onChange={(e) => setNewMessage(e.target.value)}
+                          placeholder="Écrire un message..."
+                          className="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:border-indigo-500 focus:outline-none"
+                          disabled={!user}
+                        />
+                        <button
+                          type="submit"
+                          disabled={!newMessage.trim() || !user}
+                          className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                          <Send className="w-5 h-5" />
+                          Envoyer
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-12">
+                    <MessageCircle className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                    <p className="text-slate-400 text-lg">Sélectionnez un salon pour commencer</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
