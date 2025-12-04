@@ -74,6 +74,15 @@ function App() {
   const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
   const [showFlashcardAnswer, setShowFlashcardAnswer] = useState(false);
   const [flashcardStats, setFlashcardStats] = useState({ correct: 0, incorrect: 0, skipped: 0 });
+  const [showAddFlashcard, setShowAddFlashcard] = useState(false);
+  const [showEditFlashcard, setShowEditFlashcard] = useState(false);
+  const [editingFlashcard, setEditingFlashcard] = useState(null);
+  const [newFlashcard, setNewFlashcard] = useState({
+    courseId: '',
+    question: '',
+    answer: ''
+  });
+  const [showFlashcardPreview, setShowFlashcardPreview] = useState(false);
   
   // États pour Chat/Discussions
   const [channels, setChannels] = useState([]);
@@ -101,6 +110,19 @@ function App() {
   // États pour gérer l'ajout de liens OneDrive
   const [newOneDriveLink, setNewOneDriveLink] = useState('');
   const [newLinkName, setNewLinkName] = useState('');
+
+  // États pour les paramètres de révision
+  const [showRevisionSettings, setShowRevisionSettings] = useState(false);
+  const [revisionSettings, setRevisionSettings] = useState(() => {
+    const saved = localStorage.getItem('revisionSettings');
+    return saved ? JSON.parse(saved) : {
+      startTime: '19:15',
+      totalDuration: 120, // minutes
+      sessionDuration: 45, // minutes
+      prioritySubjects: [],
+      restDays: ['Vendredi', 'Samedi']
+    };
+  });
 
   // Emploi du temps de base
   const baseSchedule = {
@@ -361,30 +383,105 @@ function App() {
   };
 
   const getSuggestedReviews = (day, weekNum = currentWeek) => {
-    const availableSlots = eveningSchedule[day]?.filter(slot => slot.duration > 0) || [];
-    let availableTime = availableSlots.reduce((sum, slot) => sum + slot.duration, 0);
+    // Check if it's a rest day
+    if (revisionSettings.restDays.includes(day)) {
+      return [];
+    }
+
+    // Calculate available time based on settings
+    const totalSlots = Math.floor(revisionSettings.totalDuration / revisionSettings.sessionDuration);
     
-    const upcomingTests = getUpcomingTests(weekNum);
+    const upcomingTests = getUpcomingTests(weekNum, 7);
     const weekContext = { upcomingTests };
     
-    const urgentTests = upcomingTests.filter(t => t.daysUntil <= 3);
-    if (urgentTests.length > 0) {
-      availableTime += 30;
-    }
+    // Calculate priority scores for each subject
+    const subjectScores = {};
+    subjects.forEach(subject => {
+      let score = 0;
+      
+      // Base score from manual priority
+      if (revisionSettings.prioritySubjects.includes(subject)) {
+        score += 20;
+      }
+      
+      // Find upcoming tests for this subject
+      const subjectTests = upcomingTests.filter(test => 
+        test.subject.toLowerCase().includes(subject.toLowerCase()) || 
+        subject.toLowerCase().includes(test.subject.toLowerCase())
+      );
+      
+      // Add bonus based on urgency
+      subjectTests.forEach(test => {
+        const daysUntil = test.daysUntil;
+        if (daysUntil <= 1) score += 50; // J-1
+        else if (daysUntil === 2) score += 40; // J-2
+        else if (daysUntil === 3) score += 30; // J-3
+        else if (daysUntil <= 5) score += 20; // J-4 to J-5
+        else score += 10; // J-6 to J-7
+        
+        // Additional bonus for DS vs Colle
+        if (test.type === 'DS' || test.type === 'Examen') score += 10;
+        else if (test.type === 'Colle') score += 5;
+      });
+      
+      // Find courses for this subject
+      const subjectCourses = courses.filter(c => c.subject === subject);
+      if (subjectCourses.length > 0) {
+        // Bonus if low mastery
+        const avgMastery = subjectCourses.reduce((sum, c) => sum + (c.mastery || 0), 0) / subjectCourses.length;
+        score += (100 - avgMastery) * 0.2;
+        
+        // Bonus if not reviewed recently
+        const NEVER_REVIEWED_VALUE = Number.MAX_SAFE_INTEGER;
+        const oldestReview = subjectCourses.reduce((oldest, c) => {
+          if (!c.lastReviewed) return NEVER_REVIEWED_VALUE;
+          const days = Math.floor((new Date() - new Date(c.lastReviewed)) / (1000 * 60 * 60 * 24));
+          return Math.min(oldest, days);
+        }, 0);
+        score += Math.min(oldestReview * 2, 30);
+      }
+      
+      subjectScores[subject] = { score, tests: subjectTests };
+    });
+    
+    // Select courses based on top subjects
+    const suggestions = [];
     
     const coursesWithPriority = courses.map(course => ({
       ...course,
-      ...calculateReviewPriority(course, weekContext)
-    })).sort((a, b) => b.priority - a.priority);
+      ...calculateReviewPriority(course, weekContext),
+      subjectScore: subjectScores[course.subject]?.score || 0
+    })).sort((a, b) => {
+      // Prioritize by subject score first, then by course priority
+      if (Math.abs(a.subjectScore - b.subjectScore) > 10) {
+        return b.subjectScore - a.subjectScore;
+      }
+      return b.priority - a.priority;
+    });
 
-    const suggestions = [];
-    let timeUsed = 0;
-
+    // Add courses ensuring some diversity
     for (const course of coursesWithPriority) {
-      if (timeUsed >= availableTime) break;
-      if (course.priority > 30) {
-        suggestions.push(course);
-        timeUsed += 45;
+      if (suggestions.length >= totalSlots) break;
+      
+      // Ensure we don't have too many from the same subject (max 2)
+      const subjectCount = suggestions.filter(s => s.subject === course.subject).length;
+      const subjectData = subjectScores[course.subject];
+      
+      if (subjectCount < 2 && (course.priority > 25 || subjectData?.score > 20)) {
+        const hasTest = subjectData?.tests?.length > 0;
+        const firstTest = hasTest ? subjectData.tests[0] : null;
+        
+        suggestions.push({
+          ...course,
+          reason: hasTest
+            ? `${firstTest.type} ${course.subject} dans ${firstTest.daysUntil} jour(s)`
+            : course.priority > 80 ? 'Révision urgente' : 'Révision recommandée',
+          urgency: hasTest && firstTest.daysUntil <= 2
+            ? 'high' 
+            : hasTest && firstTest.daysUntil <= 4
+            ? 'medium'
+            : 'low'
+        });
       }
     }
 
@@ -599,6 +696,11 @@ function App() {
   }, [user]);
 
   // Remove localStorage sync useEffects
+
+  // Save revision settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('revisionSettings', JSON.stringify(revisionSettings));
+  }, [revisionSettings]);
 
   // Auto-scroll vers le bas quand de nouveaux messages arrivent
   useEffect(() => {
@@ -872,6 +974,71 @@ function App() {
     } catch (error) {
       console.error('Error deleting flashcard:', error);
       alert('Erreur lors de la suppression de la flashcard');
+    }
+  };
+
+  const openAddFlashcardModal = (courseId = '') => {
+    setNewFlashcard({
+      courseId: courseId,
+      question: '',
+      answer: ''
+    });
+    setShowFlashcardPreview(false);
+    setShowAddFlashcard(true);
+  };
+
+  const openEditFlashcardModal = (flashcard) => {
+    setEditingFlashcard(flashcard);
+    setNewFlashcard({
+      courseId: flashcard.courseId,
+      question: flashcard.question,
+      answer: flashcard.answer
+    });
+    setShowFlashcardPreview(false);
+    setShowEditFlashcard(true);
+  };
+
+  const handleCreateFlashcard = async () => {
+    if (!newFlashcard.courseId || !newFlashcard.question.trim() || !newFlashcard.answer.trim()) {
+      alert('Veuillez remplir tous les champs');
+      return;
+    }
+    
+    await addFlashcard(newFlashcard.courseId, newFlashcard.question, newFlashcard.answer);
+    setShowAddFlashcard(false);
+    setNewFlashcard({ courseId: '', question: '', answer: '' });
+  };
+
+  const handleUpdateFlashcard = async () => {
+    if (!newFlashcard.question.trim() || !newFlashcard.answer.trim()) {
+      alert('Veuillez remplir tous les champs');
+      return;
+    }
+    
+    try {
+      const { error } = await supabase
+        .from('shared_flashcards')
+        .update({
+          question: newFlashcard.question,
+          answer: newFlashcard.answer
+        })
+        .eq('id', editingFlashcard.id);
+      
+      if (error) throw error;
+      
+      await loadFlashcards();
+      setShowEditFlashcard(false);
+      setEditingFlashcard(null);
+      setNewFlashcard({ courseId: '', question: '', answer: '' });
+    } catch (error) {
+      console.error('Error updating flashcard:', error);
+      alert('Erreur lors de la mise à jour de la flashcard');
+    }
+  };
+
+  const handleDeleteFlashcardWithConfirm = (flashcardId) => {
+    if (window.confirm('Êtes-vous sûr de vouloir supprimer cette flashcard ?')) {
+      deleteFlashcard(flashcardId);
     }
   };
 
@@ -1890,15 +2057,7 @@ function App() {
                                       </button>
                                     ) : (
                                       <button
-                                        onClick={() => {
-                                          const question = prompt('Question :');
-                                          if (question) {
-                                            const answer = prompt('Réponse :');
-                                            if (answer) {
-                                              addFlashcard(course.id, question, answer);
-                                            }
-                                          }
-                                        }}
+                                        onClick={() => openAddFlashcardModal(course.id)}
                                         className="flex-1 px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm"
                                       >
                                         ➕ Créer 1ère carte
@@ -1906,15 +2065,7 @@ function App() {
                                     )}
                                     
                                     <button
-                                      onClick={() => {
-                                        const question = prompt('Question :');
-                                        if (question) {
-                                          const answer = prompt('Réponse :');
-                                          if (answer) {
-                                            addFlashcard(course.id, question, answer);
-                                          }
-                                        }
-                                      }}
+                                      onClick={() => openAddFlashcardModal(course.id)}
                                       className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
                                     >
                                       <Plus className="w-4 h-4" />
@@ -1925,20 +2076,27 @@ function App() {
                                   {courseFlashcards.length > 0 && (
                                     <div className="mt-3 space-y-2">
                                       {courseFlashcards.map(card => (
-                                        <div key={card.id} className="p-2 bg-slate-800/50 rounded text-xs flex items-center justify-between">
-                                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                                            <span className="text-slate-300 truncate">{card.question}</span>
+                                        <div key={card.id} className="p-2 bg-slate-800/50 rounded text-xs">
+                                          <div className="flex items-center justify-between mb-1">
+                                            <span className="text-slate-300 font-semibold">Q:</span>
+                                            <div className="flex gap-1">
+                                              <button
+                                                onClick={() => openEditFlashcardModal(card)}
+                                                className="text-blue-400 hover:text-blue-300"
+                                                title="Modifier"
+                                              >
+                                                ✏️
+                                              </button>
+                                              <button
+                                                onClick={() => handleDeleteFlashcardWithConfirm(card.id)}
+                                                className="text-red-400 hover:text-red-300"
+                                                title="Supprimer"
+                                              >
+                                                <X className="w-3 h-3" />
+                                              </button>
+                                            </div>
                                           </div>
-                                          <button
-                                            onClick={() => {
-                                              if (window.confirm('Supprimer cette flashcard ?')) {
-                                                deleteFlashcard(card.id);
-                                              }
-                                            }}
-                                            className="text-red-400 hover:text-red-300 ml-2 flex-shrink-0"
-                                          >
-                                            <X className="w-3 h-3" />
-                                          </button>
+                                          <div className="text-slate-400 text-xs mb-1 line-clamp-2">{card.question}</div>
                                         </div>
                                       ))}
                                     </div>
@@ -1962,6 +2120,14 @@ function App() {
               <div className="mb-12 text-center">
                 <h2 className="text-5xl font-bold text-white mb-3">🎯 Suggestions Intelligentes</h2>
                 <p className="text-indigo-300 text-lg">Planning adaptatif basé sur vos cours et DS</p>
+                
+                {/* Settings Button */}
+                <button
+                  onClick={() => setShowRevisionSettings(true)}
+                  className="mt-4 px-6 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all flex items-center gap-2 mx-auto"
+                >
+                  ⚙️ Paramètres de révision
+                </button>
               </div>
 
               {courses.length === 0 ? (
@@ -2025,27 +2191,35 @@ function App() {
 
                           <div className="space-y-4">
                             {suggestions.map(course => (
-                              <div key={course.id} className="p-4 bg-slate-900/50 border border-slate-700/50 rounded-xl">
+                              <div key={course.id} className={`p-4 bg-slate-900/50 rounded-xl border ${
+                                course.urgency === 'high' ? 'border-red-500/50 bg-red-900/10' : 
+                                course.urgency === 'medium' ? 'border-orange-500/50 bg-orange-900/10' : 
+                                'border-slate-700/50'
+                              }`}>
                                 <div className="flex items-start justify-between mb-3">
                                   <div className="flex-1">
                                     <div className="flex items-center gap-3 mb-2">
                                       <span className={`px-3 py-1 bg-gradient-to-r ${getSubjectColor(course.subject)} rounded-full text-xs font-bold text-white`}>
                                         {course.subject}
                                       </span>
-                                      <span className={`text-sm font-semibold ${
-                                        course.priority > 80 ? 'text-red-400' : 
-                                        course.priority > 50 ? 'text-orange-400' : 
-                                        'text-green-400'
-                                      }`}>
-                                        {course.reason}
-                                      </span>
+                                      {course.urgency === 'high' && (
+                                        <span className="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs font-semibold">
+                                          🔥 URGENT
+                                        </span>
+                                      )}
+                                      {course.urgency === 'medium' && (
+                                        <span className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded text-xs font-semibold">
+                                          ⚠️ BIENTÔT
+                                        </span>
+                                      )}
                                     </div>
-                                    <h4 className="text-lg font-bold text-white mb-2">{course.chapter}</h4>
+                                    <h4 className="text-lg font-bold text-white mb-1">{course.chapter}</h4>
+                                    <p className="text-sm text-indigo-300 mb-2">💡 {course.reason}</p>
                                     <div className="flex items-center gap-4 text-sm text-slate-400">
-                                      <span>🎯 Maîtrise: {course.mastery}%</span>
-                                      <span>🔄 {course.reviewCount} révision(s)</span>
+                                      <span>🎯 Maîtrise: {course.mastery || 0}%</span>
+                                      <span>🔄 {course.reviewCount || 0} révision(s)</span>
                                       {course.lastReviewed && (
-                                        <span>📅 Dernière révision: {course.lastReviewed}</span>
+                                        <span>📅 {new Date(course.lastReviewed).toLocaleDateString('fr-FR')}</span>
                                       )}
                                     </div>
                                   </div>
@@ -2483,6 +2657,332 @@ function App() {
                 className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold"
               >
                 Ajouter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ajouter Flashcard */}
+      {showAddFlashcard && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl p-8 max-w-2xl w-full border border-indigo-500/30 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-2xl font-bold text-white mb-6">Créer une flashcard</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Cours</label>
+                <select
+                  value={newFlashcard.courseId}
+                  onChange={(e) => setNewFlashcard({...newFlashcard, courseId: e.target.value})}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value="">Sélectionner un cours...</option>
+                  {courses.map(course => (
+                    <option key={course.id} value={course.id}>
+                      {course.subject} - {course.chapter}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Question</label>
+                <textarea
+                  value={newFlashcard.question}
+                  onChange={(e) => setNewFlashcard({...newFlashcard, question: e.target.value})}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                  rows="3"
+                  placeholder="Entrez la question..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Réponse</label>
+                <textarea
+                  value={newFlashcard.answer}
+                  onChange={(e) => setNewFlashcard({...newFlashcard, answer: e.target.value})}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                  rows="4"
+                  placeholder="Entrez la réponse..."
+                />
+              </div>
+
+              {/* Preview */}
+              {(newFlashcard.question || newFlashcard.answer) && (
+                <div className="mt-4">
+                  <button
+                    onClick={() => setShowFlashcardPreview(!showFlashcardPreview)}
+                    className="text-sm text-indigo-400 hover:text-indigo-300 mb-2"
+                  >
+                    {showFlashcardPreview ? '👁️ Masquer' : '👁️ Prévisualiser'} la carte
+                  </button>
+                  
+                  {showFlashcardPreview && (
+                    <div className="p-4 bg-gradient-to-br from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-lg">
+                      <div className="mb-3">
+                        <div className="text-xs text-indigo-300 mb-1">Question:</div>
+                        <div className="text-white">{newFlashcard.question || '(vide)'}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-purple-300 mb-1">Réponse:</div>
+                        <div className="text-white whitespace-pre-wrap">{newFlashcard.answer || '(vide)'}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowAddFlashcard(false);
+                  setNewFlashcard({ courseId: '', question: '', answer: '' });
+                  setShowFlashcardPreview(false);
+                }}
+                className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleCreateFlashcard}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold"
+              >
+                Créer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Modifier Flashcard */}
+      {showEditFlashcard && editingFlashcard && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl p-8 max-w-2xl w-full border border-indigo-500/30 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-2xl font-bold text-white mb-6">Modifier la flashcard</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Cours</label>
+                {(() => {
+                  const course = courses.find(c => c.id === newFlashcard.courseId);
+                  return (
+                    <div className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-slate-400">
+                      {course?.subject} - {course?.chapter}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Question</label>
+                <textarea
+                  value={newFlashcard.question}
+                  onChange={(e) => setNewFlashcard({...newFlashcard, question: e.target.value})}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                  rows="3"
+                  placeholder="Entrez la question..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Réponse</label>
+                <textarea
+                  value={newFlashcard.answer}
+                  onChange={(e) => setNewFlashcard({...newFlashcard, answer: e.target.value})}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                  rows="4"
+                  placeholder="Entrez la réponse..."
+                />
+              </div>
+
+              {/* Preview */}
+              {(newFlashcard.question || newFlashcard.answer) && (
+                <div className="mt-4">
+                  <button
+                    onClick={() => setShowFlashcardPreview(!showFlashcardPreview)}
+                    className="text-sm text-indigo-400 hover:text-indigo-300 mb-2"
+                  >
+                    {showFlashcardPreview ? '👁️ Masquer' : '👁️ Prévisualiser'} la carte
+                  </button>
+                  
+                  {showFlashcardPreview && (
+                    <div className="p-4 bg-gradient-to-br from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-lg">
+                      <div className="mb-3">
+                        <div className="text-xs text-indigo-300 mb-1">Question:</div>
+                        <div className="text-white">{newFlashcard.question}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-purple-300 mb-1">Réponse:</div>
+                        <div className="text-white whitespace-pre-wrap">{newFlashcard.answer}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowEditFlashcard(false);
+                  setEditingFlashcard(null);
+                  setNewFlashcard({ courseId: '', question: '', answer: '' });
+                  setShowFlashcardPreview(false);
+                }}
+                className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleUpdateFlashcard}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold"
+              >
+                Mettre à jour
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Paramètres de Révision */}
+      {showRevisionSettings && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl p-8 max-w-2xl w-full border border-indigo-500/30 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-2xl font-bold text-white mb-6">⚙️ Paramètres de révision</h3>
+            
+            <div className="space-y-6">
+              {/* Heure de début */}
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">
+                  🕐 Heure de début des révisions
+                </label>
+                <input
+                  type="time"
+                  value={revisionSettings.startTime}
+                  onChange={(e) => setRevisionSettings({...revisionSettings, startTime: e.target.value})}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Durée totale */}
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">
+                  ⏱️ Durée totale de révision (minutes)
+                </label>
+                <select
+                  value={revisionSettings.totalDuration}
+                  onChange={(e) => setRevisionSettings({...revisionSettings, totalDuration: parseInt(e.target.value)})}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value="60">1h00</option>
+                  <option value="90">1h30</option>
+                  <option value="120">2h00</option>
+                  <option value="150">2h30</option>
+                  <option value="180">3h00</option>
+                </select>
+                <p className="text-xs text-slate-400 mt-1">
+                  Temps total disponible pour les révisions chaque soir
+                </p>
+              </div>
+
+              {/* Durée par session */}
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">
+                  📚 Durée par session/matière (minutes)
+                </label>
+                <select
+                  value={revisionSettings.sessionDuration}
+                  onChange={(e) => setRevisionSettings({...revisionSettings, sessionDuration: parseInt(e.target.value)})}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value="30">30 min</option>
+                  <option value="45">45 min</option>
+                  <option value="60">1h00</option>
+                </select>
+                <p className="text-xs text-slate-400 mt-1">
+                  Temps consacré à chaque matière suggérée
+                </p>
+              </div>
+
+              {/* Matières prioritaires */}
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">
+                  ⭐ Matières prioritaires
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {subjects.map(subject => (
+                    <label key={subject} className="flex items-center gap-2 p-2 bg-slate-900 rounded-lg cursor-pointer hover:bg-slate-800 transition-all">
+                      <input
+                        type="checkbox"
+                        checked={revisionSettings.prioritySubjects.includes(subject)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setRevisionSettings({
+                              ...revisionSettings,
+                              prioritySubjects: [...revisionSettings.prioritySubjects, subject]
+                            });
+                          } else {
+                            setRevisionSettings({
+                              ...revisionSettings,
+                              prioritySubjects: revisionSettings.prioritySubjects.filter(s => s !== subject)
+                            });
+                          }
+                        }}
+                        className="w-4 h-4 text-indigo-600 border-slate-700 rounded focus:ring-indigo-500"
+                      />
+                      <span className="text-white text-sm">{subject}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Ces matières seront favorisées dans les suggestions
+                </p>
+              </div>
+
+              {/* Jours de repos */}
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">
+                  🛌 Jours de repos (sans révision)
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {days.map(day => (
+                    <label key={day} className="flex items-center gap-2 p-2 bg-slate-900 rounded-lg cursor-pointer hover:bg-slate-800 transition-all">
+                      <input
+                        type="checkbox"
+                        checked={revisionSettings.restDays.includes(day)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setRevisionSettings({
+                              ...revisionSettings,
+                              restDays: [...revisionSettings.restDays, day]
+                            });
+                          } else {
+                            setRevisionSettings({
+                              ...revisionSettings,
+                              restDays: revisionSettings.restDays.filter(d => d !== day)
+                            });
+                          }
+                        }}
+                        className="w-4 h-4 text-indigo-600 border-slate-700 rounded focus:ring-indigo-500"
+                      />
+                      <span className="text-white text-sm">{day}</span>
+                    </label>
+                  ))}
+                </div>
+                <p className="text-xs text-slate-400 mt-1">
+                  Aucune suggestion de révision pour ces jours
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-8">
+              <button
+                onClick={() => setShowRevisionSettings(false)}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold"
+              >
+                Enregistrer
               </button>
             </div>
           </div>
