@@ -97,6 +97,7 @@ function App() {
   // Constantes
   const SCROLL_DELAY_MS = 100;
   const DEFAULT_USERNAME = 'Anonyme';
+  const MAX_MESSAGES_PER_FETCH = 100;
 
   // États pour gérer l'ajout de liens OneDrive
   const [newOneDriveLink, setNewOneDriveLink] = useState('');
@@ -451,6 +452,8 @@ function App() {
         filter: `channel_id=eq.${selectedChannel.id}`
       }, (payload) => {
         // Éviter les doublons en vérifiant si le message existe déjà
+        // Note: O(n) complexity acceptable pour MAX_MESSAGES_PER_FETCH (100) messages
+        // TODO: Pour un volume plus important, considérer un Map<id, message> ou Set<id>
         setMessages(prev => {
           const exists = prev.some(msg => msg.id === payload.new.id);
           if (exists) return prev;
@@ -808,6 +811,16 @@ Voulez-vous créer des templates ?`
 
   // ==================== FONCTIONS CHAT ====================
   
+  // Nettoyer et valider le nom d'utilisateur
+  const sanitizeUsername = (username) => {
+    if (!username) return DEFAULT_USERNAME;
+    // Supprimer les balises HTML et limiter la longueur
+    return username
+      .replace(/<[^>]*>/g, '') // Supprimer les balises HTML
+      .trim()
+      .substring(0, 50) || DEFAULT_USERNAME; // Limiter à 50 caractères
+  };
+  
   // Charger les salons
   const fetchChannels = async () => {
     try {
@@ -840,7 +853,7 @@ Voulez-vous créer des templates ?`
         .select('*')
         .eq('channel_id', channelId)
         .order('created_at', { ascending: true })
-        .limit(100);
+        .limit(MAX_MESSAGES_PER_FETCH);
       
       if (error) throw error;
       setMessages(data || []);
@@ -863,12 +876,13 @@ Voulez-vous créer des templates ?`
     if (!newMessage.trim() || !selectedChannel || !user) return;
     
     try {
+      const rawUsername = user.user_metadata?.name || user.email?.split('@')[0];
       const { error } = await supabase
         .from('chat_messages')
         .insert([{
           channel_id: selectedChannel.id,
           user_id: user.id,
-          user_name: user.user_metadata?.name || user.email?.split('@')[0] || DEFAULT_USERNAME,
+          user_name: sanitizeUsername(rawUsername),
           content: newMessage.trim()
         }]);
       
@@ -894,8 +908,7 @@ Voulez-vous créer des templates ?`
       
       if (error) throw error;
       
-      // Retirer le message du state directement
-      setMessages(prev => prev.filter(msg => msg.id !== messageId));
+      // La suppression du state sera gérée par la subscription realtime
     } catch (error) {
       console.error('Erreur suppression message:', error);
       alert('Erreur lors de la suppression du message');

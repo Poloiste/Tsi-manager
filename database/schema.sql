@@ -25,6 +25,8 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
 -- Index pour performance
 CREATE INDEX IF NOT EXISTS idx_messages_channel ON public.chat_messages(channel_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON public.chat_messages(created_at DESC);
+-- Index unique pour les salons généraux et de matière (sans course_id)
+-- Les salons de cours peuvent avoir le même nom car ils sont liés à un course_id différent
 CREATE UNIQUE INDEX IF NOT EXISTS idx_channels_name_type ON public.chat_channels(name, type) WHERE course_id IS NULL;
 
 -- RLS (Row Level Security)
