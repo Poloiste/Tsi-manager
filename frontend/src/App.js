@@ -432,8 +432,9 @@ function App() {
         score += (100 - avgMastery) * 0.2;
         
         // Bonus if not reviewed recently
+        const NEVER_REVIEWED_VALUE = Number.MAX_SAFE_INTEGER;
         const oldestReview = subjectCourses.reduce((oldest, c) => {
-          if (!c.lastReviewed) return 999;
+          if (!c.lastReviewed) return NEVER_REVIEWED_VALUE;
           const days = Math.floor((new Date() - new Date(c.lastReviewed)) / (1000 * 60 * 60 * 24));
           return Math.min(oldest, days);
         }, 0);
@@ -464,15 +465,20 @@ function App() {
       
       // Ensure we don't have too many from the same subject (max 2)
       const subjectCount = suggestions.filter(s => s.subject === course.subject).length;
-      if (subjectCount < 2 && (course.priority > 25 || subjectScores[course.subject]?.score > 20)) {
+      const subjectData = subjectScores[course.subject];
+      
+      if (subjectCount < 2 && (course.priority > 25 || subjectData?.score > 20)) {
+        const hasTest = subjectData?.tests?.length > 0;
+        const firstTest = hasTest ? subjectData.tests[0] : null;
+        
         suggestions.push({
           ...course,
-          reason: subjectScores[course.subject]?.tests.length > 0 
-            ? `${subjectScores[course.subject].tests[0].type} ${course.subject} dans ${subjectScores[course.subject].tests[0].daysUntil} jour(s)`
+          reason: hasTest
+            ? `${firstTest.type} ${course.subject} dans ${firstTest.daysUntil} jour(s)`
             : course.priority > 80 ? 'Révision urgente' : 'Révision recommandée',
-          urgency: subjectScores[course.subject]?.tests.length > 0 && subjectScores[course.subject].tests[0].daysUntil <= 2 
+          urgency: hasTest && firstTest.daysUntil <= 2
             ? 'high' 
-            : subjectScores[course.subject]?.tests.length > 0 && subjectScores[course.subject].tests[0].daysUntil <= 4
+            : hasTest && firstTest.daysUntil <= 4
             ? 'medium'
             : 'low'
         });
@@ -2759,9 +2765,14 @@ function App() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-indigo-300 mb-2">Cours</label>
-                <div className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-slate-400">
-                  {courses.find(c => c.id === newFlashcard.courseId)?.subject} - {courses.find(c => c.id === newFlashcard.courseId)?.chapter}
-                </div>
+                {(() => {
+                  const course = courses.find(c => c.id === newFlashcard.courseId);
+                  return (
+                    <div className="w-full px-4 py-2 bg-slate-900/50 border border-slate-700 rounded-lg text-slate-400">
+                      {course?.subject} - {course?.chapter}
+                    </div>
+                  );
+                })()}
               </div>
 
               <div>
