@@ -33,11 +33,17 @@ export const AuthProvider = ({ children }) => {
     if (error) throw error;
     
     if (data.user) {
-      await supabase.from('users').insert([{
-        id: data.user.id,
-        email,
-        name
-      }]);
+      try {
+        await supabase.from('users').insert([{
+          id: data.user.id,
+          email,
+          name
+        }]);
+      } catch (dbError) {
+        console.error('Error inserting user into database:', dbError);
+        // User is still authenticated even if DB insert fails
+        // This could be handled by a background sync or retry mechanism
+      }
       
       setUser(data.user);
     }
