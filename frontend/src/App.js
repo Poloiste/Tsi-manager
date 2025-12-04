@@ -7,7 +7,7 @@ import { supabase } from './supabaseClient';
 function App() {
   const { user, loading, signOut } = useAuth();
   
-  // Ã‰tats pour Planning
+  // États pour Planning
   const [currentWeek, setCurrentWeek] = useState(10);
   const [selectedDay, setSelectedDay] = useState(null);
   const [customEvents, setCustomEvents] = useState([]);
@@ -21,7 +21,7 @@ function App() {
     subject: '',
     time: '',
     duration: '',
-    date: '' // Nouvelle propriÃ©tÃ© pour stocker la date exacte
+    date: '' // Nouvelle propriété pour stocker la date exacte
   });
 
   // Calendrier des semaines TSI
@@ -61,14 +61,14 @@ function App() {
     33: { dates: '8 au 12/6', label: 'S33' }
   };
 
-  // Ã‰tats pour Cours et Flashcards
+  // États pour Cours et Flashcards
   const [courses, setCourses] = useState([]);
   const [activeTab, setActiveTab] = useState('planning');
   const [showAddCourse, setShowAddCourse] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedSubject, setExpandedSubject] = useState(null);
   
-  // Ã‰tats pour Flashcards
+  // États pour Flashcards
   const [selectedCourseForFlashcards, setSelectedCourseForFlashcards] = useState(null);
   const [flashcards, setFlashcards] = useState([]);
   const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
@@ -85,16 +85,16 @@ function App() {
     oneDriveLinks: []
   });
 
-  // Ã‰tats pour gÃ©rer l'ajout de liens OneDrive
+  // États pour gérer l'ajout de liens OneDrive
   const [newOneDriveLink, setNewOneDriveLink] = useState('');
   const [newLinkName, setNewLinkName] = useState('');
 
   // Emploi du temps de base
   const baseSchedule = {
     'Lundi': [
-      { time: '8h-10h', subject: 'MÃ©ca', type: 'cours', room: 'D123 TSI1' },
+      { time: '8h-10h', subject: 'Méca', type: 'cours', room: 'D123 TSI1' },
       { time: '10h-13h', subject: 'Elec', type: 'TD', room: 'D123 TSI1' },
-      { time: '14h-15h', subject: 'FranÃ§ais', type: 'cours', room: 'D123 TSI1' },
+      { time: '14h-15h', subject: 'Français', type: 'cours', room: 'D123 TSI1' },
       { time: '16h-18h', subject: 'Anglais', type: 'cours', room: 'D123 TSI1' }
     ],
     'Mardi': [
@@ -120,34 +120,34 @@ function App() {
       { time: '9h-10h', subject: 'Anglais', type: 'cours', room: 'D123 TSI1' },
       { time: '10h-12h', subject: 'Physique', type: 'cours', room: 'D123 TSI1' },
       { time: '14h-15h', subject: 'Physique', type: 'TD', room: 'D123 TSI1' },
-      { time: '15h-16h', subject: 'FranÃ§ais', type: 'TD', room: 'D123 TSI1' }
+      { time: '15h-16h', subject: 'Français', type: 'TD', room: 'D123 TSI1' }
     ]
   };
 
   const eveningSchedule = {
     'Lundi': [
-      { time: '19h15-20h00', activity: 'MÃ©ca : relecture + exo clÃ©', duration: 45 },
+      { time: '19h15-20h00', activity: 'Méca : relecture + exo clé', duration: 45 },
       { time: '20h00-20h45', activity: 'Maths : exercices', duration: 45 },
-      { time: '20h45-21h15', activity: 'Pause / dÃ©tente', duration: 30 },
-      { time: '21h15-21h45', activity: 'DÃ©tente', duration: 30 }
+      { time: '20h45-21h15', activity: 'Pause / détente', duration: 30 },
+      { time: '21h15-21h45', activity: 'Détente', duration: 30 }
     ],
     'Mardi': [
       { time: '19h15-20h00', activity: 'Maths : relecture + formules', duration: 45 },
       { time: '20h00-20h45', activity: 'Physique : exercices', duration: 45 },
       { time: '20h45-21h15', activity: 'Informatique : TP', duration: 30 },
-      { time: '21h15-21h45', activity: 'DÃ©tente', duration: 30 }
+      { time: '21h15-21h45', activity: 'Détente', duration: 30 }
     ],
     'Mercredi': [
-      { time: '19h15-20h00', activity: 'Maths : mÃ©thodes', duration: 45 },
-      { time: '20h00-20h45', activity: 'FranÃ§ais : rÃ©vision', duration: 45 },
+      { time: '19h15-20h00', activity: 'Maths : méthodes', duration: 45 },
+      { time: '20h00-20h45', activity: 'Français : révision', duration: 45 },
       { time: '20h45-21h15', activity: 'Anglais : vocabulaire', duration: 30 },
       { time: '21h15-21h45', activity: 'Repos', duration: 30 }
     ],
     'Jeudi': [
       { time: '19h15-20h00', activity: 'Physique : cours + formules', duration: 45 },
-      { time: '20h00-20h45', activity: 'MÃ©ca : synthÃ¨se TP', duration: 45 },
-      { time: '20h45-21h15', activity: 'FranÃ§ais : lecture', duration: 30 },
-      { time: '21h15-21h45', activity: 'DÃ©tente', duration: 30 }
+      { time: '20h00-20h45', activity: 'Méca : synthèse TP', duration: 45 },
+      { time: '20h45-21h15', activity: 'Français : lecture', duration: 30 },
+      { time: '21h15-21h45', activity: 'Détente', duration: 30 }
     ],
     'Vendredi': [
       { time: '18h40-20h45', activity: 'Trajet retour', duration: 0 }
@@ -157,12 +157,12 @@ function App() {
     ],
     'Dimanche': [
       { time: '20h45-21h15', activity: 'Fiches semaine', duration: 30 },
-      { time: '21h15-21h45', activity: 'PrÃ©paration', duration: 30 }
+      { time: '21h15-21h45', activity: 'Préparation', duration: 30 }
     ]
   };
 
   const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-  const subjects = ['Maths', 'Physique', 'MÃ©ca', 'Elec', 'Anglais', 'FranÃ§ais', 'Informatique'];
+  const subjects = ['Maths', 'Physique', 'Méca', 'Elec', 'Anglais', 'Français', 'Informatique'];
   const daysUntil = Math.floor((new Date('2027-04-15') - new Date()) / (1000 * 60 * 60 * 24));
 
   // Fonctions
@@ -171,10 +171,10 @@ function App() {
     const today = new Date();
     
     customEvents.forEach(event => {
-      if (event.type === 'DS' || event.type === 'DM' || event.type === 'Colle' || event.type === 'Examen' || event.type === 'TP NotÃ©') {
+      if (event.type === 'DS' || event.type === 'DM' || event.type === 'Colle' || event.type === 'Examen' || event.type === 'TP Noté') {
         let daysUntil = 0;
         
-        // Si l'Ã©vÃ©nement a une date exacte
+        // Si l'événement a une date exacte
         if (event.date) {
           const eventDate = new Date(event.date);
           daysUntil = Math.floor((eventDate - today) / (1000 * 60 * 60 * 24));
@@ -251,7 +251,7 @@ function App() {
 
   const calculateReviewPriority = (course, weekContext = {}) => {
     if (!course.lastReviewed) {
-      return { priority: 100, reason: "Jamais rÃ©visÃ©", daysUntilReview: 0, daysSinceReview: 0 };
+      return { priority: 100, reason: "Jamais révisé", daysUntilReview: 0, daysSinceReview: 0 };
     }
 
     const lastReview = new Date(course.lastReviewed);
@@ -294,21 +294,21 @@ function App() {
       if (testForThisSubject && testForThisSubject.daysUntil <= 7) {
         reason = `ðŸŽ¯ ${testForThisSubject.type} dans ${testForThisSubject.daysUntil}j !`;
       } else if (daysSinceReview >= optimalInterval * 1.5) {
-        reason = "âš ï¸ RÃ©vision urgente !";
+        reason = "âš ï¸ Révision urgente !";
       } else if (daysSinceReview >= optimalInterval) {
-        reason = "ðŸ“Œ Ã€ rÃ©viser maintenant";
+        reason = "ðŸ“Œ À réviser maintenant";
       } else if (daysUntilReview <= 1) {
-        reason = "ðŸ”œ BientÃ´t Ã  rÃ©viser";
+        reason = "ðŸ”œ Bientôt Ã  réviser";
       } else {
         reason = `âœ“ OK (${daysUntilReview}j)`;
       }
     } else {
       if (daysSinceReview >= optimalInterval * 1.5) {
-        reason = "âš ï¸ RÃ©vision urgente !";
+        reason = "âš ï¸ Révision urgente !";
       } else if (daysSinceReview >= optimalInterval) {
-        reason = "ðŸ“Œ Ã€ rÃ©viser maintenant";
+        reason = "ðŸ“Œ À réviser maintenant";
       } else if (daysUntilReview <= 1) {
-        reason = "ðŸ”œ BientÃ´t Ã  rÃ©viser";
+        reason = "ðŸ”œ Bientôt Ã  réviser";
       } else {
         reason = `âœ“ OK (${daysUntilReview}j)`;
       }
@@ -393,10 +393,10 @@ function App() {
     const colors = {
       'Maths': 'from-blue-600 to-cyan-600',
       'Physique': 'from-purple-600 to-pink-600',
-      'MÃ©ca': 'from-green-600 to-emerald-600',
+      'Méca': 'from-green-600 to-emerald-600',
       'Elec': 'from-yellow-600 to-orange-600',
       'Anglais': 'from-red-600 to-rose-600',
-      'FranÃ§ais': 'from-indigo-600 to-violet-600',
+      'Français': 'from-indigo-600 to-violet-600',
       'Informatique': 'from-slate-600 to-gray-600'
     };
     return colors[subject] || 'from-slate-600 to-slate-700';
@@ -665,7 +665,7 @@ function App() {
   const startFlashcardSession = (course) => {
     const courseFlashcards = flashcards.filter(f => f.courseId === course.id);
     if (courseFlashcards.length === 0) {
-      alert('Aucune flashcard pour ce cours. CrÃ©ez-en d\'abord !');
+      alert('Aucune flashcard pour ce cours. Créez-en d\'abord !');
       return;
     }
     setSelectedCourseForFlashcards(course);
@@ -753,7 +753,7 @@ function App() {
       setShowFlashcardAnswer(false);
     } else {
       // Fin de la session
-      alert(`Session terminÃ©e !\nâœ… Correct: ${flashcardStats.correct + (isCorrect ? 1 : 0)}\nâŒ Incorrect: ${flashcardStats.incorrect + (!isCorrect ? 1 : 0)}`);
+      alert(`Session terminée !\nâœ… Correct: ${flashcardStats.correct + (isCorrect ? 1 : 0)}\nâŒ Incorrect: ${flashcardStats.incorrect + (!isCorrect ? 1 : 0)}`);
       setSelectedCourseForFlashcards(null);
       markAsReviewed(selectedCourseForFlashcards.id, 10);
     }
@@ -771,7 +771,7 @@ function App() {
       setCurrentFlashcardIndex(currentFlashcardIndex + 1);
       setShowFlashcardAnswer(false);
     } else {
-      alert(`Session terminÃ©e !\nâœ… Correct: ${flashcardStats.correct}\nâŒ Incorrect: ${flashcardStats.incorrect}\nâ­ï¸ PassÃ©es: ${flashcardStats.skipped + 1}`);
+      alert(`Session terminée !\nâœ… Correct: ${flashcardStats.correct}\nâŒ Incorrect: ${flashcardStats.incorrect}\nâ­ï¸ Passées: ${flashcardStats.skipped + 1}`);
       setSelectedCourseForFlashcards(null);
     }
   };
@@ -795,11 +795,11 @@ function App() {
         // Ajuster pour correspondre aux semaines TSI (S1 = semaine du 1er septembre)
         let calculatedWeek = diffWeeks + 1;
         
-        // GÃ©rer les vacances (approximativement)
+        // Gérer les vacances (approximativement)
         if (selectedDate >= new Date('2024-10-19') && selectedDate <= new Date('2024-11-03')) {
           calculatedWeek -= 2; // Vacances Toussaint
         } else if (selectedDate >= new Date('2024-12-21') && selectedDate <= new Date('2025-01-05')) {
-          calculatedWeek -= 2; // Vacances NoÃ«l
+          calculatedWeek -= 2; // Vacances Noël
         } else if (selectedDate >= new Date('2025-02-08') && selectedDate <= new Date('2025-02-23')) {
           calculatedWeek -= 2; // Vacances Hiver
         } else if (selectedDate >= new Date('2025-04-05') && selectedDate <= new Date('2025-04-21')) {
@@ -872,7 +872,7 @@ function App() {
             <div className="flex items-center gap-1 bg-slate-900/50 border border-indigo-500/20 rounded-full p-1">
               {[
                 { id: 'planning', label: 'ðŸ“… Planning' },
-                { id: 'flashcards', label: 'ðŸŽ´ RÃ©vision' },
+                { id: 'flashcards', label: 'ðŸŽ´ Révision' },
                 { id: 'courses', label: 'ðŸ“š Cours' },
                 { id: 'suggestions', label: 'ðŸŽ¯ Suggestions' },
                 { id: 'stats', label: 'ðŸ“Š Stats' }
@@ -920,7 +920,7 @@ function App() {
                 <p className="text-indigo-300 text-lg">Emploi du temps adaptatif avec planning du soir</p>
               </div>
 
-              {/* SÃ©lecteur de semaine */}
+              {/* Sélecteur de semaine */}
               <div className="flex items-center justify-center gap-4 mb-8">
                 <button
                   onClick={() => setCurrentWeek(Math.max(1, currentWeek - 1))}
@@ -987,12 +987,12 @@ function App() {
               {/* Detailed Schedule */}
               {selectedDay && (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* JournÃ©e */}
+                  {/* Journée */}
                   <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
                     <div className="flex items-center justify-between mb-6">
                       <h2 className="text-2xl font-bold text-white flex items-center gap-2">
                         <Clock className="w-6 h-6 text-indigo-400" />
-                        JournÃ©e - {selectedDay}
+                        Journée - {selectedDay}
                       </h2>
                       <button
                         onClick={() => setSelectedDay(null)}
@@ -1019,7 +1019,7 @@ function App() {
                                   </span>
                                   {isCustom && (
                                     <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded">
-                                      PersonnalisÃ©
+                                      Personnalisé
                                     </span>
                                   )}
                                   {item.date && (
@@ -1039,7 +1039,7 @@ function App() {
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    if (window.confirm('Supprimer cet Ã©vÃ©nement ?')) {
+                                    if (window.confirm('Supprimer cet événement ?')) {
                                       deleteCustomEvent(item.id);
                                     }
                                   }}
@@ -1128,7 +1128,7 @@ function App() {
           {activeTab === 'courses' && (
             <div className="w-full">
               <div className="mb-12 text-center">
-                <h2 className="text-5xl font-bold text-white mb-3">ðŸ“š BibliothÃ¨que de Cours</h2>
+                <h2 className="text-5xl font-bold text-white mb-3">ðŸ“š Bibliothèque de Cours</h2>
                 <p className="text-indigo-300 text-lg">Organisez et enrichissez vos cours avec OneDrive</p>
               </div>
 
@@ -1181,8 +1181,8 @@ function App() {
                                     )}
                                     <div className="flex items-center gap-4 text-sm">
                                       <span className="text-indigo-300">ðŸ“… {course.dateAdded}</span>
-                                      <span className="text-purple-300">ðŸŽ¯ MaÃ®trise: {course.mastery}%</span>
-                                      <span className="text-green-300">âœ“ {course.reviewCount} rÃ©vision(s)</span>
+                                      <span className="text-purple-300">ðŸŽ¯ Maîtrise: {course.mastery}%</span>
+                                      <span className="text-green-300">âœ“ {course.reviewCount} révision(s)</span>
                                     </div>
                                   </div>
                                   <button
@@ -1251,7 +1251,7 @@ function App() {
                                     onClick={() => markAsReviewed(course.id)}
                                     className="px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm"
                                   >
-                                    Marquer rÃ©visÃ©
+                                    Marquer révisé
                                   </button>
                                 </div>
                               </div>
@@ -1270,12 +1270,12 @@ function App() {
           {activeTab === 'flashcards' && (
             <div className="w-full">
               <div className="mb-12 text-center">
-                <h2 className="text-5xl font-bold text-white mb-3">ðŸŽ´ RÃ©vision Active</h2>
-                <p className="text-indigo-300 text-lg">Flashcards pour maximiser la rÃ©tention</p>
+                <h2 className="text-5xl font-bold text-white mb-3">ðŸŽ´ Révision Active</h2>
+                <p className="text-indigo-300 text-lg">Flashcards pour maximiser la rétention</p>
               </div>
 
               {selectedCourseForFlashcards ? (
-                // Mode Session de rÃ©vision
+                // Mode Session de révision
                 <div className="max-w-3xl mx-auto">
                   <button
                     onClick={() => setSelectedCourseForFlashcards(null)}
@@ -1291,7 +1291,7 @@ function App() {
 
                     return (
                       <div>
-                        {/* En-tÃªte de session */}
+                        {/* En-tête de session */}
                         <div className="mb-6 p-6 bg-slate-800/50 border border-slate-700/50 rounded-xl">
                           <div className="flex items-center justify-between mb-4">
                             <div>
@@ -1334,11 +1334,11 @@ function App() {
                                 <div>
                                   <div className="text-sm text-indigo-300 mb-4">Question</div>
                                   <p className="text-2xl font-bold text-white">{currentCard.question}</p>
-                                  <p className="text-sm text-slate-400 mt-6">ðŸ‘† Cliquez pour voir la rÃ©ponse</p>
+                                  <p className="text-sm text-slate-400 mt-6">ðŸ‘† Cliquez pour voir la réponse</p>
                                 </div>
                               ) : (
                                 <div>
-                                  <div className="text-sm text-purple-300 mb-4">RÃ©ponse</div>
+                                  <div className="text-sm text-purple-300 mb-4">Réponse</div>
                                   <p className="text-xl text-white whitespace-pre-wrap">{currentCard.answer}</p>
                                 </div>
                               )}
@@ -1346,7 +1346,7 @@ function App() {
                           </div>
                         </div>
 
-                        {/* Boutons de rÃ©ponse */}
+                        {/* Boutons de réponse */}
                         {showFlashcardAnswer && (
                           <div className="flex gap-4">
                             <button
@@ -1374,12 +1374,12 @@ function App() {
                   })()}
                 </div>
               ) : (
-                // Mode SÃ©lection de cours
+                // Mode Sélection de cours
                 <div className="space-y-6">
                   {courses.length === 0 ? (
                     <div className="text-center py-12">
                       <BookOpen className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                      <p className="text-slate-400 text-lg">Ajoutez des cours pour crÃ©er des flashcards</p>
+                      <p className="text-slate-400 text-lg">Ajoutez des cours pour créer des flashcards</p>
                     </div>
                   ) : (
                     subjects.map(subject => {
@@ -1409,14 +1409,14 @@ function App() {
                                         onClick={() => startFlashcardSession(course)}
                                         className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold text-sm"
                                       >
-                                        ðŸŽ¯ RÃ©viser
+                                        ðŸŽ¯ Réviser
                                       </button>
                                     ) : (
                                       <button
                                         onClick={() => {
                                           const question = prompt('Question :');
                                           if (question) {
-                                            const answer = prompt('RÃ©ponse :');
+                                            const answer = prompt('Réponse :');
                                             if (answer) {
                                               addFlashcard(course.id, question, answer);
                                             }
@@ -1424,7 +1424,7 @@ function App() {
                                         }}
                                         className="flex-1 px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm"
                                       >
-                                        âž• CrÃ©er 1Ã¨re carte
+                                        âž• Créer 1ère carte
                                       </button>
                                     )}
                                     
@@ -1432,7 +1432,7 @@ function App() {
                                       onClick={() => {
                                         const question = prompt('Question :');
                                         if (question) {
-                                          const answer = prompt('RÃ©ponse :');
+                                          const answer = prompt('Réponse :');
                                           if (answer) {
                                             addFlashcard(course.id, question, answer);
                                           }
@@ -1485,22 +1485,22 @@ function App() {
             <div className="w-full">
               <div className="mb-12 text-center">
                 <h2 className="text-5xl font-bold text-white mb-3">ðŸŽ¯ Suggestions Intelligentes</h2>
-                <p className="text-indigo-300 text-lg">Planning adaptatif basÃ© sur vos cours et DS</p>
+                <p className="text-indigo-300 text-lg">Planning adaptatif basé sur vos cours et DS</p>
               </div>
 
               {courses.length === 0 ? (
                 <div className="text-center py-12">
                   <BookOpen className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                  <p className="text-slate-400 text-lg">Ajoutez des cours pour obtenir des suggestions de rÃ©vision</p>
+                  <p className="text-slate-400 text-lg">Ajoutez des cours pour obtenir des suggestions de révision</p>
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {/* Ã‰valuations Ã  venir */}
+                  {/* Évaluations Ã  venir */}
                   {getUpcomingTests(currentWeek, 14).length > 0 && (
                     <div className="bg-gradient-to-r from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-2xl p-6">
                       <h3 className="text-2xl font-bold text-red-300 mb-4 flex items-center gap-2">
                         <AlertCircle className="w-6 h-6" />
-                        Ã‰valuations Ã  venir (14 jours)
+                        Évaluations Ã  venir (14 jours)
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {getUpcomingTests(currentWeek, 14).map((test, idx) => (
@@ -1543,7 +1543,7 @@ function App() {
                               {day}
                             </h3>
                             <span className="px-4 py-2 bg-indigo-900/50 text-indigo-300 rounded-full text-sm font-semibold">
-                              {suggestions.length} rÃ©vision(s) suggÃ©rÃ©e(s)
+                              {suggestions.length} révision(s) suggérée(s)
                             </span>
                           </div>
 
@@ -1566,10 +1566,10 @@ function App() {
                                     </div>
                                     <h4 className="text-lg font-bold text-white mb-2">{course.chapter}</h4>
                                     <div className="flex items-center gap-4 text-sm text-slate-400">
-                                      <span>ðŸŽ¯ MaÃ®trise: {course.mastery}%</span>
-                                      <span>ðŸ”„ {course.reviewCount} rÃ©vision(s)</span>
+                                      <span>ðŸŽ¯ Maîtrise: {course.mastery}%</span>
+                                      <span>ðŸ”„ {course.reviewCount} révision(s)</span>
                                       {course.lastReviewed && (
-                                        <span>ðŸ“… DerniÃ¨re rÃ©vision: {course.lastReviewed}</span>
+                                        <span>ðŸ“… Dernière révision: {course.lastReviewed}</span>
                                       )}
                                     </div>
                                   </div>
@@ -1578,15 +1578,15 @@ function App() {
                                       onClick={() => markAsReviewed(course.id, 15)}
                                       className="px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm whitespace-nowrap"
                                     >
-                                      âœ“ Marquer rÃ©visÃ©
+                                      âœ“ Marquer révisé
                                     </button>
                                   </div>
                                 </div>
 
-                                {/* Barre de prioritÃ© */}
+                                {/* Barre de priorité */}
                                 <div className="mt-3">
                                   <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs text-slate-400">PrioritÃ© de rÃ©vision</span>
+                                    <span className="text-xs text-slate-400">Priorité de révision</span>
                                     <span className="text-xs font-bold text-white">{Math.round(course.priority)}%</span>
                                   </div>
                                   <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
@@ -1625,10 +1625,10 @@ function App() {
                             ))}
                           </div>
 
-                          {/* Temps de travail suggÃ©rÃ© */}
+                          {/* Temps de travail suggéré */}
                           {eveningSchedule[day] && (
                             <div className="mt-6 p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-lg">
-                              <h4 className="text-sm font-bold text-indigo-300 mb-2">â±ï¸ CrÃ©neaux de travail suggÃ©rÃ©s:</h4>
+                              <h4 className="text-sm font-bold text-indigo-300 mb-2">â±ï¸ Créneaux de travail suggérés:</h4>
                               <div className="flex flex-wrap gap-2">
                                 {eveningSchedule[day].filter(slot => slot.duration > 0).map((slot, idx) => (
                                   <span key={idx} className="px-3 py-1 bg-indigo-800/50 text-indigo-200 rounded-full text-xs">
@@ -1643,7 +1643,7 @@ function App() {
                     })}
                   </div>
 
-                  {/* Cours urgents Ã  rÃ©viser */}
+                  {/* Cours urgents Ã  réviser */}
                   {(() => {
                     const upcomingTests = getUpcomingTests(currentWeek);
                     const weekContext = { upcomingTests };
@@ -1661,9 +1661,9 @@ function App() {
                       <div className="bg-gradient-to-r from-red-900/30 to-pink-900/30 border border-red-500/30 rounded-2xl p-6">
                         <h3 className="text-2xl font-bold text-red-300 mb-4 flex items-center gap-2">
                           <AlertCircle className="w-6 h-6" />
-                          âš ï¸ RÃ©visions urgentes
+                          âš ï¸ Révisions urgentes
                         </h3>
-                        <p className="text-red-200 mb-4 text-sm">Ces cours nÃ©cessitent une rÃ©vision immÃ©diate</p>
+                        <p className="text-red-200 mb-4 text-sm">Ces cours nécessitent une révision immédiate</p>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           {urgentCourses.map(course => (
                             <div key={course.id} className="p-4 bg-slate-900/50 rounded-lg border border-red-500/30">
@@ -1676,13 +1676,13 @@ function App() {
                               <h4 className="font-bold text-white mb-2">{course.chapter}</h4>
                               <div className="flex items-center justify-between">
                                 <span className="text-xs text-slate-400">
-                                  {course.daysSinceReview} jours depuis derniÃ¨re rÃ©vision
+                                  {course.daysSinceReview} jours depuis dernière révision
                                 </span>
                                 <button
                                   onClick={() => markAsReviewed(course.id, 15)}
                                   className="px-3 py-1 bg-green-600/30 border border-green-500/50 text-green-300 rounded text-xs hover:bg-green-600/50 transition-all font-semibold"
                                 >
-                                  âœ“ RÃ©viser
+                                  âœ“ Réviser
                                 </button>
                               </div>
                             </div>
@@ -1720,7 +1720,7 @@ function App() {
                       {courses.reduce((sum, c) => sum + c.reviewCount, 0)}
                     </div>
                   </div>
-                  <p className="text-green-200 font-semibold">RÃ©visions effectuÃ©es</p>
+                  <p className="text-green-200 font-semibold">Révisions effectuées</p>
                 </div>
 
                 <div className="p-6 bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-2xl">
@@ -1730,7 +1730,7 @@ function App() {
                       {courses.length > 0 ? Math.round(courses.reduce((sum, c) => sum + c.mastery, 0) / courses.length) : 0}%
                     </div>
                   </div>
-                  <p className="text-purple-200 font-semibold">MaÃ®trise moyenne</p>
+                  <p className="text-purple-200 font-semibold">Maîtrise moyenne</p>
                 </div>
 
                 <div className="p-6 bg-gradient-to-br from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-2xl">
@@ -1740,7 +1740,7 @@ function App() {
                       {getUpcomingTests(currentWeek, 14).length}
                     </div>
                   </div>
-                  <p className="text-red-200 font-semibold">Ã‰valuations Ã  venir</p>
+                  <p className="text-red-200 font-semibold">Évaluations Ã  venir</p>
                 </div>
               </div>
             </div>
@@ -1748,15 +1748,15 @@ function App() {
         </div>
       </div>
 
-      {/* Modal Ajouter Ã‰vÃ©nement */}
+      {/* Modal Ajouter Événement */}
       {showAddEvent && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-slate-800 rounded-2xl p-8 max-w-md w-full border border-indigo-500/30 max-h-[90vh] overflow-y-auto">
-            <h3 className="text-2xl font-bold text-white mb-6">Ajouter un Ã©vÃ©nement</h3>
+            <h3 className="text-2xl font-bold text-white mb-6">Ajouter un événement</h3>
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-indigo-300 mb-2">MatiÃ¨re</label>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Matière</label>
                 <input
                   type="text"
                   value={newEvent.subject}
@@ -1777,16 +1777,16 @@ function App() {
                   <option value="DM">DM</option>
                   <option value="Colle">Colle</option>
                   <option value="Examen">Examen</option>
-                  <option value="TP NotÃ©">TP NotÃ©</option>
+                  <option value="TP Noté">TP Noté</option>
                 </select>
               </div>
 
               <div className="p-4 bg-indigo-900/20 border border-indigo-500/30 rounded-lg">
-                <p className="text-xs text-indigo-300 mb-3">Choisir une mÃ©thode :</p>
+                <p className="text-xs text-indigo-300 mb-3">Choisir une méthode :</p>
                 
                 {/* Option 1 : Par date */}
                 <div className="mb-4">
-                  <label className="block text-sm font-semibold text-indigo-300 mb-2">ðŸ“… Date exacte (recommandÃ©)</label>
+                  <label className="block text-sm font-semibold text-indigo-300 mb-2">ðŸ“… Date exacte (recommandé)</label>
                   <input
                     type="date"
                     value={newEvent.date}
@@ -1848,7 +1848,7 @@ function App() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-indigo-300 mb-2">DurÃ©e (optionnel)</label>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Durée (optionnel)</label>
                 <input
                   type="text"
                   value={newEvent.duration}
@@ -1897,13 +1897,13 @@ function App() {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-indigo-300 mb-2">MatiÃ¨re</label>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Matière</label>
                 <select
                   value={newCourse.subject}
                   onChange={(e) => setNewCourse({...newCourse, subject: e.target.value})}
                   className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
                 >
-                  <option value="">SÃ©lectionner...</option>
+                  <option value="">Sélectionner...</option>
                   {subjects.map(subject => (
                     <option key={subject} value={subject}>{subject}</option>
                   ))}
