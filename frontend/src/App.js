@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles, Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, LogOut, Send, MessageCircle } from 'lucide-react';
+import { Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles, Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, LogOut, Send, MessageCircle, Menu } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
 import { supabase } from './supabaseClient';
@@ -83,6 +83,18 @@ function App() {
     answer: ''
   });
   const [showFlashcardPreview, setShowFlashcardPreview] = useState(false);
+  
+  // États pour navigation responsive
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // États pour Import/Export de flashcards - À implémenter dans Phase 2
+  // const [showImportExport, setShowImportExport] = useState(false);
+  // const [showAnkiImport, setShowAnkiImport] = useState(false);
+  // const [showNotionImport, setShowNotionImport] = useState(false);
+  // const [importFile, setImportFile] = useState(null);
+  // const [notionImportText, setNotionImportText] = useState('');
+  // const [importCourseId, setImportCourseId] = useState('');
+  // const [selectedCoursesForExport, setSelectedCoursesForExport] = useState([]);
   
   // États pour Chat/Discussions
   const [channels, setChannels] = useState([]);
@@ -1383,16 +1395,18 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900">
       {/* Header */}
       <nav className="fixed top-0 left-0 right-0 bg-slate-950/80 backdrop-blur-xl border-b border-indigo-500/20 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
+            {/* Logo - Always visible */}
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">TSI1 Manager</h1>
+              <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">TSI1 Manager</h1>
             </div>
             
-            <div className="flex items-center gap-1 bg-slate-900/50 border border-indigo-500/20 rounded-full p-1">
+            {/* Desktop Navigation - Hidden on mobile */}
+            <div className="hidden lg:flex items-center gap-1 bg-slate-900/50 border border-indigo-500/20 rounded-full p-1">
               {[
                 { id: 'planning', label: '📅 Planning' },
                 { id: 'chat', label: '💬 Discussions' },
@@ -1415,22 +1429,116 @@ function App() {
               ))}
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-2xl font-bold text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text">{daysUntil}</div>
+            {/* Tablet Navigation - Horizontal scroll with compact tabs */}
+            <div className="hidden md:flex lg:hidden items-center gap-1 bg-slate-900/50 border border-indigo-500/20 rounded-full p-1 overflow-x-auto max-w-md scrollbar-hide">
+              {[
+                { id: 'planning', icon: '📅', label: 'Planning' },
+                { id: 'chat', icon: '💬', label: 'Chat' },
+                { id: 'flashcards', icon: '🎴', label: 'Révision' },
+                { id: 'courses', icon: '📚', label: 'Cours' },
+                { id: 'suggestions', icon: '🎯', label: 'Sugg.' },
+                { id: 'stats', icon: '📊', label: 'Stats' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-3 py-2 rounded-full transition-all text-xs font-semibold whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                      : 'text-indigo-300 hover:text-indigo-100'
+                  }`}
+                >
+                  {tab.icon} {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Right section - Days counter and logout */}
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="text-right hidden sm:block">
+                <div className="text-xl sm:text-2xl font-bold text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text">{daysUntil}</div>
                 <div className="text-xs text-indigo-300">jours avant concours</div>
               </div>
+              
+              {/* Hamburger menu button - Mobile only */}
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="md:hidden p-2 text-indigo-300 hover:text-indigo-100 transition-all"
+                aria-label="Menu"
+              >
+                <Menu className={`w-6 h-6 transition-transform duration-300 ${isMobileMenuOpen ? 'rotate-90' : ''}`} />
+              </button>
+              
+              {/* Logout button - Hidden on small mobile */}
               <button
                 onClick={signOut}
-                className="px-4 py-2 bg-red-600/30 border border-red-500/50 text-red-300 rounded-lg hover:bg-red-600/50 transition-all font-semibold flex items-center gap-2"
+                className="hidden sm:flex px-3 sm:px-4 py-2 bg-red-600/30 border border-red-500/50 text-red-300 rounded-lg hover:bg-red-600/50 transition-all font-semibold items-center gap-2 text-sm"
               >
                 <LogOut className="w-4 h-4" />
-                Déconnexion
+                <span className="hidden md:inline">Déconnexion</span>
               </button>
             </div>
           </div>
         </div>
       </nav>
+
+      {/* Mobile Menu Drawer */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 z-40 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+          
+          {/* Drawer */}
+          <div 
+            className="absolute top-[73px] right-0 left-0 bg-slate-950/95 backdrop-blur-xl border-b border-indigo-500/20 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 space-y-2">
+              {[
+                { id: 'planning', label: '📅 Planning' },
+                { id: 'chat', label: '💬 Discussions' },
+                { id: 'flashcards', label: '🎴 Révision' },
+                { id: 'courses', label: '📚 Cours' },
+                { id: 'suggestions', label: '🎯 Suggestions' },
+                { id: 'stats', label: '📊 Stats' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full px-4 py-3 rounded-lg transition-all text-left font-semibold ${
+                    activeTab === tab.id
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                      : 'text-indigo-300 hover:bg-slate-800/50 hover:text-indigo-100'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+              
+              {/* Mobile-only actions */}
+              <div className="pt-2 border-t border-indigo-500/20">
+                <div className="px-4 py-2 text-center">
+                  <div className="text-2xl font-bold text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text">{daysUntil}</div>
+                  <div className="text-xs text-indigo-300">jours avant concours</div>
+                </div>
+                <button
+                  onClick={signOut}
+                  className="w-full px-4 py-3 bg-red-600/30 border border-red-500/50 text-red-300 rounded-lg hover:bg-red-600/50 transition-all font-semibold flex items-center justify-center gap-2 sm:hidden"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Déconnexion
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="pt-24 pb-12 min-h-screen w-full">
