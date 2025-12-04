@@ -1695,21 +1695,28 @@ function App() {
 
                                 <div className="flex gap-2">
                                   <button
-                                    onClick={() => {
+                                    onClick={async () => {
                                       const link = prompt('Coller le lien OneDrive :');
-                                      if (link) {
+                                      if (link && user) {
                                         const name = prompt('Nom du document (optionnel) :') || 'Document OneDrive';
-                                        const linkData = {
-                                          id: Date.now() + Math.random(),
-                                          url: link.trim(),
-                                          name: name.trim(),
-                                          addedDate: new Date().toISOString().split('T')[0]
-                                        };
-                                        setCourses(courses.map(c =>
-                                          c.id === course.id
-                                            ? { ...c, oneDriveLinks: [...(c.oneDriveLinks || []), linkData] }
-                                            : c
-                                        ));
+                                        try {
+                                          const { error } = await supabase
+                                            .from('shared_course_links')
+                                            .insert([{
+                                              course_id: course.id,
+                                              url: link.trim(),
+                                              name: name.trim(),
+                                              added_by: user.id
+                                            }]);
+                                          
+                                          if (error) throw error;
+                                          
+                                          // Reload courses to display the new link
+                                          await loadCourses();
+                                        } catch (error) {
+                                          console.error('Error adding link:', error);
+                                          alert('Erreur lors de l\'ajout du lien');
+                                        }
                                       }
                                     }}
                                     className="flex-1 px-4 py-2 bg-indigo-600/30 border border-indigo-500/50 text-indigo-300 rounded-lg hover:bg-indigo-600/50 transition-all font-semibold text-sm"
