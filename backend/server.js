@@ -552,15 +552,3 @@ app.listen(PORT, () => {
   console.log(`🗄️  Connected to Supabase at ${process.env.SUPABASE_URL}`);
   console.log(`📡 API available at http://localhost:${PORT}/api`);
 });
-```
-
-### **Étape 5 : Structure finale des dossiers**
-```
-tsi-manager-backend/
-├── config/
-│   └── supabase.js          ← Nouveau fichier
-├── node_modules/
-├── .env                      ← Mis à jour
-├── .gitignore
-├── package.json
-└── server.js                 ← Remplacé complètement
