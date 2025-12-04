@@ -859,7 +859,7 @@ function App() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-white" />
+                <Brain className="w-6 h-6 text-white" />
               </div>
               <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">TSI1 Manager</h1>
             </div>
