@@ -60,7 +60,7 @@ cp .env.example .env
 ```env
 # Supabase Configuration
 SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_ANON_KEY=your-anon-key-here
+SUPABASE_SERVICE_KEY=your-service-key-here
 
 # Server Configuration
 PORT=3000
@@ -70,7 +70,7 @@ Pour obtenir vos identifiants Supabase :
 1. Connectez-vous à [supabase.com](https://supabase.com/)
 2. Sélectionnez votre projet
 3. Allez dans **Settings** > **API**
-4. Copiez l'URL du projet et la clé `anon/public`
+4. Copiez l'URL du projet et la clé `service_role` (attention : gardez cette clé secrète !)
 
 ### 3. Configuration du Frontend
 
