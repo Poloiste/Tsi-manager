@@ -814,11 +814,16 @@ Voulez-vous créer des templates ?`
   // Nettoyer et valider le nom d'utilisateur
   const sanitizeUsername = (username) => {
     if (!username) return DEFAULT_USERNAME;
-    // Supprimer les balises HTML et limiter la longueur
-    return username
-      .replace(/<[^>]*>/g, '') // Supprimer les balises HTML
+    
+    // Supprimer tous les caractères dangereux et limiter la longueur
+    // Autoriser uniquement lettres, chiffres, espaces, et quelques caractères courants
+    const cleaned = username
+      .replace(/[<>'"&/\\]/g, '') // Supprimer les caractères HTML/script dangereux
+      .replace(/\s+/g, ' ') // Normaliser les espaces
       .trim()
-      .substring(0, 50) || DEFAULT_USERNAME; // Limiter à 50 caractères
+      .substring(0, 50); // Limiter à 50 caractères
+    
+    return cleaned || DEFAULT_USERNAME;
   };
   
   // Charger les salons
