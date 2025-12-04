@@ -2,13 +2,93 @@
 -- TSI Manager - Database Schema
 -- =========================================
 
+-- ==========================================
+-- SHARED DATA (visible to all users)
+-- ==========================================
+
+-- Cours partagés entre tous les utilisateurs
+CREATE TABLE IF NOT EXISTS public.shared_courses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  subject TEXT NOT NULL,
+  chapter TEXT NOT NULL,
+  content TEXT,
+  difficulty INTEGER DEFAULT 3,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Liens OneDrive partagés pour les cours
+CREATE TABLE IF NOT EXISTS public.shared_course_links (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_id UUID REFERENCES public.shared_courses(id) ON DELETE CASCADE,
+  url TEXT NOT NULL,
+  name TEXT NOT NULL,
+  added_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Flashcards partagées entre tous les utilisateurs
+CREATE TABLE IF NOT EXISTS public.shared_flashcards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_id UUID REFERENCES public.shared_courses(id) ON DELETE CASCADE,
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  created_by UUID REFERENCES auth.users(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- ==========================================
+-- PERSONAL DATA (filtered by user_id)
+-- ==========================================
+
+-- Événements personnels (DS, Colles, DM)
+CREATE TABLE IF NOT EXISTS public.user_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  subject TEXT NOT NULL,
+  date DATE,
+  time TEXT,
+  week INTEGER,
+  day TEXT,
+  duration TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Progression personnelle sur les cours
+CREATE TABLE IF NOT EXISTS public.user_revision_progress (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  course_id UUID REFERENCES public.shared_courses(id) ON DELETE CASCADE,
+  mastery INTEGER DEFAULT 0,
+  review_count INTEGER DEFAULT 0,
+  last_reviewed TIMESTAMP WITH TIME ZONE,
+  review_history JSONB DEFAULT '[]',
+  UNIQUE(user_id, course_id)
+);
+
+-- Statistiques personnelles sur les flashcards
+CREATE TABLE IF NOT EXISTS public.user_flashcard_stats (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  flashcard_id UUID REFERENCES public.shared_flashcards(id) ON DELETE CASCADE,
+  correct_count INTEGER DEFAULT 0,
+  incorrect_count INTEGER DEFAULT 0,
+  last_reviewed TIMESTAMP WITH TIME ZONE,
+  UNIQUE(user_id, flashcard_id)
+);
+
+-- ==========================================
+-- CHAT SYSTEM
+-- ==========================================
+
 -- Salons de discussion
 CREATE TABLE IF NOT EXISTS public.chat_channels (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   type TEXT NOT NULL,  -- 'general', 'subject', 'course'
   subject TEXT,  -- Matière (si type = 'subject')
-  course_id UUID,  -- Reference to shared_courses if exists
+  course_id UUID REFERENCES public.shared_courses(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -22,23 +102,120 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Index pour performance
+-- ==========================================
+-- INDEXES
+-- ==========================================
+
+-- Shared data indexes
+CREATE INDEX IF NOT EXISTS idx_courses_subject ON public.shared_courses(subject);
+CREATE INDEX IF NOT EXISTS idx_course_links_course ON public.shared_course_links(course_id);
+CREATE INDEX IF NOT EXISTS idx_flashcards_course ON public.shared_flashcards(course_id);
+
+-- Personal data indexes
+CREATE INDEX IF NOT EXISTS idx_user_events_user ON public.user_events(user_id);
+CREATE INDEX IF NOT EXISTS idx_user_events_date ON public.user_events(date);
+CREATE INDEX IF NOT EXISTS idx_revision_progress_user ON public.user_revision_progress(user_id);
+CREATE INDEX IF NOT EXISTS idx_flashcard_stats_user ON public.user_flashcard_stats(user_id);
+
+-- Chat indexes
 CREATE INDEX IF NOT EXISTS idx_messages_channel ON public.chat_messages(channel_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON public.chat_messages(created_at DESC);
--- Index unique pour les salons généraux et de matière (sans course_id)
--- Les salons de cours peuvent avoir le même nom car ils sont liés à un course_id différent
 CREATE UNIQUE INDEX IF NOT EXISTS idx_channels_name_type ON public.chat_channels(name, type) WHERE course_id IS NULL;
 
--- RLS (Row Level Security)
+-- ==========================================
+-- ROW LEVEL SECURITY (RLS)
+-- ==========================================
+
+-- Enable RLS on all tables
+ALTER TABLE public.shared_courses ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shared_course_links ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shared_flashcards ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_revision_progress ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_flashcard_stats ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_channels ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
 
--- Politiques pour chat_channels
+-- ==========================================
+-- SHARED DATA POLICIES
+-- ==========================================
+
+-- Shared Courses
+DROP POLICY IF EXISTS "Anyone can read courses" ON public.shared_courses;
+CREATE POLICY "Anyone can read courses" ON public.shared_courses
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can insert courses" ON public.shared_courses;
+CREATE POLICY "Authenticated users can insert courses" ON public.shared_courses
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "Users can delete their own courses" ON public.shared_courses;
+CREATE POLICY "Users can delete their own courses" ON public.shared_courses
+  FOR DELETE USING (auth.uid() = created_by);
+
+-- Shared Course Links
+DROP POLICY IF EXISTS "Anyone can read course links" ON public.shared_course_links;
+CREATE POLICY "Anyone can read course links" ON public.shared_course_links
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can insert links" ON public.shared_course_links;
+CREATE POLICY "Authenticated users can insert links" ON public.shared_course_links
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "Users can delete their own links" ON public.shared_course_links;
+CREATE POLICY "Users can delete their own links" ON public.shared_course_links
+  FOR DELETE USING (auth.uid() = added_by);
+
+-- Shared Flashcards
+DROP POLICY IF EXISTS "Anyone can read flashcards" ON public.shared_flashcards;
+CREATE POLICY "Anyone can read flashcards" ON public.shared_flashcards
+  FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Authenticated users can insert flashcards" ON public.shared_flashcards;
+CREATE POLICY "Authenticated users can insert flashcards" ON public.shared_flashcards
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "Users can delete their own flashcards" ON public.shared_flashcards;
+CREATE POLICY "Users can delete their own flashcards" ON public.shared_flashcards
+  FOR DELETE USING (auth.uid() = created_by);
+
+-- ==========================================
+-- PERSONAL DATA POLICIES
+-- ==========================================
+
+-- User Events
+DROP POLICY IF EXISTS "Users see only their events" ON public.user_events;
+CREATE POLICY "Users see only their events" ON public.user_events
+  FOR SELECT USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users insert their events" ON public.user_events;
+CREATE POLICY "Users insert their events" ON public.user_events
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users delete their events" ON public.user_events;
+CREATE POLICY "Users delete their events" ON public.user_events
+  FOR DELETE USING (auth.uid() = user_id);
+
+-- User Revision Progress
+DROP POLICY IF EXISTS "Users see only their progress" ON public.user_revision_progress;
+CREATE POLICY "Users see only their progress" ON public.user_revision_progress
+  FOR ALL USING (auth.uid() = user_id);
+
+-- User Flashcard Stats
+DROP POLICY IF EXISTS "Users see only their flashcard stats" ON public.user_flashcard_stats;
+CREATE POLICY "Users see only their flashcard stats" ON public.user_flashcard_stats
+  FOR ALL USING (auth.uid() = user_id);
+
+-- ==========================================
+-- CHAT POLICIES
+-- ==========================================
+
+-- Chat Channels
 DROP POLICY IF EXISTS "Anyone can read channels" ON public.chat_channels;
 CREATE POLICY "Anyone can read channels" ON public.chat_channels
   FOR SELECT USING (true);
 
--- Politiques pour chat_messages
+-- Chat Messages
 DROP POLICY IF EXISTS "Anyone can read messages" ON public.chat_messages;
 CREATE POLICY "Anyone can read messages" ON public.chat_messages
   FOR SELECT USING (true);
@@ -50,6 +227,10 @@ CREATE POLICY "Authenticated users can send messages" ON public.chat_messages
 DROP POLICY IF EXISTS "Users can delete their own messages" ON public.chat_messages;
 CREATE POLICY "Users can delete their own messages" ON public.chat_messages
   FOR DELETE USING (auth.uid() = user_id);
+
+-- ==========================================
+-- DEFAULT DATA
+-- ==========================================
 
 -- Insérer les salons par défaut
 INSERT INTO public.chat_channels (name, type, subject) VALUES
