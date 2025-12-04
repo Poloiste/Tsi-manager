@@ -1207,9 +1207,9 @@ function App() {
       const course = courses.find(c => c.id === f.courseId);
       const subject = course ? course.subject : 'N/A';
       const chapter = course ? course.chapter : 'N/A';
-      // Échapper les pipes dans le contenu
-      const question = f.question.replace(/\|/g, '\\|').replace(/\n/g, ' ');
-      const answer = f.answer.replace(/\|/g, '\\|').replace(/\n/g, ' ');
+      // Échapper les backslashes d'abord, puis les pipes et newlines dans le contenu
+      const question = f.question.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+      const answer = f.answer.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
       markdown += `| ${question} | ${answer} | ${subject} | ${chapter} |\n`;
     });
 
