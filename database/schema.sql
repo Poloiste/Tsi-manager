@@ -137,4 +137,21 @@ COMMENT ON TABLE public.shared_flashcards IS 'Flashcards de révision partagées
 -- ✅ Exécutez ce script dans le SQL Editor de Supabase
 -- ✅ Vérifiez que les tables sont créées dans "Table Editor"
 -- ✅ Configurez vos variables d'environnement dans le frontend
+--
+-- 🔒 Vérification des politiques RLS :
+-- Testez que RLS fonctionne avec ces requêtes :
+--
+-- 1. Test lecture publique (doit fonctionner même déconnecté) :
+--    SELECT * FROM shared_courses LIMIT 5;
+--
+-- 2. Test création (doit échouer si non authentifié) :
+--    INSERT INTO shared_courses (subject, chapter, content) 
+--    VALUES ('Test', 'Test Chapter', 'Test');
+--
+-- 3. Vérifier que RLS est activé sur toutes les tables :
+--    SELECT tablename, rowsecurity 
+--    FROM pg_tables 
+--    WHERE schemaname = 'public' 
+--    AND tablename IN ('shared_courses', 'shared_flashcards', 'shared_course_links');
+--    -- rowsecurity doit être 'true' pour toutes
 -- ============================================

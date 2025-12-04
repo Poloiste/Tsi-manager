@@ -214,10 +214,14 @@ function App() {
     // Trier les tests par urgence (jours restants)
     const sortedTests = upcomingTests.sort((a, b) => a.daysUntil - b.daysUntil);
     
+    let testIndex = 0;
+    
     // Adapter le planning
-    const adaptedSchedule = baseSchedule.map((slot, index) => {
-      if (slot.duration > 0 && sortedTests[index]) {
-        const test = sortedTests[index];
+    const adaptedSchedule = baseSchedule.map((slot) => {
+      // Only adapt work slots (duration > 0) and if we have tests left
+      if (slot.duration > 0 && testIndex < sortedTests.length) {
+        const test = sortedTests[testIndex];
+        testIndex++; // Move to next test for next slot
         const urgencyLevel = test.daysUntil <= 1 ? 'critical' : test.daysUntil <= 3 ? 'high' : 'medium';
         
         return {
@@ -398,7 +402,8 @@ function App() {
     return colors[subject] || 'from-slate-600 to-slate-700';
   };
 
-  // Load data from Supabase
+  // Load data from Supabase when user is authenticated
+  // Note: supabase client is a constant import, doesn't need to be in deps
   useEffect(() => {
     const loadData = async () => {
       try {
@@ -648,7 +653,7 @@ function App() {
       if (error) throw error;
 
       setCourses(courses.filter(c => c.id !== id));
-      // Flashcards will be deleted automatically by CASCADE
+      // Update local state immediately for better UX (DB CASCADE handles the actual deletion)
       setFlashcards(flashcards.filter(f => f.courseId !== id));
     } catch (error) {
       console.error('Erreur suppression cours:', error);
