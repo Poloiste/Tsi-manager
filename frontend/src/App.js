@@ -74,7 +74,6 @@ function App() {
   const [currentFlashcardIndex, setCurrentFlashcardIndex] = useState(0);
   const [showFlashcardAnswer, setShowFlashcardAnswer] = useState(false);
   const [flashcardStats, setFlashcardStats] = useState({ correct: 0, incorrect: 0, skipped: 0 });
-  const [isGeneratingFlashcards, setIsGeneratingFlashcards] = useState(false);
   
   // États pour Chat/Discussions
   const [channels, setChannels] = useState([]);
@@ -102,9 +101,6 @@ function App() {
   // États pour gérer l'ajout de liens OneDrive
   const [newOneDriveLink, setNewOneDriveLink] = useState('');
   const [newLinkName, setNewLinkName] = useState('');
-  
-  // URL du backend - MODIFIEZ ICI selon votre configuration
-  const BACKEND_URL = 'https://tsi-manager-backend.onrender.com'; // Port 5001
 
   // Emploi du temps de base
   const baseSchedule = {
@@ -298,24 +294,70 @@ function App() {
     return { priority: Math.max(0, Math.min(150, priority)), reason, daysUntilReview, daysSinceReview };
   };
 
-  const markAsReviewed = (courseId, masteryIncrease = 10) => {
-    setCourses(courses.map(c => {
-      if (c.id === courseId) {
-        const newMastery = Math.min(100, c.mastery + masteryIncrease);
-        return {
-          ...c,
-          lastReviewed: new Date().toISOString().split('T')[0],
-          reviewCount: c.reviewCount + 1,
-          mastery: newMastery,
-          reviewHistory: [...(c.reviewHistory || []), {
-            date: new Date().toISOString().split('T')[0],
-            masteryBefore: c.mastery,
-            masteryAfter: newMastery
-          }]
-        };
+  const markAsReviewed = async (courseId, masteryIncrease = 10) => {
+    if (!user) return;
+    
+    try {
+      // Get current progress
+      const { data: existingProgress } = await supabase
+        .from('user_revision_progress')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('course_id', courseId)
+        .single();
+      
+      const currentMastery = existingProgress?.mastery || 0;
+      const newMastery = Math.min(100, currentMastery + masteryIncrease);
+      const reviewHistory = existingProgress?.review_history || [];
+      
+      const newHistoryEntry = {
+        date: new Date().toISOString().split('T')[0],
+        masteryBefore: currentMastery,
+        masteryAfter: newMastery
+      };
+      
+      if (existingProgress) {
+        // Update existing progress
+        await supabase
+          .from('user_revision_progress')
+          .update({
+            mastery: newMastery,
+            review_count: existingProgress.review_count + 1,
+            last_reviewed: new Date().toISOString(),
+            review_history: [...reviewHistory, newHistoryEntry]
+          })
+          .eq('id', existingProgress.id);
+      } else {
+        // Insert new progress
+        await supabase
+          .from('user_revision_progress')
+          .insert([{
+            user_id: user.id,
+            course_id: courseId,
+            mastery: newMastery,
+            review_count: 1,
+            last_reviewed: new Date().toISOString(),
+            review_history: [newHistoryEntry]
+          }]);
       }
-      return c;
-    }));
+      
+      // Update local state
+      setCourses(courses.map(c => {
+        if (c.id === courseId) {
+          return {
+            ...c,
+            lastReviewed: new Date().toISOString().split('T')[0],
+            reviewCount: (existingProgress?.review_count || 0) + 1,
+            mastery: newMastery,
+            reviewHistory: [...reviewHistory, newHistoryEntry]
+          };
+        }
+        return c;
+      }));
+    } catch (error) {
+      console.error('Error marking as reviewed:', error);
+      alert('Erreur lors de la mise à jour de la progression');
+    }
   };
 
   const getSuggestedReviews = (day, weekNum = currentWeek) => {
@@ -347,6 +389,36 @@ function App() {
     }
 
     return suggestions;
+  };
+
+  // Fonction pour adapter le planning du soir selon les évaluations à venir
+  const getAdaptedEveningSchedule = (day, weekNum) => {
+    const baseSchedule = eveningSchedule[day] || [];
+    const upcomingTests = getUpcomingTests(weekNum, 7); // Tests dans les 7 prochains jours
+    
+    if (upcomingTests.length === 0) {
+      return baseSchedule; // Pas de test à venir, planning normal
+    }
+    
+    // Trier les tests par urgence (jours restants)
+    const sortedTests = upcomingTests.sort((a, b) => a.daysUntil - b.daysUntil);
+    
+    // Adapter le planning - remplacer les slots de révision par des révisions ciblées
+    const adaptedSchedule = baseSchedule.map((slot, index) => {
+      // Ne modifier que les slots de travail (durée > 0), pas les pauses ou détente
+      if (slot.duration > 0 && sortedTests[index]) {
+        const test = sortedTests[index];
+        return {
+          ...slot,
+          activity: `🎯 RÉVISION ${test.type} ${test.subject} (J-${test.daysUntil})`,
+          isAdapted: true,
+          relatedTest: test
+        };
+      }
+      return slot;
+    });
+    
+    return adaptedSchedule;
   };
 
   // eslint-disable-next-line no-unused-vars
@@ -383,40 +455,150 @@ function App() {
     return colors[subject] || 'from-slate-600 to-slate-700';
   };
 
+  // ==================== SUPABASE DATA FUNCTIONS ====================
+  
+  // Load shared courses from Supabase
+  const loadCourses = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('shared_courses')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Load course links
+      const { data: linksData, error: linksError } = await supabase
+        .from('shared_course_links')
+        .select('*');
+      
+      if (linksError) throw linksError;
+      
+      // Load user progress
+      const { data: progressData, error: progressError } = await supabase
+        .from('user_revision_progress')
+        .select('*')
+        .eq('user_id', user?.id);
+      
+      if (progressError) console.error('Error loading progress:', progressError);
+      
+      // Merge data
+      const coursesWithData = (data || []).map(course => {
+        const courseLinks = (linksData || []).filter(link => link.course_id === course.id);
+        const progress = (progressData || []).find(p => p.course_id === course.id);
+        
+        return {
+          id: course.id,
+          subject: course.subject,
+          chapter: course.chapter,
+          content: course.content,
+          difficulty: course.difficulty || 3,
+          priority: 3,
+          dateAdded: course.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+          oneDriveLinks: courseLinks.map(link => ({
+            id: link.id,
+            url: link.url,
+            name: link.name,
+            addedDate: link.created_at?.split('T')[0]
+          })),
+          reviewCount: progress?.review_count || 0,
+          mastery: progress?.mastery || 0,
+          lastReviewed: progress?.last_reviewed?.split('T')[0] || null,
+          reviewHistory: progress?.review_history || [],
+          estimatedHours: 3
+        };
+      });
+      
+      setCourses(coursesWithData);
+    } catch (error) {
+      console.error('Error loading courses:', error);
+    }
+  };
+
+  // Load shared flashcards from Supabase
+  const loadFlashcards = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('shared_flashcards')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      // Load user stats
+      const { data: statsData, error: statsError } = await supabase
+        .from('user_flashcard_stats')
+        .select('*')
+        .eq('user_id', user?.id);
+      
+      if (statsError) console.error('Error loading flashcard stats:', statsError);
+      
+      // Merge data
+      const flashcardsWithStats = (data || []).map(flashcard => {
+        const stats = (statsData || []).find(s => s.flashcard_id === flashcard.id);
+        
+        return {
+          id: flashcard.id,
+          courseId: flashcard.course_id,
+          question: flashcard.question,
+          answer: flashcard.answer,
+          createdAt: flashcard.created_at,
+          lastReviewed: stats?.last_reviewed || null,
+          correctCount: stats?.correct_count || 0,
+          incorrectCount: stats?.incorrect_count || 0
+        };
+      });
+      
+      setFlashcards(flashcardsWithStats);
+    } catch (error) {
+      console.error('Error loading flashcards:', error);
+    }
+  };
+
+  // Load personal events from Supabase
+  const loadEvents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_events')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      const eventsData = (data || []).map(event => ({
+        id: event.id,
+        week: event.week,
+        day: event.day,
+        type: event.type,
+        subject: event.subject,
+        time: event.time,
+        duration: event.duration,
+        date: event.date
+      }));
+      
+      setCustomEvents(eventsData);
+    } catch (error) {
+      console.error('Error loading events:', error);
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
-      try {
-        const coursesData = JSON.parse(localStorage.getItem('tsi-courses')) || [];
-        const eventsData = JSON.parse(localStorage.getItem('tsi-custom-events')) || [];
-        const flashcardsData = JSON.parse(localStorage.getItem('tsi-flashcards')) || [];
-        setCourses(Array.isArray(coursesData) ? coursesData : []);
-        setCustomEvents(Array.isArray(eventsData) ? eventsData : []);
-        setFlashcards(Array.isArray(flashcardsData) ? flashcardsData : []);
-      } catch (e) {
-        console.log('Première utilisation');
+      if (user) {
+        await Promise.all([
+          loadCourses(),
+          loadFlashcards(),
+          loadEvents()
+        ]);
       }
       setIsLoading(false);
     };
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
 
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('tsi-courses', JSON.stringify(courses));
-    }
-  }, [courses, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('tsi-custom-events', JSON.stringify(customEvents));
-    }
-  }, [customEvents, isLoading]);
-
-  useEffect(() => {
-    if (!isLoading) {
-      localStorage.setItem('tsi-flashcards', JSON.stringify(flashcards));
-    }
-  }, [flashcards, isLoading]);
+  // Remove localStorage sync useEffects
 
   // Auto-scroll vers le bas quand de nouveaux messages arrivent
   useEffect(() => {
@@ -494,35 +676,63 @@ function App() {
     return <Login />;
   }
 
-  const addCourse = () => {
-    if (newCourse.subject && newCourse.chapter) {
-      const course = {
-        id: Date.now(),
-        ...newCourse,
-        reviewCount: 0,
-        mastery: 0,
-        estimatedHours: 3,
-        oneDriveLinks: newCourse.oneDriveLinks || [],
-        lastReviewed: null,
-        reviewHistory: []
-      };
-      setCourses([...courses, course]);
-      setNewCourse({
-        subject: '',
-        chapter: '',
-        content: '',
-        difficulty: 3,
-        priority: 3,
-        dateAdded: new Date().toISOString().split('T')[0],
-        oneDriveLinks: []
-      });
-      setNewOneDriveLink('');
-      setNewLinkName('');
-      setShowAddCourse(false);
+  const addCourse = async () => {
+    if (newCourse.subject && newCourse.chapter && user) {
+      try {
+        // Insert course into Supabase
+        const { data: courseData, error: courseError } = await supabase
+          .from('shared_courses')
+          .insert([{
+            subject: newCourse.subject,
+            chapter: newCourse.chapter,
+            content: newCourse.content,
+            difficulty: newCourse.difficulty,
+            created_by: user.id
+          }])
+          .select()
+          .single();
+        
+        if (courseError) throw courseError;
+        
+        // Insert links if any
+        if (newCourse.oneDriveLinks && newCourse.oneDriveLinks.length > 0) {
+          const linksToInsert = newCourse.oneDriveLinks.map(link => ({
+            course_id: courseData.id,
+            url: link.url,
+            name: link.name,
+            added_by: user.id
+          }));
+          
+          const { error: linksError } = await supabase
+            .from('shared_course_links')
+            .insert(linksToInsert);
+          
+          if (linksError) throw linksError;
+        }
+        
+        // Reload courses
+        await loadCourses();
+        
+        setNewCourse({
+          subject: '',
+          chapter: '',
+          content: '',
+          difficulty: 3,
+          priority: 3,
+          dateAdded: new Date().toISOString().split('T')[0],
+          oneDriveLinks: []
+        });
+        setNewOneDriveLink('');
+        setNewLinkName('');
+        setShowAddCourse(false);
+      } catch (error) {
+        console.error('Error adding course:', error);
+        alert('Erreur lors de l\'ajout du cours');
+      }
     }
   };
 
-  const addOneDriveLink = (isNewCourse = false, courseId = null) => {
+  const addOneDriveLink = async (isNewCourse = false, courseId = null) => {
     if (!newOneDriveLink.trim()) return;
 
     const linkData = {
@@ -537,24 +747,50 @@ function App() {
         ...prev,
         oneDriveLinks: [...(prev.oneDriveLinks || []), linkData]
       }));
-    } else if (courseId) {
-      setCourses(courses.map(c =>
-        c.id === courseId
-          ? { ...c, oneDriveLinks: [...(c.oneDriveLinks || []), linkData] }
-          : c
-      ));
+    } else if (courseId && user) {
+      try {
+        // Insert link into Supabase
+        const { error } = await supabase
+          .from('shared_course_links')
+          .insert([{
+            course_id: courseId,
+            url: linkData.url,
+            name: linkData.name,
+            added_by: user.id
+          }]);
+        
+        if (error) throw error;
+        
+        // Reload courses
+        await loadCourses();
+      } catch (error) {
+        console.error('Error adding link:', error);
+        alert('Erreur lors de l\'ajout du lien');
+        return;
+      }
     }
 
     setNewOneDriveLink('');
     setNewLinkName('');
   };
 
-  const deleteOneDriveLink = (courseId, linkId) => {
-    setCourses(courses.map(c =>
-      c.id === courseId
-        ? { ...c, oneDriveLinks: c.oneDriveLinks.filter(link => link.id !== linkId) }
-        : c
-    ));
+  const deleteOneDriveLink = async (courseId, linkId) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('shared_course_links')
+        .delete()
+        .eq('id', linkId);
+      
+      if (error) throw error;
+      
+      // Reload courses
+      await loadCourses();
+    } catch (error) {
+      console.error('Error deleting link:', error);
+      alert('Erreur lors de la suppression du lien');
+    }
   };
 
   const deleteOneDriveLinkFromNewCourse = (linkId) => {
@@ -564,10 +800,24 @@ function App() {
     }));
   };
 
-  const deleteCourse = (id) => {
-    setCourses(courses.filter(c => c.id !== id));
-    // Supprimer aussi les flashcards associées
-    setFlashcards(flashcards.filter(f => f.courseId !== id));
+  const deleteCourse = async (id) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('shared_courses')
+        .delete()
+        .eq('id', id)
+        .eq('created_by', user.id);
+      
+      if (error) throw error;
+      
+      // Reload courses and flashcards (cascade delete will handle links and flashcards)
+      await Promise.all([loadCourses(), loadFlashcards()]);
+    } catch (error) {
+      console.error('Error deleting course:', error);
+      alert('Erreur lors de la suppression du cours');
+    }
   };
 
   // Fonctions Flashcards
@@ -583,40 +833,101 @@ function App() {
     setFlashcardStats({ correct: 0, incorrect: 0, skipped: 0 });
   };
 
-  const addFlashcard = (courseId, question, answer) => {
-    const newFlashcard = {
-      id: Date.now(),
-      courseId,
-      question,
-      answer,
-      createdAt: new Date().toISOString(),
-      lastReviewed: null,
-      correctCount: 0,
-      incorrectCount: 0
-    };
-    setFlashcards([...flashcards, newFlashcard]);
+  const addFlashcard = async (courseId, question, answer) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('shared_flashcards')
+        .insert([{
+          course_id: courseId,
+          question,
+          answer,
+          created_by: user.id
+        }]);
+      
+      if (error) throw error;
+      
+      // Reload flashcards
+      await loadFlashcards();
+    } catch (error) {
+      console.error('Error adding flashcard:', error);
+      alert('Erreur lors de l\'ajout de la flashcard');
+    }
   };
 
-  const deleteFlashcard = (flashcardId) => {
-    setFlashcards(flashcards.filter(f => f.id !== flashcardId));
+  const deleteFlashcard = async (flashcardId) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('shared_flashcards')
+        .delete()
+        .eq('id', flashcardId);
+      
+      if (error) throw error;
+      
+      // Reload flashcards
+      await loadFlashcards();
+    } catch (error) {
+      console.error('Error deleting flashcard:', error);
+      alert('Erreur lors de la suppression de la flashcard');
+    }
   };
 
-  const handleFlashcardAnswer = (isCorrect) => {
+  const handleFlashcardAnswer = async (isCorrect) => {
+    if (!user) return;
+    
     const courseFlashcards = flashcards.filter(f => f.courseId === selectedCourseForFlashcards.id);
     const currentFlashcard = courseFlashcards[currentFlashcardIndex];
     
-    // Mettre à jour les stats de la flashcard
-    setFlashcards(flashcards.map(f => {
-      if (f.id === currentFlashcard.id) {
-        return {
-          ...f,
-          lastReviewed: new Date().toISOString(),
-          correctCount: isCorrect ? f.correctCount + 1 : f.correctCount,
-          incorrectCount: !isCorrect ? f.incorrectCount + 1 : f.incorrectCount
-        };
+    // Update user flashcard stats in Supabase
+    try {
+      const { data: existingStats } = await supabase
+        .from('user_flashcard_stats')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('flashcard_id', currentFlashcard.id)
+        .single();
+      
+      if (existingStats) {
+        // Update existing stats
+        await supabase
+          .from('user_flashcard_stats')
+          .update({
+            correct_count: isCorrect ? existingStats.correct_count + 1 : existingStats.correct_count,
+            incorrect_count: !isCorrect ? existingStats.incorrect_count + 1 : existingStats.incorrect_count,
+            last_reviewed: new Date().toISOString()
+          })
+          .eq('id', existingStats.id);
+      } else {
+        // Insert new stats
+        await supabase
+          .from('user_flashcard_stats')
+          .insert([{
+            user_id: user.id,
+            flashcard_id: currentFlashcard.id,
+            correct_count: isCorrect ? 1 : 0,
+            incorrect_count: !isCorrect ? 1 : 0,
+            last_reviewed: new Date().toISOString()
+          }]);
       }
-      return f;
-    }));
+      
+      // Update local state
+      setFlashcards(flashcards.map(f => {
+        if (f.id === currentFlashcard.id) {
+          return {
+            ...f,
+            lastReviewed: new Date().toISOString(),
+            correctCount: isCorrect ? f.correctCount + 1 : f.correctCount,
+            incorrectCount: !isCorrect ? f.incorrectCount + 1 : f.incorrectCount
+          };
+        }
+        return f;
+      }));
+    } catch (error) {
+      console.error('Error updating flashcard stats:', error);
+    }
 
     // Mettre à jour les stats de la session
     setFlashcardStats(prev => ({
@@ -631,7 +942,7 @@ function App() {
       setShowFlashcardAnswer(false);
     } else {
       // Fin de la session
-      alert(`Session terminée !\n✅ Correct: ${flashcardStats.correct + (isCorrect ? 1 : 0)}\nâŒ Incorrect: ${flashcardStats.incorrect + (!isCorrect ? 1 : 0)}`);
+      alert(`Session terminée !\n✅ Correct: ${flashcardStats.correct + (isCorrect ? 1 : 0)}\n❌ Incorrect: ${flashcardStats.incorrect + (!isCorrect ? 1 : 0)}`);
       setSelectedCourseForFlashcards(null);
       markAsReviewed(selectedCourseForFlashcards.id, 10);
     }
@@ -654,160 +965,6 @@ function App() {
     }
   };
 
-  // Générer des flashcards avec l'IA
-  const generateFlashcardsWithAI = async (course) => {
-    setIsGeneratingFlashcards(true);
-    
-    try {
-      const prompt = `Tu es un professeur expert en ${course.subject} niveau prépa TSI.
-      
-Génère exactement 5 flashcards de révision pour le chapitre : "${course.chapter}"
-${course.content ? `\nContenu du cours : ${course.content}` : ''}
-
-Format de réponse STRICT (JSON uniquement, sans markdown ni texte additionnel) :
-[
-  {
-    "question": "Question claire et précise",
-    "answer": "Réponse détaillée mais concise"
-  }
-]
-
-Règles importantes :
-- Questions progressives du plus simple au plus complexe
-- Réponses complètes mais synthétiques
-- Adapté au niveau prépa TSI
-- Couvre les notions essentielles du chapitre`;
-
-      // Appel au backend local
-      const response = await fetch(`${BACKEND_URL}/api/generate-flashcards`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subject: course.subject,
-          chapter: course.chapter,
-          content: course.content,
-          prompt: prompt
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur serveur: ${response.status}`);
-      }
-
-      const data = await response.json();
-      let generatedCards = [];
-
-      // Si votre backend retourne directement le tableau de cartes
-      if (Array.isArray(data)) {
-        generatedCards = data;
-      } 
-      // Si votre backend retourne la réponse Claude
-      else if (data.content) {
-        const responseText = data.content
-          .filter(block => block.type === 'text')
-          .map(block => block.text)
-          .join('\n');
-
-        const cleanedText = responseText
-          .replace(/```json/g, '')
-          .replace(/```/g, '')
-          .trim();
-
-        generatedCards = JSON.parse(cleanedText);
-      }
-      // Si votre backend retourne un objet avec les cartes
-      else if (data.flashcards) {
-        generatedCards = data.flashcards;
-      }
-
-      // Ajouter les flashcards générées
-      if (Array.isArray(generatedCards) && generatedCards.length > 0) {
-        const newFlashcards = generatedCards.map((card, index) => ({
-          id: Date.now() + index,
-          courseId: course.id,
-          question: card.question,
-          answer: card.answer,
-          createdAt: new Date().toISOString(),
-          lastReviewed: null,
-          correctCount: 0,
-          incorrectCount: 0,
-          generatedByAI: true
-        }));
-
-        setFlashcards([...flashcards, ...newFlashcards]);
-        alert(`✅ ${newFlashcards.length} flashcards générées avec succès !`);
-      } else {
-        throw new Error('Aucune flashcard générée');
-      }
-
-    } catch (error) {
-      console.error('Erreur génération IA:', error);
-      
-      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
-        const userChoice = window.confirm(
-          `âŒ Impossible de se connecter au backend (${BACKEND_URL})
-
-Options :
-- Cliquez "OK" pour créer des flashcards templates
-- Cliquez "Annuler" pour réessayer plus tard
-
-Vérifiez que :
-1. Votre serveur backend est démarré
-2. L'URL du backend est correcte
-3. Le CORS est configuré
-
-Voulez-vous créer des templates ?`
-        );
-
-        if (userChoice) {
-          // Créer des flashcards template
-          const templateCards = [
-            {
-              question: `Définition : Qu'est-ce que ${course.chapter} ?`,
-              answer: `[À compléter] Définition du concept de ${course.chapter} en ${course.subject}`
-            },
-            {
-              question: `Formule principale de ${course.chapter}`,
-              answer: `[À compléter] Écrire la ou les formules clés avec leurs unités`
-            },
-            {
-              question: `Application pratique : Donner un exemple d'utilisation de ${course.chapter}`,
-              answer: `[À compléter] Décrire un cas concret d'application`
-            },
-            {
-              question: `Pièges courants : Quelles erreurs éviter avec ${course.chapter} ?`,
-              answer: `[À compléter] Lister les erreurs fréquentes et comment les éviter`
-            },
-            {
-              question: `Lien avec le programme : Comment ${course.chapter} se relie-t-il aux autres chapitres ?`,
-              answer: `[À compléter] Expliquer les liens avec les chapitres précédents et suivants`
-            }
-          ];
-
-          const newFlashcards = templateCards.map((card, index) => ({
-            id: Date.now() + index,
-            courseId: course.id,
-            question: card.question,
-            answer: card.answer,
-            createdAt: new Date().toISOString(),
-            lastReviewed: null,
-            correctCount: 0,
-            incorrectCount: 0,
-            generatedByAI: false
-          }));
-
-          setFlashcards([...flashcards, ...newFlashcards]);
-          alert(`📝 5 flashcards templates créées !\n\nVous pouvez les modifier en les supprimant et recréant avec vos propres réponses.`);
-        }
-      } else {
-        alert(`âŒ Erreur lors de la génération.\n${error.message}`);
-      }
-    } finally {
-      setIsGeneratingFlashcards(false);
-    }
-  };
 
   // ==================== FONCTIONS CHAT ====================
   
@@ -937,54 +1094,93 @@ Voulez-vous créer des templates ?`
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
 
-  const addCustomEvent = () => {
-    if (newEvent.subject && newEvent.time && (newEvent.week || newEvent.date)) {
-      const eventToAdd = { ...newEvent, id: Date.now() };
-      
-      // Si une date est fournie, calculer automatiquement la semaine et le jour
-      if (newEvent.date) {
-        const selectedDate = new Date(newEvent.date);
-        const dayName = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'][selectedDate.getDay()];
-        eventToAdd.day = dayName;
+  const addCustomEvent = async () => {
+    if (newEvent.subject && newEvent.time && (newEvent.week || newEvent.date) && user) {
+      try {
+        const eventToAdd = { ...newEvent };
         
-        // Trouver la semaine TSI correspondante
-        const startOfSchoolYear = new Date('2024-09-01');
-        const diffTime = selectedDate - startOfSchoolYear;
-        const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
-        
-        // Ajuster pour correspondre aux semaines TSI (S1 = semaine du 1er septembre)
-        let calculatedWeek = diffWeeks + 1;
-        
-        // Gérer les vacances (approximativement)
-        if (selectedDate >= new Date('2024-10-19') && selectedDate <= new Date('2024-11-03')) {
-          calculatedWeek -= 2; // Vacances Toussaint
-        } else if (selectedDate >= new Date('2024-12-21') && selectedDate <= new Date('2025-01-05')) {
-          calculatedWeek -= 2; // Vacances Noël
-        } else if (selectedDate >= new Date('2025-02-08') && selectedDate <= new Date('2025-02-23')) {
-          calculatedWeek -= 2; // Vacances Hiver
-        } else if (selectedDate >= new Date('2025-04-05') && selectedDate <= new Date('2025-04-21')) {
-          calculatedWeek -= 2; // Vacances Printemps
+        // Si une date est fournie, calculer automatiquement la semaine et le jour
+        if (newEvent.date) {
+          const selectedDate = new Date(newEvent.date);
+          const dayName = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'][selectedDate.getDay()];
+          eventToAdd.day = dayName;
+          
+          // Trouver la semaine TSI correspondante
+          const startOfSchoolYear = new Date('2024-09-01');
+          const diffTime = selectedDate - startOfSchoolYear;
+          const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
+          
+          // Ajuster pour correspondre aux semaines TSI (S1 = semaine du 1er septembre)
+          let calculatedWeek = diffWeeks + 1;
+          
+          // Gérer les vacances (approximativement)
+          if (selectedDate >= new Date('2024-10-19') && selectedDate <= new Date('2024-11-03')) {
+            calculatedWeek -= 2; // Vacances Toussaint
+          } else if (selectedDate >= new Date('2024-12-21') && selectedDate <= new Date('2025-01-05')) {
+            calculatedWeek -= 2; // Vacances Noël
+          } else if (selectedDate >= new Date('2025-02-08') && selectedDate <= new Date('2025-02-23')) {
+            calculatedWeek -= 2; // Vacances Hiver
+          } else if (selectedDate >= new Date('2025-04-05') && selectedDate <= new Date('2025-04-21')) {
+            calculatedWeek -= 2; // Vacances Printemps
+          }
+          
+          eventToAdd.week = Math.max(1, Math.min(33, calculatedWeek));
         }
         
-        eventToAdd.week = Math.max(1, Math.min(33, calculatedWeek));
+        // Insert into Supabase
+        const { error } = await supabase
+          .from('user_events')
+          .insert([{
+            user_id: user.id,
+            type: eventToAdd.type,
+            subject: eventToAdd.subject,
+            date: eventToAdd.date || null,
+            time: eventToAdd.time,
+            week: eventToAdd.week,
+            day: eventToAdd.day,
+            duration: eventToAdd.duration
+          }]);
+        
+        if (error) throw error;
+        
+        // Reload events
+        await loadEvents();
+        
+        setNewEvent({
+          week: currentWeek,
+          day: 'Lundi',
+          type: 'DS',
+          subject: '',
+          time: '',
+          duration: '',
+          date: ''
+        });
+        setShowAddEvent(false);
+      } catch (error) {
+        console.error('Error adding event:', error);
+        alert('Erreur lors de l\'ajout de l\'événement');
       }
-      
-      setCustomEvents([...customEvents, eventToAdd]);
-      setNewEvent({
-        week: currentWeek,
-        day: 'Lundi',
-        type: 'DS',
-        subject: '',
-        time: '',
-        duration: '',
-        date: ''
-      });
-      setShowAddEvent(false);
     }
   };
 
-  const deleteCustomEvent = (id) => {
-    setCustomEvents(customEvents.filter(e => e.id !== id));
+  const deleteCustomEvent = async (id) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('user_events')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      // Reload events
+      await loadEvents();
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      alert('Erreur lors de la suppression de l\'événement');
+    }
   };
 
   const getDaySchedule = (week, day) => {
@@ -1225,18 +1421,32 @@ Voulez-vous créer des templates ?`
 
                     <div className="space-y-3">
                       {eveningSchedule[selectedDay] ? (
-                        eveningSchedule[selectedDay].map((item, idx) => (
-                          <div
-                            key={idx}
-                            className="p-4 bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border border-purple-500/30 rounded-lg"
-                          >
-                            <div className="flex items-center gap-3 mb-2">
-                              <Clock className="w-4 h-4 text-purple-400" />
-                              <span className="text-sm font-semibold text-purple-300">{item.time}</span>
+                        (() => {
+                          const adaptedSchedule = getAdaptedEveningSchedule(selectedDay, currentWeek);
+                          return adaptedSchedule.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className={`p-4 ${
+                                item.isAdapted
+                                  ? 'bg-gradient-to-r from-red-900/30 to-orange-900/30 border border-red-500/30'
+                                  : 'bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border border-purple-500/30'
+                              } rounded-lg`}
+                            >
+                              <div className="flex items-center gap-3 mb-2">
+                                <Clock className={`w-4 h-4 ${item.isAdapted ? 'text-red-400' : 'text-purple-400'}`} />
+                                <span className={`text-sm font-semibold ${item.isAdapted ? 'text-red-300' : 'text-purple-300'}`}>
+                                  {item.time}
+                                </span>
+                                {item.isAdapted && (
+                                  <span className="ml-auto px-2 py-0.5 bg-red-500/20 text-red-300 rounded text-xs font-bold">
+                                    ADAPTÉ
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-white font-medium">{item.activity}</p>
                             </div>
-                            <p className="text-white font-medium">{item.activity}</p>
-                          </div>
-                        ))
+                          ));
+                        })()
                       ) : (
                         <p className="text-center text-slate-400 py-8">Pas de planning</p>
                       )}
@@ -1704,34 +1914,12 @@ Voulez-vous créer des templates ?`
                                     </button>
                                   </div>
 
-                                  {/* Bouton Générer avec IA */}
-                                  <button
-                                    onClick={() => generateFlashcardsWithAI(course)}
-                                    disabled={isGeneratingFlashcards}
-                                    className="w-full px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                  >
-                                    {isGeneratingFlashcards ? (
-                                      <>
-                                        <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div>
-                                        Génération en cours...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Sparkles className="w-4 h-4" />
-                                        Générer 5 cartes avec IA
-                                      </>
-                                    )}
-                                  </button>
-
                                   {/* Liste des flashcards */}
                                   {courseFlashcards.length > 0 && (
                                     <div className="mt-3 space-y-2">
                                       {courseFlashcards.map(card => (
                                         <div key={card.id} className="p-2 bg-slate-800/50 rounded text-xs flex items-center justify-between">
                                           <div className="flex items-center gap-2 flex-1 min-w-0">
-                                            {card.generatedByAI && (
-                                              <Sparkles className="w-3 h-3 text-purple-400 flex-shrink-0" />
-                                            )}
                                             <span className="text-slate-300 truncate">{card.question}</span>
                                           </div>
                                           <button
