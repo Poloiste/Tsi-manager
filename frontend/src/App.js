@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles, Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, LogOut, Send, MessageCircle } from 'lucide-react';
+import { Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles, Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, LogOut, Send, MessageCircle, Menu, Download, Copy, FileText } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
 import { supabase } from './supabaseClient';
@@ -83,6 +83,17 @@ function App() {
     answer: ''
   });
   const [showFlashcardPreview, setShowFlashcardPreview] = useState(false);
+  
+  // États pour navigation responsive
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // États pour Import/Export de flashcards
+  const [showImportExport, setShowImportExport] = useState(false);
+  const [showAnkiImport, setShowAnkiImport] = useState(false);
+  const [showNotionImport, setShowNotionImport] = useState(false);
+  const [notionImportText, setNotionImportText] = useState('');
+  const [importCourseId, setImportCourseId] = useState('');
+  const [selectedCoursesForExport, setSelectedCoursesForExport] = useState([]);
   
   // États pour Chat/Discussions
   const [channels, setChannels] = useState([]);
@@ -1133,6 +1144,224 @@ function App() {
   };
 
 
+  // ==================== FONCTIONS IMPORT/EXPORT FLASHCARDS ====================
+  
+  // Exporter vers Anki (format TSV)
+  const exportToAnki = () => {
+    if (selectedCoursesForExport.length === 0) {
+      alert('Veuillez sélectionner au moins un cours à exporter');
+      return;
+    }
+
+    const exportFlashcards = flashcards.filter(f => 
+      selectedCoursesForExport.includes(f.courseId)
+    );
+
+    if (exportFlashcards.length === 0) {
+      alert('Aucune flashcard à exporter pour les cours sélectionnés');
+      return;
+    }
+
+    // Créer le contenu TSV: Question[TAB]Réponse[TAB]Tags
+    const tsvContent = exportFlashcards.map(f => {
+      const course = courses.find(c => c.id === f.courseId);
+      const tags = course ? `${course.subject},${course.chapter}` : 'TSI';
+      return `${f.question}\t${f.answer}\t${tags}`;
+    }).join('\n');
+
+    // Créer et télécharger le fichier
+    const blob = new Blob([tsvContent], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'flashcards_anki_export.txt';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    alert(`✅ ${exportFlashcards.length} flashcards exportées vers Anki`);
+  };
+
+  // Exporter vers Notion (format Markdown)
+  const exportToNotion = () => {
+    if (selectedCoursesForExport.length === 0) {
+      alert('Veuillez sélectionner au moins un cours à exporter');
+      return;
+    }
+
+    const exportFlashcards = flashcards.filter(f => 
+      selectedCoursesForExport.includes(f.courseId)
+    );
+
+    if (exportFlashcards.length === 0) {
+      alert('Aucune flashcard à exporter pour les cours sélectionnés');
+      return;
+    }
+
+    // Créer le tableau Markdown
+    let markdown = '| Question | Réponse | Matière | Chapitre |\n';
+    markdown += '|----------|---------|---------|----------|\n';
+    
+    exportFlashcards.forEach(f => {
+      const course = courses.find(c => c.id === f.courseId);
+      const subject = course ? course.subject : 'N/A';
+      const chapter = course ? course.chapter : 'N/A';
+      // Échapper les backslashes d'abord, puis les pipes et newlines dans le contenu
+      const question = f.question.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+      const answer = f.answer.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\n/g, ' ');
+      markdown += `| ${question} | ${answer} | ${subject} | ${chapter} |\n`;
+    });
+
+    // Copier dans le presse-papiers
+    navigator.clipboard.writeText(markdown).then(() => {
+      alert(`✅ ${exportFlashcards.length} flashcards copiées pour Notion\nCollez-les dans votre page Notion`);
+    }).catch(() => {
+      // Fallback si le clipboard ne fonctionne pas
+      const textarea = document.createElement('textarea');
+      textarea.value = markdown;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      alert(`✅ ${exportFlashcards.length} flashcards copiées pour Notion\nCollez-les dans votre page Notion`);
+    });
+  };
+
+  // Importer depuis Anki
+  const handleAnkiImport = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const content = e.target.result;
+      const lines = content.split('\n').filter(line => line.trim());
+      
+      if (lines.length === 0) {
+        alert('Le fichier est vide');
+        return;
+      }
+
+      if (!importCourseId) {
+        alert('Veuillez sélectionner un cours de destination');
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const line of lines) {
+        const parts = line.split('\t');
+        if (parts.length >= 2) {
+          const question = parts[0].trim();
+          const answer = parts[1].trim();
+          
+          if (question && answer) {
+            try {
+              const { error } = await supabase
+                .from('shared_flashcards')
+                .insert([{
+                  course_id: importCourseId,
+                  question: question,
+                  answer: answer,
+                  created_by: user.id
+                }]);
+              
+              if (error) throw error;
+              successCount++;
+            } catch (error) {
+              console.error('Error importing flashcard:', error);
+              errorCount++;
+            }
+          }
+        }
+      }
+
+      // Recharger les flashcards
+      await loadFlashcards();
+      
+      setShowAnkiImport(false);
+      setImportCourseId('');
+      alert(`✅ Import terminé\n${successCount} flashcards importées\n${errorCount} erreurs`);
+    };
+
+    reader.readAsText(file);
+  };
+
+  // Importer depuis Notion
+  const handleNotionImport = async () => {
+    if (!notionImportText.trim()) {
+      alert('Veuillez coller le contenu de votre tableau Notion');
+      return;
+    }
+
+    if (!importCourseId) {
+      alert('Veuillez sélectionner un cours de destination');
+      return;
+    }
+
+    const lines = notionImportText.split('\n').filter(line => line.trim());
+    
+    // Ignorer la première ligne (headers) et la ligne de séparation
+    const dataLines = lines.slice(2);
+    
+    if (dataLines.length === 0) {
+      alert('Aucune donnée à importer');
+      return;
+    }
+
+    let successCount = 0;
+    let errorCount = 0;
+
+    for (const line of dataLines) {
+      // Parser le format Markdown table
+      const cells = line.split('|').map(cell => cell.trim()).filter(cell => cell);
+      
+      if (cells.length >= 2) {
+        const question = cells[0].replace(/\\\|/g, '|').trim();
+        const answer = cells[1].replace(/\\\|/g, '|').trim();
+        
+        if (question && answer) {
+          try {
+            const { error } = await supabase
+              .from('shared_flashcards')
+              .insert([{
+                course_id: importCourseId,
+                question: question,
+                answer: answer,
+                created_by: user.id
+              }]);
+            
+            if (error) throw error;
+            successCount++;
+          } catch (error) {
+            console.error('Error importing flashcard:', error);
+            errorCount++;
+          }
+        }
+      }
+    }
+
+    // Recharger les flashcards
+    await loadFlashcards();
+    
+    setShowNotionImport(false);
+    setNotionImportText('');
+    setImportCourseId('');
+    alert(`✅ Import terminé\n${successCount} flashcards importées\n${errorCount} erreurs`);
+  };
+
+  // Toggle course selection for export
+  const toggleCourseForExport = (courseId) => {
+    setSelectedCoursesForExport(prev => 
+      prev.includes(courseId) 
+        ? prev.filter(id => id !== courseId)
+        : [...prev, courseId]
+    );
+  };
+
+
   // ==================== FONCTIONS CHAT ====================
   
   // Nettoyer et valider le nom d'utilisateur
@@ -1383,16 +1612,18 @@ function App() {
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900">
       {/* Header */}
       <nav className="fixed top-0 left-0 right-0 bg-slate-950/80 backdrop-blur-xl border-b border-indigo-500/20 z-50">
-        <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
+            {/* Logo - Always visible */}
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">TSI1 Manager</h1>
+              <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">TSI1 Manager</h1>
             </div>
             
-            <div className="flex items-center gap-1 bg-slate-900/50 border border-indigo-500/20 rounded-full p-1">
+            {/* Desktop Navigation - Hidden on mobile */}
+            <div className="hidden lg:flex items-center gap-1 bg-slate-900/50 border border-indigo-500/20 rounded-full p-1">
               {[
                 { id: 'planning', label: '📅 Planning' },
                 { id: 'chat', label: '💬 Discussions' },
@@ -1415,22 +1646,116 @@ function App() {
               ))}
             </div>
 
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-2xl font-bold text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text">{daysUntil}</div>
+            {/* Tablet Navigation - Horizontal scroll with compact tabs */}
+            <div className="hidden md:flex lg:hidden items-center gap-1 bg-slate-900/50 border border-indigo-500/20 rounded-full p-1 overflow-x-auto max-w-md scrollbar-hide">
+              {[
+                { id: 'planning', icon: '📅', label: 'Planning' },
+                { id: 'chat', icon: '💬', label: 'Chat' },
+                { id: 'flashcards', icon: '🎴', label: 'Révision' },
+                { id: 'courses', icon: '📚', label: 'Cours' },
+                { id: 'suggestions', icon: '🎯', label: 'Sugg.' },
+                { id: 'stats', icon: '📊', label: 'Stats' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-3 py-2 rounded-full transition-all text-xs font-semibold whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                      : 'text-indigo-300 hover:text-indigo-100'
+                  }`}
+                >
+                  {tab.icon} {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Right section - Days counter and logout */}
+            <div className="flex items-center gap-2 sm:gap-4">
+              <div className="text-right hidden sm:block">
+                <div className="text-xl sm:text-2xl font-bold text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text">{daysUntil}</div>
                 <div className="text-xs text-indigo-300">jours avant concours</div>
               </div>
+              
+              {/* Hamburger menu button - Mobile only */}
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="md:hidden p-2 text-indigo-300 hover:text-indigo-100 transition-all"
+                aria-label="Menu"
+              >
+                <Menu className={`w-6 h-6 transition-transform duration-300 ${isMobileMenuOpen ? 'rotate-90' : ''}`} />
+              </button>
+              
+              {/* Logout button - Hidden on small mobile */}
               <button
                 onClick={signOut}
-                className="px-4 py-2 bg-red-600/30 border border-red-500/50 text-red-300 rounded-lg hover:bg-red-600/50 transition-all font-semibold flex items-center gap-2"
+                className="hidden sm:flex px-3 sm:px-4 py-2 bg-red-600/30 border border-red-500/50 text-red-300 rounded-lg hover:bg-red-600/50 transition-all font-semibold items-center gap-2 text-sm"
               >
                 <LogOut className="w-4 h-4" />
-                Déconnexion
+                <span className="hidden md:inline">Déconnexion</span>
               </button>
             </div>
           </div>
         </div>
       </nav>
+
+      {/* Mobile Menu Drawer */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 z-40 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+          
+          {/* Drawer */}
+          <div 
+            className="absolute top-[73px] right-0 left-0 bg-slate-950/95 backdrop-blur-xl border-b border-indigo-500/20 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-4 py-3 space-y-2">
+              {[
+                { id: 'planning', label: '📅 Planning' },
+                { id: 'chat', label: '💬 Discussions' },
+                { id: 'flashcards', label: '🎴 Révision' },
+                { id: 'courses', label: '📚 Cours' },
+                { id: 'suggestions', label: '🎯 Suggestions' },
+                { id: 'stats', label: '📊 Stats' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className={`w-full px-4 py-3 rounded-lg transition-all text-left font-semibold ${
+                    activeTab === tab.id
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                      : 'text-indigo-300 hover:bg-slate-800/50 hover:text-indigo-100'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+              
+              {/* Mobile-only actions */}
+              <div className="pt-2 border-t border-indigo-500/20">
+                <div className="px-4 py-2 text-center">
+                  <div className="text-2xl font-bold text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text">{daysUntil}</div>
+                  <div className="text-xs text-indigo-300">jours avant concours</div>
+                </div>
+                <button
+                  onClick={signOut}
+                  className="w-full px-4 py-3 bg-red-600/30 border border-red-500/50 text-red-300 rounded-lg hover:bg-red-600/50 transition-all font-semibold flex items-center justify-center gap-2 sm:hidden"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Déconnexion
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content */}
       <div className="pt-24 pb-12 min-h-screen w-full">
@@ -1917,6 +2242,112 @@ function App() {
                 <h2 className="text-5xl font-bold text-white mb-3">🎴 Révision Active</h2>
                 <p className="text-indigo-300 text-lg">Flashcards pour maximiser la rétention</p>
               </div>
+
+              {/* Section Import/Export */}
+              {!selectedCourseForFlashcards && courses.length > 0 && (
+                <div className="mb-8 max-w-4xl mx-auto">
+                  <button
+                    onClick={() => setShowImportExport(!showImportExport)}
+                    className="w-full px-6 py-3 bg-gradient-to-r from-blue-600/30 to-purple-600/30 border border-blue-500/50 text-blue-300 rounded-xl hover:bg-blue-600/50 transition-all font-semibold flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Upload className="w-5 h-5" />
+                      🔄 Import / Export
+                    </span>
+                    <ChevronDown className={`w-5 h-5 transition-transform ${showImportExport ? 'rotate-180' : ''}`} />
+                  </button>
+                  
+                  {showImportExport && (
+                    <div className="mt-4 p-6 bg-slate-800/50 border border-slate-700/50 rounded-xl space-y-6">
+                      {/* Import Section */}
+                      <div>
+                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                          📥 Importer
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <button
+                            onClick={() => setShowAnkiImport(true)}
+                            className="p-4 bg-slate-900/50 border border-indigo-500/30 rounded-lg hover:border-indigo-500/50 transition-all text-left"
+                          >
+                            <div className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                              <FileText className="w-5 h-5" />
+                              Depuis Anki
+                            </div>
+                            <p className="text-sm text-slate-400">Format .txt ou .csv (TAB séparé)</p>
+                          </button>
+                          
+                          <button
+                            onClick={() => setShowNotionImport(true)}
+                            className="p-4 bg-slate-900/50 border border-purple-500/30 rounded-lg hover:border-purple-500/50 transition-all text-left"
+                          >
+                            <div className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                              <Copy className="w-5 h-5" />
+                              Depuis Notion
+                            </div>
+                            <p className="text-sm text-slate-400">Coller un tableau Markdown</p>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Export Section */}
+                      <div>
+                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                          📤 Exporter
+                        </h3>
+                        
+                        {/* Course Selection for Export */}
+                        <div className="mb-4 p-4 bg-slate-900/50 border border-slate-700/50 rounded-lg">
+                          <p className="text-sm text-slate-300 mb-3 font-semibold">Sélectionner les cours à exporter :</p>
+                          <div className="space-y-2 max-h-40 overflow-y-auto">
+                            {courses.map(course => {
+                              const courseFlashcards = flashcards.filter(f => f.courseId === course.id);
+                              if (courseFlashcards.length === 0) return null;
+                              
+                              return (
+                                <label key={course.id} className="flex items-center gap-2 text-sm text-slate-300 hover:text-white cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedCoursesForExport.includes(course.id)}
+                                    onChange={() => toggleCourseForExport(course.id)}
+                                    className="w-4 h-4 rounded border-slate-600 text-indigo-600 focus:ring-indigo-500"
+                                  />
+                                  <span>{course.subject} - {course.chapter} ({courseFlashcards.length} carte{courseFlashcards.length > 1 ? 's' : ''})</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <button
+                            onClick={exportToAnki}
+                            disabled={selectedCoursesForExport.length === 0}
+                            className="p-4 bg-slate-900/50 border border-indigo-500/30 rounded-lg hover:border-indigo-500/50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <div className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                              <Download className="w-5 h-5" />
+                              Vers Anki
+                            </div>
+                            <p className="text-sm text-slate-400">Télécharger fichier .txt</p>
+                          </button>
+                          
+                          <button
+                            onClick={exportToNotion}
+                            disabled={selectedCoursesForExport.length === 0}
+                            className="p-4 bg-slate-900/50 border border-purple-500/30 rounded-lg hover:border-purple-500/50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <div className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                              <Copy className="w-5 h-5" />
+                              Vers Notion
+                            </div>
+                            <p className="text-sm text-slate-400">Copier tableau Markdown</p>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {selectedCourseForFlashcards ? (
                 // Mode Session de révision
@@ -2840,6 +3271,151 @@ function App() {
                 className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold"
               >
                 Mettre à jour
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Import Anki */}
+      {showAnkiImport && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl p-8 max-w-2xl w-full border border-indigo-500/30">
+            <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+              <FileText className="w-6 h-6" />
+              📥 Importer depuis Anki
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+                <p className="text-sm text-blue-300 mb-2">📋 Format attendu :</p>
+                <code className="text-xs text-slate-300 block bg-slate-900/50 p-2 rounded">
+                  Question[TAB]Réponse[TAB]Tags (optionnel)
+                </code>
+                <p className="text-xs text-slate-400 mt-2">
+                  Les fichiers Anki exportés en format texte utilisent des tabulations (TAB) pour séparer les colonnes
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Associer au cours</label>
+                <select
+                  value={importCourseId}
+                  onChange={(e) => setImportCourseId(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value="">Sélectionner un cours...</option>
+                  {courses.map(course => (
+                    <option key={course.id} value={course.id}>
+                      {course.subject} - {course.chapter}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Fichier</label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".txt,.csv"
+                    onChange={handleAnkiImport}
+                    className="w-full px-4 py-3 bg-slate-900 border-2 border-dashed border-slate-700 rounded-lg text-white hover:border-indigo-500 transition-all cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-600 file:text-white hover:file:bg-indigo-700"
+                  />
+                </div>
+                <p className="text-xs text-slate-400 mt-2">
+                  Glissez-déposer un fichier .txt ou .csv, ou cliquez pour sélectionner
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowAnkiImport(false);
+                  setImportCourseId('');
+                }}
+                className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Import Notion */}
+      {showNotionImport && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl p-8 max-w-2xl w-full border border-indigo-500/30 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+              <Copy className="w-6 h-6" />
+              📥 Importer depuis Notion
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-purple-900/20 border border-purple-500/30 rounded-lg">
+                <p className="text-sm text-purple-300 mb-2">📋 Instructions :</p>
+                <ol className="text-xs text-slate-300 space-y-1 list-decimal list-inside">
+                  <li>Dans Notion, créez un tableau avec les colonnes "Question" et "Réponse"</li>
+                  <li>Sélectionnez le tableau et copiez-le (Ctrl+C / Cmd+C)</li>
+                  <li>Collez le contenu dans la zone ci-dessous</li>
+                </ol>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Associer au cours</label>
+                <select
+                  value={importCourseId}
+                  onChange={(e) => setImportCourseId(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value="">Sélectionner un cours...</option>
+                  {courses.map(course => (
+                    <option key={course.id} value={course.id}>
+                      {course.subject} - {course.chapter}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Contenu du tableau Notion</label>
+                <textarea
+                  value={notionImportText}
+                  onChange={(e) => setNotionImportText(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none font-mono text-sm"
+                  rows="10"
+                  placeholder="Collez votre tableau Notion ici...&#10;Format attendu :&#10;| Question | Réponse |&#10;|----------|---------|&#10;| Q1 | R1 |&#10;| Q2 | R2 |"
+                />
+              </div>
+
+              {notionImportText && (
+                <div className="p-3 bg-green-900/20 border border-green-500/30 rounded-lg">
+                  <p className="text-sm text-green-300">
+                    ✓ Prévisualisation : {notionImportText.split('\n').filter(line => line.trim() && !line.includes('---')).slice(1).length} flashcards détectées
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowNotionImport(false);
+                  setNotionImportText('');
+                  setImportCourseId('');
+                }}
+                className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleNotionImport}
+                disabled={!notionImportText.trim() || !importCourseId}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Importer
               </button>
             </div>
           </div>
