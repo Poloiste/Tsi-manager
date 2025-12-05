@@ -38,7 +38,7 @@ const MathText = ({ children, className = "" }) => {
     };
 
     // Attendre que KaTeX soit complètement chargé
-    if (window.katex && window. renderMathInElement) {
+    if (window.katex && window.renderMathInElement) {
       setTimeout(renderMath, 50);
     } else {
       // Réessayer plusieurs fois si KaTeX n'est pas encore chargé
@@ -240,38 +240,117 @@ function App() {
 
   const eveningSchedule = {
     'Lundi': [
-      { time: '19h15-20h00', activity: 'Méca : relecture + exo clé', duration: 45 },
-      { time: '20h00-20h45', activity: 'Maths : exercices', duration: 45 },
-      { time: '20h45-21h15', activity: 'Pause / détente', duration: 30 },
-      { time: '21h15-21h45', activity: 'Détente', duration: 30 }
+      { subject: 'Maths', duration: '30 min - 1h', tasks: [
+        'Reprise des cours de la semaine précédente',
+        'Préparation des exercices pour le mardi',
+        'Noter toutes les questions pour les poser le lendemain',
+        'Répertorier les exercices de colles pertinents ou difficiles'
+      ]},
+      { subject: 'SII', duration: '1h30', tasks: [
+        'Revoir et assimiler le cours',
+        'Reprise des TD du jour'
+      ]}
     ],
     'Mardi': [
-      { time: '19h15-20h00', activity: 'Maths : relecture + formules', duration: 45 },
-      { time: '20h00-20h45', activity: 'Physique : exercices', duration: 45 },
-      { time: '20h45-21h15', activity: 'Informatique : TP', duration: 30 },
-      { time: '21h15-21h45', activity: 'Détente', duration: 30 }
+      { subject: 'Maths', duration: '30 min - 1h', tasks: [
+        'Compréhension et apprentissage du cours du jour',
+        'Préparation des exercices pour le mercredi',
+        'Noter toutes les questions pour les poser aux prochains cours'
+      ]},
+      { subject: 'Physique', duration: '30 - 45 min', tasks: [
+        'Apprentissage du cours du jour (faire des cartes Anki ou une carte mentale)',
+        'Reprise des exercices du jour (EC en priorité)'
+      ]},
+      { subject: 'Anglais', duration: '10 min', tasks: [
+        'Exercices sur test-english.com'
+      ]}
     ],
     'Mercredi': [
-      { time: '19h15-20h00', activity: 'Maths : méthodes', duration: 45 },
-      { time: '20h00-20h45', activity: 'Français : révision', duration: 45 },
-      { time: '20h45-21h15', activity: 'Anglais : vocabulaire', duration: 30 },
-      { time: '21h15-21h45', activity: 'Repos', duration: 30 }
+      { subject: 'Physique', duration: '30 - 45 min', tasks: [
+        'Reprise du cours du mardi (réviser ses cartes Anki ou sa carte mentale)',
+        'Reprise des exercices du jour',
+        'Ou finalisation du compte-rendu de TP'
+      ]},
+      { subject: 'Maths', duration: '30 min', tasks: [
+        'Compréhension et apprentissage du cours du jour',
+        'Noter toutes les questions pour les poser aux prochains cours',
+        'Préparation des exercices pour le jeudi'
+      ]},
+      { subject: 'SII', duration: '1h', tasks: [
+        'Refaire les TD'
+      ]},
+      { subject: 'Français', duration: '30 min', tasks: [
+        'Relire le cours',
+        'Lister les questions sur les points jugés difficiles'
+      ]},
+      { subject: 'Anglais', duration: '10 min', tasks: [
+        'Exercices sur test-english.com'
+      ]}
     ],
     'Jeudi': [
-      { time: '19h15-20h00', activity: 'Physique : cours + formules', duration: 45 },
-      { time: '20h00-20h45', activity: 'Méca : synthèse TP', duration: 45 },
-      { time: '20h45-21h15', activity: 'Français : lecture', duration: 30 },
-      { time: '21h15-21h45', activity: 'Détente', duration: 30 }
+      { subject: 'Maths', duration: '30 min - 1h', tasks: [
+        'Compréhension et apprentissage du cours du jour',
+        'Préparation des exercices pour le mardi',
+        'Pointer tous les items du programme de colle de la semaine suivante'
+      ]},
+      { subject: 'SII', duration: '1h', tasks: [
+        'Finir la présentation et la synthèse des TP',
+        'Ou comprendre et savoir refaire les parties théoriques des TP'
+      ]},
+      { subject: 'Physique', duration: '30 - 45 min', tasks: [
+        'Reprise du cours du mardi (réviser ses cartes Anki ou sa carte mentale)',
+        'Noter les questions à poser le vendredi',
+        'Préparation des exercices pour le vendredi'
+      ]},
+      { subject: 'Info', duration: '15 min', tasks: [
+        'Apprentissage du cours en vue de l\'évaluation du jeudi'
+      ]},
+      { subject: 'Français', duration: '30 min', tasks: [
+        'Relire le cours',
+        'Lister les questions sur les points jugés difficiles'
+      ]},
+      { subject: 'Anglais', duration: '10 min', tasks: [
+        'Exercices sur test-english.com'
+      ]}
     ],
     'Vendredi': [
-      { time: '18h40-20h45', activity: 'Trajet retour', duration: 0 }
+      { subject: 'Maths', duration: '1h30 - 2h', tasks: [
+        'Rédiger à nouveau les exemples du cours et les exercices de base des TD pour préparer les colles',
+        'Noter toutes les questions à poser'
+      ]},
+      { subject: 'Physique', duration: '15 - 30 min', tasks: [
+        'Reprise du cours du vendredi (réviser ses cartes Anki ou sa carte mentale)',
+        'Noter les questions à poser le mardi'
+      ]},
+      { subject: 'Anglais', duration: '20 min', tasks: [
+        'Exercices sur test-english.com',
+        'Relire le cours'
+      ]}
     ],
     'Samedi': [
-      { time: '19h15-21h45', activity: 'Repos / Natation', duration: 0 }
+      { subject: 'Préparation DM', duration: '3h', tasks: [
+        'Préparation des devoirs maison'
+      ]},
+      { subject: 'Préparation colles', duration: '2h', tasks: [
+        'Préparation des colles'
+      ]}
     ],
     'Dimanche': [
-      { time: '20h45-21h15', activity: 'Fiches semaine', duration: 30 },
-      { time: '21h15-21h45', activity: 'Préparation', duration: 30 }
+      { subject: 'Physique', duration: '1h30', tasks: [
+        'Apprentissage du cours du vendredi et assimilation des cours de la semaine',
+        'Faire et réviser ses cartes Anki ou une carte mentale',
+        'Préparation des exercices pour le mardi',
+        'Préparation du TP de la semaine suivante'
+      ]},
+      { subject: 'Anglais', duration: '1h', tasks: [
+        'Relire le cours'
+      ]},
+      { subject: 'Français', duration: '1h', tasks: [
+        'Travail personnel'
+      ]},
+      { subject: 'Info', duration: '1h', tasks: [
+        'Travail personnel'
+      ]}
     ]
   };
 
@@ -567,36 +646,6 @@ function App() {
     return suggestions;
   };
 
-  // Fonction pour adapter le planning du soir selon les évaluations à venir
-  const getAdaptedEveningSchedule = (day, weekNum) => {
-    const baseSchedule = eveningSchedule[day] || [];
-    const upcomingTests = getUpcomingTests(weekNum, 7); // Tests dans les 7 prochains jours
-    
-    if (upcomingTests.length === 0) {
-      return baseSchedule; // Pas de test à venir, planning normal
-    }
-    
-    // Trier les tests par urgence (jours restants)
-    const sortedTests = upcomingTests.sort((a, b) => a.daysUntil - b.daysUntil);
-    
-    // Adapter le planning - remplacer les slots de révision par des révisions ciblées
-    const adaptedSchedule = baseSchedule.map((slot, index) => {
-      // Ne modifier que les slots de travail (durée > 0), pas les pauses ou détente
-      if (slot.duration > 0 && sortedTests[index]) {
-        const test = sortedTests[index];
-        return {
-          ...slot,
-          activity: `🎯 RÉVISION ${test.type} ${test.subject} (J-${test.daysUntil})`,
-          isAdapted: true,
-          relatedTest: test
-        };
-      }
-      return slot;
-    });
-    
-    return adaptedSchedule;
-  };
-
   // eslint-disable-next-line no-unused-vars
   const getCoursesBySubject = () => {
     const grouped = {};
@@ -629,6 +678,21 @@ function App() {
       'Informatique': 'from-slate-600 to-gray-600'
     };
     return colors[subject] || 'from-slate-600 to-slate-700';
+  };
+
+  // Get evening schedule subject colors with text and background
+  const getEveningSubjectColors = (subject) => {
+    const colors = {
+      'Maths': { text: 'text-blue-400', bg: 'bg-blue-900/30' },
+      'Physique': { text: 'text-green-400', bg: 'bg-green-900/30' },
+      'SII': { text: 'text-orange-400', bg: 'bg-orange-900/30' },
+      'Info': { text: 'text-cyan-400', bg: 'bg-cyan-900/30' },
+      'Français': { text: 'text-pink-400', bg: 'bg-pink-900/30' },
+      'Anglais': { text: 'text-purple-400', bg: 'bg-purple-900/30' },
+      'Préparation DM': { text: 'text-yellow-400', bg: 'bg-yellow-900/30' },
+      'Préparation colles': { text: 'text-yellow-400', bg: 'bg-yellow-900/30' }
+    };
+    return colors[subject] || { text: 'text-slate-400', bg: 'bg-slate-900/30' };
   };
 
   // Get user's display name from user object
@@ -2357,34 +2421,34 @@ function App() {
                       Travail du soir
                     </h2>
 
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {eveningSchedule[selectedDay] ? (
-                        (() => {
-                          const adaptedSchedule = getAdaptedEveningSchedule(selectedDay, currentWeek);
-                          return adaptedSchedule.map((item, idx) => (
+                        eveningSchedule[selectedDay].map((item, idx) => {
+                          const colors = getEveningSubjectColors(item.subject);
+                          return (
                             <div
                               key={idx}
-                              className={`p-4 ${
-                                item.isAdapted
-                                  ? 'bg-gradient-to-r from-red-900/30 to-orange-900/30 border border-red-500/30'
-                                  : 'bg-gradient-to-r from-purple-900/30 to-indigo-900/30 border border-purple-500/30'
-                              } rounded-lg`}
+                              className={`p-4 ${colors.bg} border border-slate-700/50 rounded-lg`}
                             >
-                              <div className="flex items-center gap-3 mb-2">
-                                <Clock className={`w-4 h-4 ${item.isAdapted ? 'text-red-400' : 'text-purple-400'}`} />
-                                <span className={`text-sm font-semibold ${item.isAdapted ? 'text-red-300' : 'text-purple-300'}`}>
-                                  {item.time}
+                              <div className="flex items-center justify-between mb-3">
+                                <h3 className={`font-bold text-lg ${colors.text}`}>
+                                  {item.subject}
+                                </h3>
+                                <span className="text-sm text-slate-400 font-semibold">
+                                  {item.duration}
                                 </span>
-                                {item.isAdapted && (
-                                  <span className="ml-auto px-2 py-0.5 bg-red-500/20 text-red-300 rounded text-xs font-bold">
-                                    ADAPTÉ
-                                  </span>
-                                )}
                               </div>
-                              <p className="text-white font-medium">{item.activity}</p>
+                              <ul className="space-y-2">
+                                {item.tasks.map((task, taskIdx) => (
+                                  <li key={taskIdx} className="flex items-start gap-2 text-sm text-slate-300">
+                                    <span className="text-indigo-400 mt-1">•</span>
+                                    <span>{task}</span>
+                                  </li>
+                                ))}
+                              </ul>
                             </div>
-                          ));
-                        })()
+                          );
+                        })
                       ) : (
                         <p className="text-center text-slate-400 py-8">Pas de planning</p>
                       )}
@@ -3244,15 +3308,23 @@ function App() {
                           </div>
 
                           {/* Temps de travail suggéré */}
-                          {eveningSchedule[day] && (
+                          {eveningSchedule[day] && eveningSchedule[day].length > 0 && (
                             <div className="mt-6 p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-lg">
-                              <h4 className="text-sm font-bold text-indigo-300 mb-2">â±ï¸ Créneaux de travail suggérés:</h4>
-                              <div className="flex flex-wrap gap-2">
-                                {eveningSchedule[day].filter(slot => slot.duration > 0).map((slot, idx) => (
-                                  <span key={idx} className="px-3 py-1 bg-indigo-800/50 text-indigo-200 rounded-full text-xs">
-                                    {slot.time} ({slot.duration}min)
-                                  </span>
-                                ))}
+                              <h4 className="text-sm font-bold text-indigo-300 mb-3">⏱️ Planning de travail du soir:</h4>
+                              <div className="space-y-2">
+                                {eveningSchedule[day].map((slot, idx) => {
+                                  const colors = getEveningSubjectColors(slot.subject);
+                                  return (
+                                    <div key={idx} className="flex items-center gap-2">
+                                      <span className={`px-2 py-1 ${colors.bg} ${colors.text} rounded text-xs font-semibold`}>
+                                        {slot.subject}
+                                      </span>
+                                      <span className="text-xs text-slate-400">
+                                        ({slot.duration})
+                                      </span>
+                                    </div>
+                                  );
+                                })}
                               </div>
                             </div>
                           )}
