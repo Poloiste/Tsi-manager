@@ -98,7 +98,7 @@ const Onboarding = ({ onClose }) => {
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
             <p className="text-slate-300 text-base">
-              → Les formules LaTeX marchent : $\frac{'{a}'}{'{b}'}$, $\int$, etc.
+              {'→ Les formules LaTeX marchent : $\\frac{a}{b}$, $\\int$, etc.'}
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
@@ -208,7 +208,7 @@ const Onboarding = ({ onClose }) => {
               className="w-5 h-5 text-indigo-600 bg-slate-700 border-slate-600 rounded focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-800"
             />
             <label htmlFor="dontShowAgain" className="text-slate-300 cursor-pointer text-base">
-              ☐ Ne plus afficher ce tuto au démarrage
+              Ne plus afficher ce tuto au démarrage
             </label>
           </div>
         </div>
