@@ -91,6 +91,8 @@ function App() {
   const [showImportExport, setShowImportExport] = useState(false);
   const [showAnkiImport, setShowAnkiImport] = useState(false);
   const [showNotionImport, setShowNotionImport] = useState(false);
+  const [showCsvImport, setShowCsvImport] = useState(false);
+  const [showNojiImport, setShowNojiImport] = useState(false);
   const [notionImportText, setNotionImportText] = useState('');
   const [importCourseId, setImportCourseId] = useState('');
   const [selectedCoursesForExport, setSelectedCoursesForExport] = useState([]);
@@ -1361,6 +1363,282 @@ function App() {
     );
   };
 
+  // ==================== CSV IMPORT/EXPORT ====================
+
+  // Exporter vers CSV
+  const exportToCSV = () => {
+    if (selectedCoursesForExport.length === 0) {
+      alert('Veuillez sélectionner au moins un cours à exporter');
+      return;
+    }
+
+    const exportFlashcards = flashcards.filter(f => 
+      selectedCoursesForExport.includes(f.courseId)
+    );
+
+    if (exportFlashcards.length === 0) {
+      alert('Aucune flashcard à exporter pour les cours sélectionnés');
+      return;
+    }
+
+    // Créer le contenu CSV avec en-têtes
+    let csvContent = 'question,answer,subject,chapter\n';
+    
+    exportFlashcards.forEach(f => {
+      const course = courses.find(c => c.id === f.courseId);
+      const subject = course ? course.subject : 'N/A';
+      const chapter = course ? course.chapter : 'N/A';
+      
+      // Échapper les guillemets et entourer les valeurs de guillemets
+      const escapeCSV = (str) => {
+        if (!str) return '""';
+        return '"' + String(str).replace(/"/g, '""') + '"';
+      };
+      
+      csvContent += `${escapeCSV(f.question)},${escapeCSV(f.answer)},${escapeCSV(subject)},${escapeCSV(chapter)}\n`;
+    });
+
+    // Créer et télécharger le fichier avec encodage UTF-8
+    const BOM = '\uFEFF'; // UTF-8 BOM pour Excel
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'flashcards_export.csv';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    alert(`✅ ${exportFlashcards.length} flashcards exportées en CSV`);
+  };
+
+  // Importer depuis CSV
+  const handleCSVImport = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!importCourseId) {
+      alert('Veuillez sélectionner un cours de destination');
+      event.target.value = ''; // Reset file input
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const content = e.target.result;
+        const lines = content.split('\n').filter(line => line.trim());
+        
+        if (lines.length === 0) {
+          alert('Le fichier est vide');
+          return;
+        }
+
+        // Détecter le séparateur (virgule, point-virgule, ou tabulation)
+        const detectSeparator = (line) => {
+          const separators = [',', ';', '\t'];
+          for (let sep of separators) {
+            if (line.includes(sep)) return sep;
+          }
+          return ',';
+        };
+
+        const separator = detectSeparator(lines[0]);
+        
+        // Parser CSV avec gestion des guillemets
+        const parseCSVLine = (line) => {
+          const result = [];
+          let current = '';
+          let inQuotes = false;
+          
+          for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            const nextChar = line[i + 1];
+            
+            if (char === '"') {
+              if (inQuotes && nextChar === '"') {
+                current += '"';
+                i++; // Skip next quote
+              } else {
+                inQuotes = !inQuotes;
+              }
+            } else if (char === separator && !inQuotes) {
+              result.push(current.trim());
+              current = '';
+            } else {
+              current += char;
+            }
+          }
+          result.push(current.trim());
+          return result;
+        };
+
+        // Détecter si la première ligne est un en-tête
+        const firstLine = parseCSVLine(lines[0]);
+        const hasHeader = firstLine.some(cell => 
+          ['question', 'answer', 'réponse'].includes(cell.toLowerCase())
+        );
+
+        const startIndex = hasHeader ? 1 : 0;
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (let i = startIndex; i < lines.length; i++) {
+          const cells = parseCSVLine(lines[i]);
+          
+          if (cells.length >= 2) {
+            const question = cells[0].trim();
+            const answer = cells[1].trim();
+            
+            if (question && answer) {
+              try {
+                const { error } = await supabase
+                  .from('shared_flashcards')
+                  .insert([{
+                    course_id: importCourseId,
+                    question: question,
+                    answer: answer,
+                    created_by: user.id
+                  }]);
+                
+                if (error) throw error;
+                successCount++;
+              } catch (error) {
+                console.error('Error importing flashcard:', error);
+                errorCount++;
+              }
+            }
+          }
+        }
+
+        // Recharger les flashcards
+        await loadFlashcards();
+        
+        setShowCsvImport(false);
+        setImportCourseId('');
+        event.target.value = ''; // Reset file input
+        alert(`✅ Import terminé\n${successCount} flashcards importées\n${errorCount} erreurs`);
+      } catch (error) {
+        console.error('Error parsing CSV:', error);
+        alert('❌ Erreur lors de la lecture du fichier CSV');
+        event.target.value = '';
+      }
+    };
+
+    reader.readAsText(file, 'UTF-8');
+  };
+
+  // ==================== NOJI IA IMPORT/EXPORT ====================
+
+  // Exporter vers Noji IA (JSON)
+  const exportToNoji = () => {
+    if (selectedCoursesForExport.length === 0) {
+      alert('Veuillez sélectionner au moins un cours à exporter');
+      return;
+    }
+
+    const exportFlashcards = flashcards.filter(f => 
+      selectedCoursesForExport.includes(f.courseId)
+    );
+
+    if (exportFlashcards.length === 0) {
+      alert('Aucune flashcard à exporter pour les cours sélectionnés');
+      return;
+    }
+
+    // Créer le format JSON Noji IA
+    const nojiData = {
+      cards: exportFlashcards.map(f => {
+        const course = courses.find(c => c.id === f.courseId);
+        const tags = course ? [course.subject, course.chapter] : ['TSI'];
+        
+        return {
+          front: f.question,
+          back: f.answer,
+          tags: tags
+        };
+      })
+    };
+
+    // Créer et télécharger le fichier JSON
+    const jsonContent = JSON.stringify(nojiData, null, 2);
+    const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'flashcards_noji_export.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    alert(`✅ ${exportFlashcards.length} flashcards exportées pour Noji IA`);
+  };
+
+  // Importer depuis Noji IA (JSON)
+  const handleNojiImport = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!importCourseId) {
+      alert('Veuillez sélectionner un cours de destination');
+      event.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        const content = e.target.result;
+        const data = JSON.parse(content);
+        
+        if (!data.cards || !Array.isArray(data.cards)) {
+          alert('❌ Format JSON invalide. Le fichier doit contenir un tableau "cards"');
+          return;
+        }
+
+        let successCount = 0;
+        let errorCount = 0;
+
+        for (const card of data.cards) {
+          if (card.front && card.back) {
+            try {
+              const { error } = await supabase
+                .from('shared_flashcards')
+                .insert([{
+                  course_id: importCourseId,
+                  question: card.front,
+                  answer: card.back,
+                  created_by: user.id
+                }]);
+              
+              if (error) throw error;
+              successCount++;
+            } catch (error) {
+              console.error('Error importing flashcard:', error);
+              errorCount++;
+            }
+          }
+        }
+
+        // Recharger les flashcards
+        await loadFlashcards();
+        
+        setShowNojiImport(false);
+        setImportCourseId('');
+        event.target.value = '';
+        alert(`✅ Import terminé\n${successCount} flashcards importées\n${errorCount} erreurs`);
+      } catch (error) {
+        console.error('Error parsing JSON:', error);
+        alert('❌ Erreur lors de la lecture du fichier JSON. Vérifiez que le format est correct.');
+        event.target.value = '';
+      }
+    };
+
+    reader.readAsText(file, 'UTF-8');
+  };
+
 
   // ==================== FONCTIONS CHAT ====================
   
@@ -2264,16 +2542,38 @@ function App() {
                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
                           📥 Importer
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <button
+                            onClick={() => setShowCsvImport(true)}
+                            className="p-4 bg-slate-900/50 border border-green-500/30 rounded-lg hover:border-green-500/50 transition-all text-left"
+                          >
+                            <div className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                              <File className="w-5 h-5" />
+                              CSV
+                            </div>
+                            <p className="text-sm text-slate-400">Format .csv standard</p>
+                          </button>
+                          
                           <button
                             onClick={() => setShowAnkiImport(true)}
                             className="p-4 bg-slate-900/50 border border-indigo-500/30 rounded-lg hover:border-indigo-500/50 transition-all text-left"
                           >
                             <div className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
                               <FileText className="w-5 h-5" />
-                              Depuis Anki
+                              Anki
                             </div>
-                            <p className="text-sm text-slate-400">Format .txt ou .csv (TAB séparé)</p>
+                            <p className="text-sm text-slate-400">Format .txt (TAB séparé)</p>
+                          </button>
+                          
+                          <button
+                            onClick={() => setShowNojiImport(true)}
+                            className="p-4 bg-slate-900/50 border border-blue-500/30 rounded-lg hover:border-blue-500/50 transition-all text-left"
+                          >
+                            <div className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                              <Brain className="w-5 h-5" />
+                              Noji IA
+                            </div>
+                            <p className="text-sm text-slate-400">Format .json</p>
                           </button>
                           
                           <button
@@ -2282,9 +2582,9 @@ function App() {
                           >
                             <div className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
                               <Copy className="w-5 h-5" />
-                              Depuis Notion
+                              Notion
                             </div>
-                            <p className="text-sm text-slate-400">Coller un tableau Markdown</p>
+                            <p className="text-sm text-slate-400">Tableau Markdown</p>
                           </button>
                         </div>
                       </div>
@@ -2316,9 +2616,26 @@ function App() {
                               );
                             })}
                           </div>
+                          {selectedCoursesForExport.length > 0 && (
+                            <p className="text-sm text-indigo-400 mt-3 font-semibold">
+                              Total sélectionné : {flashcards.filter(f => selectedCoursesForExport.includes(f.courseId)).length} flashcards
+                            </p>
+                          )}
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <button
+                            onClick={exportToCSV}
+                            disabled={selectedCoursesForExport.length === 0}
+                            className="p-4 bg-slate-900/50 border border-green-500/30 rounded-lg hover:border-green-500/50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <div className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                              <Download className="w-5 h-5" />
+                              CSV
+                            </div>
+                            <p className="text-sm text-slate-400">Télécharger .csv</p>
+                          </button>
+                          
                           <button
                             onClick={exportToAnki}
                             disabled={selectedCoursesForExport.length === 0}
@@ -2326,9 +2643,21 @@ function App() {
                           >
                             <div className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
                               <Download className="w-5 h-5" />
-                              Vers Anki
+                              Anki
                             </div>
-                            <p className="text-sm text-slate-400">Télécharger fichier .txt</p>
+                            <p className="text-sm text-slate-400">Télécharger .txt</p>
+                          </button>
+                          
+                          <button
+                            onClick={exportToNoji}
+                            disabled={selectedCoursesForExport.length === 0}
+                            className="p-4 bg-slate-900/50 border border-blue-500/30 rounded-lg hover:border-blue-500/50 transition-all text-left disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            <div className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
+                              <Download className="w-5 h-5" />
+                              Noji IA
+                            </div>
+                            <p className="text-sm text-slate-400">Télécharger .json</p>
                           </button>
                           
                           <button
@@ -2338,9 +2667,9 @@ function App() {
                           >
                             <div className="text-lg font-semibold text-white mb-2 flex items-center gap-2">
                               <Copy className="w-5 h-5" />
-                              Vers Notion
+                              Notion
                             </div>
-                            <p className="text-sm text-slate-400">Copier tableau Markdown</p>
+                            <p className="text-sm text-slate-400">Copier Markdown</p>
                           </button>
                         </div>
                       </div>
@@ -3416,6 +3745,148 @@ function App() {
                 className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Importer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Import CSV */}
+      {showCsvImport && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl p-8 max-w-2xl w-full border border-indigo-500/30">
+            <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+              <File className="w-6 h-6" />
+              📥 Importer depuis CSV
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-green-900/20 border border-green-500/30 rounded-lg">
+                <p className="text-sm text-green-300 mb-2">📋 Formats acceptés :</p>
+                <code className="text-xs text-slate-300 block bg-slate-900/50 p-2 rounded mb-2">
+                  question,answer,subject,chapter
+                </code>
+                <p className="text-xs text-slate-400 mt-2">
+                  Séparateurs supportés : virgule (,), point-virgule (;), ou tabulation
+                </p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Le fichier peut avoir ou non une ligne d'en-tête
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Associer au cours</label>
+                <select
+                  value={importCourseId}
+                  onChange={(e) => setImportCourseId(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value="">Sélectionner un cours...</option>
+                  {courses.map(course => (
+                    <option key={course.id} value={course.id}>
+                      {course.subject} - {course.chapter}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Fichier CSV</label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".csv,.txt"
+                    onChange={handleCSVImport}
+                    className="w-full px-4 py-3 bg-slate-900 border-2 border-dashed border-slate-700 rounded-lg text-white hover:border-green-500 transition-all cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700"
+                  />
+                </div>
+                <p className="text-xs text-slate-400 mt-2">
+                  Glissez-déposer un fichier .csv, ou cliquez pour sélectionner
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowCsvImport(false);
+                  setImportCourseId('');
+                }}
+                className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
+              >
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Import Noji IA */}
+      {showNojiImport && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl p-8 max-w-2xl w-full border border-indigo-500/30">
+            <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+              <Brain className="w-6 h-6" />
+              📥 Importer depuis Noji IA
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="p-4 bg-blue-900/20 border border-blue-500/30 rounded-lg">
+                <p className="text-sm text-blue-300 mb-2">📋 Format attendu (JSON) :</p>
+                <code className="text-xs text-slate-300 block bg-slate-900/50 p-2 rounded whitespace-pre">
+{`{
+  "cards": [
+    {
+      "front": "Question",
+      "back": "Réponse",
+      "tags": ["tag1", "tag2"]
+    }
+  ]
+}`}
+                </code>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Associer au cours</label>
+                <select
+                  value={importCourseId}
+                  onChange={(e) => setImportCourseId(e.target.value)}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value="">Sélectionner un cours...</option>
+                  {courses.map(course => (
+                    <option key={course.id} value={course.id}>
+                      {course.subject} - {course.chapter}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Fichier JSON</label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleNojiImport}
+                    className="w-full px-4 py-3 bg-slate-900 border-2 border-dashed border-slate-700 rounded-lg text-white hover:border-blue-500 transition-all cursor-pointer file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+                  />
+                </div>
+                <p className="text-xs text-slate-400 mt-2">
+                  Glissez-déposer un fichier .json exporté depuis Noji IA
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowNojiImport(false);
+                  setImportCourseId('');
+                }}
+                className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
+              >
+                Annuler
               </button>
             </div>
           </div>
