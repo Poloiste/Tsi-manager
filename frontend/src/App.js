@@ -1,8 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles, Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, LogOut, Send, MessageCircle, Menu, Download, Copy, FileText } from 'lucide-react';
+import {
+  Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
+  Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
+  FolderOpen, LogOut, Send, MessageCircle, Menu, Download, Copy, FileText,
+  HelpCircle
+} from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
 import { supabase } from './supabaseClient';
+import Onboarding from './components/Onboarding';
+import { ONBOARDING_COMPLETED_KEY } from './constants';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -152,6 +159,9 @@ function App() {
   
   // États pour navigation responsive
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // État pour le tutoriel d'onboarding
+  const [showOnboarding, setShowOnboarding] = useState(false);
   
   // États pour Import/Export de flashcards
   const [showImportExport, setShowImportExport] = useState(false);
@@ -861,6 +871,16 @@ function App() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Check for first-time user onboarding after user is loaded
+  useEffect(() => {
+    if (user && !isLoading) {
+      const onboardingCompleted = localStorage.getItem(ONBOARDING_COMPLETED_KEY);
+      if (onboardingCompleted !== 'true') {
+        setShowOnboarding(true);
+      }
+    }
+  }, [user, isLoading]);
 
   // Save expansion state to localStorage
   useEffect(() => {
@@ -2196,6 +2216,16 @@ function App() {
                 <Menu className={`w-6 h-6 transition-transform duration-300 ${isMobileMenuOpen ? 'rotate-90' : ''}`} />
               </button>
               
+              {/* Help button */}
+              <button
+                onClick={() => setShowOnboarding(true)}
+                className="hidden sm:flex px-3 sm:px-4 py-2 bg-indigo-600/30 border border-indigo-500/50 text-indigo-300 rounded-lg hover:bg-indigo-600/50 transition-all font-semibold items-center gap-2 text-sm"
+                title="Revoir le tutoriel"
+              >
+                <HelpCircle className="w-4 h-4" />
+                <span className="hidden md:inline">Aide</span>
+              </button>
+              
               {/* Logout button - Hidden on small mobile */}
               <button
                 onClick={signOut}
@@ -2254,6 +2284,16 @@ function App() {
                   <div className="text-2xl font-bold text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text">{daysUntil}</div>
                   <div className="text-xs text-indigo-300">jours avant concours</div>
                 </div>
+                <button
+                  onClick={() => {
+                    setShowOnboarding(true);
+                    setIsMobileMenuOpen(false);
+                  }}
+                  className="w-full px-4 py-3 mb-2 bg-indigo-600/30 border border-indigo-500/50 text-indigo-300 rounded-lg hover:bg-indigo-600/50 transition-all font-semibold flex items-center justify-center gap-2"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  Aide / Tutoriel
+                </button>
                 <button
                   onClick={signOut}
                   className="w-full px-4 py-3 bg-red-600/30 border border-red-500/50 text-red-300 rounded-lg hover:bg-red-600/50 transition-all font-semibold flex items-center justify-center gap-2 sm:hidden"
@@ -4314,6 +4354,11 @@ function App() {
             </div>
           </div>
         </div>
+      )}
+      
+      {/* Onboarding Tutorial */}
+      {showOnboarding && (
+        <Onboarding onClose={() => setShowOnboarding(false)} />
       )}
     </div>
   );
