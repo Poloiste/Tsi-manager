@@ -115,7 +115,7 @@ const Onboarding = ({ onClose }) => {
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
             <h4 className="font-bold text-white mb-2">✓ Support LaTeX pour les formules</h4>
             <p className="text-slate-300 text-sm">
-              Écrivez des équations mathématiques : $\frac{'{'}a{'}'}{'{'}{'}'}{'{'}{'}'}b{'}'}$, $\int$, $\sum$
+              Écrivez des équations mathématiques : $\frac{`{`}a{`}`}{`{`}b{`}`}$, $\int$, $\sum$
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
@@ -275,7 +275,8 @@ const Onboarding = ({ onClose }) => {
     onClose();
   };
 
-  const handleSkip = () => {
+  const handleSkipAndDisable = () => {
+    // Skipping the tutorial always prevents it from showing again
     localStorage.setItem('tsi_manager_onboarding_completed', 'true');
     onClose();
   };
@@ -288,7 +289,7 @@ const Onboarding = ({ onClose }) => {
         {/* Header */}
         <div className="relative p-8 bg-gradient-to-r from-indigo-900/50 to-purple-900/50 border-b border-indigo-500/30">
           <button
-            onClick={handleSkip}
+            onClick={handleSkipAndDisable}
             className="absolute top-4 right-4 p-2 hover:bg-slate-700/50 rounded-lg transition-all text-slate-400 hover:text-white"
             title="Passer le tutoriel"
           >

@@ -862,7 +862,7 @@ function App() {
         
         // Check if user has completed onboarding
         const onboardingCompleted = localStorage.getItem('tsi_manager_onboarding_completed');
-        if (!onboardingCompleted) {
+        if (onboardingCompleted !== 'true') {
           setShowOnboarding(true);
         }
       }
