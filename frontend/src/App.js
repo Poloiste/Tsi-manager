@@ -575,6 +575,12 @@ function App() {
     return colors[subject] || 'from-slate-600 to-slate-700';
   };
 
+  // Get user's display name from user object
+  const getUserDisplayName = (user) => {
+    if (!user) return 'Anonyme';
+    return user.user_metadata?.name || user.email?.split('@')[0] || 'Anonyme';
+  };
+
   // Toggle expansion for tree view
   const toggleSubject = (subject) => {
     setExpandedSubjects(prev => ({
@@ -682,7 +688,7 @@ function App() {
           correctCount: stats?.correct_count || 0,
           incorrectCount: stats?.incorrect_count || 0,
           authorName: flashcard.created_by_name || 'Anonyme',
-          isImported: flashcard.imported_from ? true : false,
+          isImported: !!flashcard.imported_from,
           importSource: flashcard.imported_from || null
         };
       });
@@ -989,7 +995,7 @@ function App() {
     if (!user) return;
     
     try {
-      const userName = user.user_metadata?.name || user.email?.split('@')[0] || 'Anonyme';
+      const userName = getUserDisplayName(user);
       
       const { error } = await supabase
         .from('shared_flashcards')
@@ -1302,7 +1308,7 @@ function App() {
           
           if (question && answer) {
             try {
-              const userName = user.user_metadata?.name || user.email?.split('@')[0] || 'Anonyme';
+              const userName = getUserDisplayName(user);
               
               const { error } = await supabase
                 .from('shared_flashcards')
@@ -1371,7 +1377,7 @@ function App() {
         
         if (question && answer) {
           try {
-            const userName = user.user_metadata?.name || user.email?.split('@')[0] || 'Anonyme';
+            const userName = getUserDisplayName(user);
             
             const { error } = await supabase
               .from('shared_flashcards')
@@ -1563,7 +1569,7 @@ function App() {
             
             if (question && answer) {
               try {
-                const userName = user.user_metadata?.name || user.email?.split('@')[0] || 'Anonyme';
+                const userName = getUserDisplayName(user);
                 
                 const { error } = await supabase
                   .from('shared_flashcards')
@@ -1703,7 +1709,7 @@ function App() {
           }
           
           try {
-            const userName = user.user_metadata?.name || user.email?.split('@')[0] || 'Anonyme';
+            const userName = getUserDisplayName(user);
             
             const { error } = await supabase
               .from('shared_flashcards')
@@ -2971,7 +2977,12 @@ function App() {
                                           <div key={card.id} className="flex items-center justify-between p-2 bg-slate-900/50 rounded text-sm hover:bg-slate-800/50 transition-all">
                                             <div className="flex items-center gap-2 flex-1 min-w-0">
                                               <span>🎴</span>
-                                              <span className="truncate max-w-xs text-white">{card.question}</span>
+                                              <span 
+                                                className="truncate max-w-xs text-white" 
+                                                title={card.question}
+                                              >
+                                                {card.question}
+                                              </span>
                                               <span className="text-xs text-indigo-400 whitespace-nowrap">— par {card.authorName}</span>
                                               {card.isImported && (
                                                 <span className="text-xs bg-blue-500/20 text-blue-300 px-1 rounded whitespace-nowrap">

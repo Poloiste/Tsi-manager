@@ -26,8 +26,15 @@ BEGIN
 END $$;
 
 -- Update existing flashcards to populate created_by_name from auth.users
--- Note: This requires access to auth.users which may not be available in RLS context
--- This should be run as a privileged user or service account
+-- WARNING: This section requires access to auth.users which may not be available in RLS context
+-- OPTIONS:
+--   1. Run this as a Supabase service role (in SQL Editor with service role key)
+--   2. Run via Supabase CLI: supabase db push
+--   3. Skip this section if you don't have existing flashcards
+--   4. Manually update using a server-side script with service role key
+
+-- Uncomment the following block to update existing flashcard author names:
+/*
 UPDATE public.shared_flashcards 
 SET created_by_name = COALESCE(
   (SELECT COALESCE(
@@ -38,3 +45,28 @@ SET created_by_name = COALESCE(
   'Anonyme'
 )
 WHERE created_by_name = 'Anonyme' AND created_by IS NOT NULL;
+*/
+
+-- Alternative: Create a PostgreSQL function that can be called with proper privileges
+-- This function can be executed by the Supabase service role
+CREATE OR REPLACE FUNCTION public.update_flashcard_authors()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  UPDATE public.shared_flashcards 
+  SET created_by_name = COALESCE(
+    (SELECT COALESCE(
+      raw_user_meta_data->>'name',
+      split_part(email, '@', 1),
+      'Anonyme'
+    ) FROM auth.users WHERE id = created_by),
+    'Anonyme'
+  )
+  WHERE created_by_name = 'Anonyme' AND created_by IS NOT NULL;
+END;
+$$;
+
+-- To update existing flashcards, call this function from SQL Editor or via RPC:
+-- SELECT public.update_flashcard_authors();
