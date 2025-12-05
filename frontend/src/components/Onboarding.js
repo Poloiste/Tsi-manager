@@ -115,7 +115,7 @@ const Onboarding = ({ onClose }) => {
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
             <h4 className="font-bold text-white mb-2">✓ Support LaTeX pour les formules</h4>
             <p className="text-slate-300 text-sm">
-              Écrivez des équations mathématiques : $\frac{`{`}a{`}`}{`{`}b{`}`}$, $\int$, $\sum$
+              Écrivez des équations mathématiques : $\frac{"{a}"}{"{b}"}$, $\int$, $\sum$
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
