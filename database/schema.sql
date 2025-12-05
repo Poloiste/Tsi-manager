@@ -34,6 +34,8 @@ CREATE TABLE IF NOT EXISTS public.shared_flashcards (
   question TEXT NOT NULL,
   answer TEXT NOT NULL,
   created_by UUID REFERENCES auth.users(id),
+  created_by_name TEXT DEFAULT 'Anonyme',
+  imported_from TEXT DEFAULT NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -174,6 +176,10 @@ CREATE POLICY "Anyone can read flashcards" ON public.shared_flashcards
 DROP POLICY IF EXISTS "Authenticated users can insert flashcards" ON public.shared_flashcards;
 CREATE POLICY "Authenticated users can insert flashcards" ON public.shared_flashcards
   FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+DROP POLICY IF EXISTS "Users can update their own flashcards" ON public.shared_flashcards;
+CREATE POLICY "Users can update their own flashcards" ON public.shared_flashcards
+  FOR UPDATE USING (auth.uid() = created_by);
 
 DROP POLICY IF EXISTS "Users can delete their own flashcards" ON public.shared_flashcards;
 CREATE POLICY "Users can delete their own flashcards" ON public.shared_flashcards
