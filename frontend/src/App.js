@@ -646,41 +646,6 @@ function App() {
     return suggestions;
   };
 
-  // NOTE: Function commented out - no longer compatible with new evening schedule structure
-  // The new eveningSchedule uses subject/tasks instead of time/activity
-  // This function would need to be rewritten if adaptive scheduling is needed in the future
-  /*
-  // Fonction pour adapter le planning du soir selon les évaluations à venir
-  const getAdaptedEveningSchedule = (day, weekNum) => {
-    const baseSchedule = eveningSchedule[day] || [];
-    const upcomingTests = getUpcomingTests(weekNum, 7); // Tests dans les 7 prochains jours
-    
-    if (upcomingTests.length === 0) {
-      return baseSchedule; // Pas de test à venir, planning normal
-    }
-    
-    // Trier les tests par urgence (jours restants)
-    const sortedTests = upcomingTests.sort((a, b) => a.daysUntil - b.daysUntil);
-    
-    // Adapter le planning - remplacer les slots de révision par des révisions ciblées
-    const adaptedSchedule = baseSchedule.map((slot, index) => {
-      // Ne modifier que les slots de travail (durée > 0), pas les pauses ou détente
-      if (slot.duration > 0 && sortedTests[index]) {
-        const test = sortedTests[index];
-        return {
-          ...slot,
-          activity: `🎯 RÉVISION ${test.type} ${test.subject} (J-${test.daysUntil})`,
-          isAdapted: true,
-          relatedTest: test
-        };
-      }
-      return slot;
-    });
-    
-    return adaptedSchedule;
-  };
-  */
-
   // eslint-disable-next-line no-unused-vars
   const getCoursesBySubject = () => {
     const grouped = {};
