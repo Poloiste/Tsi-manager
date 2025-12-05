@@ -859,18 +859,22 @@ function App() {
           loadFlashcards(),
           loadEvents()
         ]);
-        
-        // Check if user has completed onboarding
-        const onboardingCompleted = localStorage.getItem('tsi_manager_onboarding_completed');
-        if (onboardingCompleted !== 'true') {
-          setShowOnboarding(true);
-        }
       }
       setIsLoading(false);
     };
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Check for first-time user onboarding after user is loaded
+  useEffect(() => {
+    if (user && !isLoading) {
+      const onboardingCompleted = localStorage.getItem('tsi_manager_onboarding_completed');
+      if (onboardingCompleted !== 'true') {
+        setShowOnboarding(true);
+      }
+    }
+  }, [user, isLoading]);
 
   // Save expansion state to localStorage
   useEffect(() => {

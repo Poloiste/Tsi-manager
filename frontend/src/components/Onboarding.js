@@ -115,7 +115,7 @@ const Onboarding = ({ onClose }) => {
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
             <h4 className="font-bold text-white mb-2">✓ Support LaTeX pour les formules</h4>
             <p className="text-slate-300 text-sm">
-              Écrivez des équations mathématiques : $\frac{"{a}"}{"{b}"}$, $\int$, $\sum$
+              Écrivez des équations mathématiques : $\frac{'{a}'}{'{b}'}$, $\int$, $\sum$
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
@@ -284,7 +284,12 @@ const Onboarding = ({ onClose }) => {
   const currentSlideData = slides[currentSlide];
 
   return (
-    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+    <div 
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[100] p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="onboarding-title"
+    >
       <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl border-2 border-indigo-500/50 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="relative p-8 bg-gradient-to-r from-indigo-900/50 to-purple-900/50 border-b border-indigo-500/30">
@@ -300,7 +305,7 @@ const Onboarding = ({ onClose }) => {
             <div className="mb-4">
               {currentSlideData.icon}
             </div>
-            <h2 className="text-4xl font-bold text-white mb-2">
+            <h2 className="text-4xl font-bold text-white mb-2" id="onboarding-title">
               {currentSlideData.title}
             </h2>
             <p className="text-xl text-indigo-300">
@@ -314,12 +319,14 @@ const Onboarding = ({ onClose }) => {
               <button
                 key={index}
                 onClick={() => setCurrentSlide(index)}
-                className={`h-2 rounded-full transition-all ${
+                className={`h-2 rounded-full transition-all p-2 ${
                   index === currentSlide
                     ? 'w-8 bg-indigo-500'
                     : 'w-2 bg-slate-600 hover:bg-slate-500'
                 }`}
                 title={`Aller à l'étape ${index + 1}`}
+                aria-label={`Aller à l'étape ${index + 1}`}
+                aria-current={index === currentSlide ? 'step' : undefined}
               />
             ))}
           </div>
