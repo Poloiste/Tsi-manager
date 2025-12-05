@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles, Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder, FolderOpen, LogOut, Send, MessageCircle, Menu, Download, Copy, FileText, HelpCircle } from 'lucide-react';
+import {
+  Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
+  Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
+  FolderOpen, LogOut, Send, MessageCircle, Menu, Download, Copy, FileText,
+  HelpCircle
+} from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
 import { supabase } from './supabaseClient';
 import Onboarding from './components/Onboarding';
-
-// localStorage key for onboarding
-const ONBOARDING_COMPLETED_KEY = 'tsi_manager_onboarding_completed';
+import { ONBOARDING_COMPLETED_KEY } from './constants';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
