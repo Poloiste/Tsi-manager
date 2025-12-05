@@ -9,7 +9,7 @@ const Onboarding = ({ onClose }) => {
   const slides = [
     {
       title: "🎉 Salut ! Bienvenue sur TSI Manager",
-      subtitle: "L'app qui va te sauver la vie en prépa 😎",
+      subtitle: "L'app qui va t'aider pour la prépa",
       icon: <HelpCircle className="w-20 h-20 text-indigo-400" />,
       content: (
         <div className="text-center space-y-6">
