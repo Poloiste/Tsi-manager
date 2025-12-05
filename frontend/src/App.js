@@ -84,6 +84,16 @@ function App() {
   });
   const [showFlashcardPreview, setShowFlashcardPreview] = useState(false);
   
+  // États pour arborescence des flashcards
+  const [expandedSubjects, setExpandedSubjects] = useState(() => {
+    const saved = localStorage.getItem('expandedSubjects');
+    return saved ? JSON.parse(saved) : {};
+  });
+  const [expandedChapters, setExpandedChapters] = useState(() => {
+    const saved = localStorage.getItem('expandedChapters');
+    return saved ? JSON.parse(saved) : {};
+  });
+  
   // États pour navigation responsive
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   
@@ -565,6 +575,27 @@ function App() {
     return colors[subject] || 'from-slate-600 to-slate-700';
   };
 
+  // Get user's display name from user object
+  const getUserDisplayName = (user) => {
+    if (!user) return 'Anonyme';
+    return user.user_metadata?.name || user.email?.split('@')[0] || 'Anonyme';
+  };
+
+  // Toggle expansion for tree view
+  const toggleSubject = (subject) => {
+    setExpandedSubjects(prev => ({
+      ...prev,
+      [subject]: !prev[subject]
+    }));
+  };
+
+  const toggleChapter = (chapterId) => {
+    setExpandedChapters(prev => ({
+      ...prev,
+      [chapterId]: !prev[chapterId]
+    }));
+  };
+
   // ==================== SUPABASE DATA FUNCTIONS ====================
   
   // Load shared courses from Supabase
@@ -655,7 +686,10 @@ function App() {
           createdAt: flashcard.created_at,
           lastReviewed: stats?.last_reviewed || null,
           correctCount: stats?.correct_count || 0,
-          incorrectCount: stats?.incorrect_count || 0
+          incorrectCount: stats?.incorrect_count || 0,
+          authorName: flashcard.created_by_name || 'Anonyme',
+          isImported: !!flashcard.imported_from,
+          importSource: flashcard.imported_from || null
         };
       });
       
@@ -707,6 +741,15 @@ function App() {
     loadData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Save expansion state to localStorage
+  useEffect(() => {
+    localStorage.setItem('expandedSubjects', JSON.stringify(expandedSubjects));
+  }, [expandedSubjects]);
+
+  useEffect(() => {
+    localStorage.setItem('expandedChapters', JSON.stringify(expandedChapters));
+  }, [expandedChapters]);
 
   // Remove localStorage sync useEffects
 
@@ -948,17 +991,21 @@ function App() {
     setFlashcardStats({ correct: 0, incorrect: 0, skipped: 0 });
   };
 
-  const addFlashcard = async (courseId, question, answer) => {
+  const addFlashcard = async (courseId, question, answer, importedFrom = null) => {
     if (!user) return;
     
     try {
+      const userName = getUserDisplayName(user);
+      
       const { error } = await supabase
         .from('shared_flashcards')
         .insert([{
           course_id: courseId,
           question,
           answer,
-          created_by: user.id
+          created_by: user.id,
+          created_by_name: userName,
+          imported_from: importedFrom
         }]);
       
       if (error) throw error;
@@ -1261,13 +1308,17 @@ function App() {
           
           if (question && answer) {
             try {
+              const userName = getUserDisplayName(user);
+              
               const { error } = await supabase
                 .from('shared_flashcards')
                 .insert([{
                   course_id: importCourseId,
                   question: question,
                   answer: answer,
-                  created_by: user.id
+                  created_by: user.id,
+                  created_by_name: userName,
+                  imported_from: 'anki'
                 }]);
               
               if (error) throw error;
@@ -1326,13 +1377,17 @@ function App() {
         
         if (question && answer) {
           try {
+            const userName = getUserDisplayName(user);
+            
             const { error } = await supabase
               .from('shared_flashcards')
               .insert([{
                 course_id: importCourseId,
                 question: question,
                 answer: answer,
-                created_by: user.id
+                created_by: user.id,
+                created_by_name: userName,
+                imported_from: 'notion'
               }]);
             
             if (error) throw error;
@@ -1514,13 +1569,17 @@ function App() {
             
             if (question && answer) {
               try {
+                const userName = getUserDisplayName(user);
+                
                 const { error } = await supabase
                   .from('shared_flashcards')
                   .insert([{
                     course_id: importCourseId,
                     question: question,
                     answer: answer,
-                    created_by: user.id
+                    created_by: user.id,
+                    created_by_name: userName,
+                    imported_from: 'csv'
                   }]);
                 
                 if (error) throw error;
@@ -1650,13 +1709,17 @@ function App() {
           }
           
           try {
+            const userName = getUserDisplayName(user);
+            
             const { error } = await supabase
               .from('shared_flashcards')
               .insert([{
                 course_id: importCourseId,
                 question: front,
                 answer: back,
-                created_by: user.id
+                created_by: user.id,
+                created_by_name: userName,
+                imported_from: 'noji'
               }]);
             
             if (error) throw error;
@@ -2826,94 +2889,134 @@ function App() {
                     );
                   })()}
                 </div>
-              ) : (
-                // Mode Sélection de cours
-                <div className="space-y-6">
+                ) : (
+                // Mode Sélection de cours avec arborescence
+                <div className="space-y-4">
                   {courses.length === 0 ? (
                     <div className="text-center py-12">
                       <BookOpen className="w-16 h-16 text-slate-600 mx-auto mb-4" />
                       <p className="text-slate-400 text-lg">Ajoutez des cours pour créer des flashcards</p>
                     </div>
                   ) : (
+                    // Arborescence : Matière > Chapitre > Flashcard
                     subjects.map(subject => {
                       const subjectCourses = courses.filter(c => c.subject === subject);
-                      if (subjectCourses.length === 0) return null;
-
+                      const subjectFlashcards = flashcards.filter(f => 
+                        subjectCourses.some(c => c.id === f.courseId)
+                      );
+                      if (subjectFlashcards.length === 0) return null;
+                      
+                      const isSubjectExpanded = expandedSubjects[subject];
+                      
                       return (
-                        <div key={subject} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
-                          <h3 className={`text-2xl font-bold mb-4 bg-gradient-to-r ${getSubjectColor(subject)} bg-clip-text text-transparent`}>
-                            {subject}
-                          </h3>
+                        <div key={subject} className="bg-slate-800/50 rounded-xl border border-slate-700/50">
+                          {/* Header Matière */}
+                          <button
+                            onClick={() => toggleSubject(subject)}
+                            className="w-full p-4 flex items-center justify-between hover:bg-slate-700/30 transition-all rounded-xl"
+                          >
+                            <div className="flex items-center gap-3">
+                              {isSubjectExpanded ? (
+                                <FolderOpen className="w-6 h-6 text-indigo-400" />
+                              ) : (
+                                <Folder className="w-6 h-6 text-slate-400" />
+                              )}
+                              <span className={`font-bold text-xl bg-gradient-to-r ${getSubjectColor(subject)} bg-clip-text text-transparent`}>
+                                {subject}
+                              </span>
+                              <span className="text-sm text-slate-400">({subjectFlashcards.length} cartes)</span>
+                            </div>
+                            <ChevronDown className={`w-5 h-5 text-slate-400 transition-transform ${isSubjectExpanded ? 'rotate-180' : ''}`} />
+                          </button>
                           
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {subjectCourses.map(course => {
-                              const courseFlashcards = flashcards.filter(f => f.courseId === course.id);
-                              
-                              return (
-                                <div key={course.id} className="p-4 bg-slate-900/50 rounded-xl border border-slate-700/50">
-                                  <h4 className="font-bold text-white mb-2">{course.chapter}</h4>
-                                  <div className="flex items-center gap-2 mb-3 text-sm text-slate-400">
-                                    <span>🎴 {courseFlashcards.length} carte(s)</span>
-                                  </div>
-                                  
-                                  <div className="flex gap-2 mb-2">
-                                    {courseFlashcards.length > 0 ? (
+                          {/* Contenu Matière */}
+                          {isSubjectExpanded && (
+                            <div className="pl-6 pb-4 space-y-2">
+                              {subjectCourses.map(course => {
+                                const chapterFlashcards = flashcards.filter(f => f.courseId === course.id);
+                                if (chapterFlashcards.length === 0) return null;
+                                
+                                const isChapterExpanded = expandedChapters[course.id];
+                                
+                                return (
+                                  <div key={course.id} className="border-l-2 border-slate-600 pl-4">
+                                    {/* Header Chapitre */}
+                                    <div className="flex items-center justify-between p-2 hover:bg-slate-700/30 rounded transition-all">
                                       <button
-                                        onClick={() => startFlashcardSession(course)}
-                                        className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold text-sm"
+                                        onClick={() => toggleChapter(course.id)}
+                                        className="flex items-center gap-2 flex-1"
                                       >
-                                        🎯 Réviser
+                                        {isChapterExpanded ? (
+                                          <FolderOpen className="w-4 h-4 text-indigo-400" />
+                                        ) : (
+                                          <Folder className="w-4 h-4 text-slate-400" />
+                                        )}
+                                        <span className="font-semibold text-white">{course.chapter}</span>
+                                        <span className="text-xs text-slate-400">({chapterFlashcards.length})</span>
                                       </button>
-                                    ) : (
-                                      <button
-                                        onClick={() => openAddFlashcardModal(course.id)}
-                                        className="flex-1 px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm"
-                                      >
-                                        ➕ Créer 1ère carte
-                                      </button>
-                                    )}
+                                      <div className="flex items-center gap-2">
+                                        <button 
+                                          onClick={() => startFlashcardSession(course)}
+                                          className="text-xs bg-green-600/30 px-2 py-1 rounded hover:bg-green-600/50 transition-all"
+                                        >
+                                          ▶️ Réviser
+                                        </button>
+                                        <button 
+                                          onClick={() => openAddFlashcardModal(course.id)}
+                                          className="text-xs bg-indigo-600/30 px-2 py-1 rounded hover:bg-indigo-600/50 transition-all"
+                                        >
+                                          + Ajouter
+                                        </button>
+                                      </div>
+                                    </div>
                                     
-                                    <button
-                                      onClick={() => openAddFlashcardModal(course.id)}
-                                      className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
-                                    >
-                                      <Plus className="w-4 h-4" />
-                                    </button>
-                                  </div>
-
-                                  {/* Liste des flashcards */}
-                                  {courseFlashcards.length > 0 && (
-                                    <div className="mt-3 space-y-2">
-                                      {courseFlashcards.map(card => (
-                                        <div key={card.id} className="p-2 bg-slate-800/50 rounded text-xs">
-                                          <div className="flex items-center justify-between mb-1">
-                                            <span className="text-slate-300 font-semibold">Q:</span>
-                                            <div className="flex gap-1">
-                                              <button
+                                    {/* Liste des Flashcards */}
+                                    {isChapterExpanded && (
+                                      <div className="pl-4 mt-2 space-y-1">
+                                        {chapterFlashcards.map(card => (
+                                          <div key={card.id} className="flex items-center justify-between p-2 bg-slate-900/50 rounded text-sm hover:bg-slate-800/50 transition-all">
+                                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                              <span>🎴</span>
+                                              <span 
+                                                className="truncate max-w-xs text-white" 
+                                                title={card.question}
+                                              >
+                                                {card.question}
+                                              </span>
+                                              <span className="text-xs text-indigo-400 whitespace-nowrap">— par {card.authorName}</span>
+                                              {card.isImported && (
+                                                <span className="text-xs bg-blue-500/20 text-blue-300 px-1 rounded whitespace-nowrap">
+                                                  importé ({card.importSource})
+                                                </span>
+                                              )}
+                                            </div>
+                                            <div className="flex items-center gap-2 ml-2">
+                                              <span className="text-xs text-green-400">✅{card.correctCount}</span>
+                                              <span className="text-xs text-red-400">❌{card.incorrectCount}</span>
+                                              <button 
                                                 onClick={() => openEditFlashcardModal(card)}
-                                                className="text-blue-400 hover:text-blue-300"
+                                                className="p-1 hover:bg-slate-700 rounded"
                                                 title="Modifier"
                                               >
                                                 ✏️
                                               </button>
-                                              <button
+                                              <button 
                                                 onClick={() => handleDeleteFlashcardWithConfirm(card.id)}
-                                                className="text-red-400 hover:text-red-300"
+                                                className="p-1 hover:bg-red-900/30 rounded text-red-400"
                                                 title="Supprimer"
                                               >
-                                                <X className="w-3 h-3" />
+                                                🗑
                                               </button>
                                             </div>
                                           </div>
-                                          <div className="text-slate-400 text-xs mb-1 line-clamp-2">{card.question}</div>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                       );
                     })
