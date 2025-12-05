@@ -1381,6 +1381,12 @@ function App() {
       return;
     }
 
+    // Échapper les guillemets et entourer les valeurs de guillemets
+    const escapeCSV = (str) => {
+      if (!str) return '""';
+      return '"' + String(str).replace(/"/g, '""') + '"';
+    };
+
     // Créer le contenu CSV avec en-têtes
     let csvContent = 'question,answer,subject,chapter\n';
     
@@ -1388,12 +1394,6 @@ function App() {
       const course = courses.find(c => c.id === f.courseId);
       const subject = course ? course.subject : 'N/A';
       const chapter = course ? course.chapter : 'N/A';
-      
-      // Échapper les guillemets et entourer les valeurs de guillemets
-      const escapeCSV = (str) => {
-        if (!str) return '""';
-        return '"' + String(str).replace(/"/g, '""') + '"';
-      };
       
       csvContent += `${escapeCSV(f.question)},${escapeCSV(f.answer)},${escapeCSV(subject)},${escapeCSV(chapter)}\n`;
     });
@@ -1436,12 +1436,30 @@ function App() {
         }
 
         // Détecter le séparateur (virgule, point-virgule, ou tabulation)
+        // Compte les occurrences de chaque séparateur et retourne le plus fréquent
         const detectSeparator = (line) => {
           const separators = [',', ';', '\t'];
-          for (let sep of separators) {
-            if (line.includes(sep)) return sep;
+          const counts = {};
+          
+          let inQuotes = false;
+          for (let char of line) {
+            if (char === '"') {
+              inQuotes = !inQuotes;
+            } else if (!inQuotes && separators.includes(char)) {
+              counts[char] = (counts[char] || 0) + 1;
+            }
           }
-          return ',';
+          
+          // Retourner le séparateur avec le plus d'occurrences
+          let maxSep = ',';
+          let maxCount = 0;
+          for (let sep of separators) {
+            if (counts[sep] > maxCount) {
+              maxCount = counts[sep];
+              maxSep = sep;
+            }
+          }
+          return maxSep;
         };
 
         const separator = detectSeparator(lines[0]);
@@ -1475,9 +1493,12 @@ function App() {
         };
 
         // Détecter si la première ligne est un en-tête
+        // Check si tous les éléments de la première ligne sont des chaînes non vides
+        // et qu'au moins un contient les mots clés courants
         const firstLine = parseCSVLine(lines[0]);
+        const headerKeywords = ['question', 'answer', 'réponse', 'reponse', 'subject', 'matiere', 'matière', 'chapter', 'chapitre'];
         const hasHeader = firstLine.some(cell => 
-          ['question', 'answer', 'réponse'].includes(cell.toLowerCase())
+          headerKeywords.some(keyword => cell.toLowerCase().includes(keyword))
         );
 
         const startIndex = hasHeader ? 1 : 0;
@@ -1598,27 +1619,51 @@ function App() {
           return;
         }
 
+        if (data.cards.length === 0) {
+          alert('❌ Le fichier ne contient aucune carte');
+          return;
+        }
+
         let successCount = 0;
         let errorCount = 0;
+        let skippedCount = 0;
 
         for (const card of data.cards) {
-          if (card.front && card.back) {
-            try {
-              const { error } = await supabase
-                .from('shared_flashcards')
-                .insert([{
-                  course_id: importCourseId,
-                  question: card.front,
-                  answer: card.back,
-                  created_by: user.id
-                }]);
-              
-              if (error) throw error;
-              successCount++;
-            } catch (error) {
-              console.error('Error importing flashcard:', error);
-              errorCount++;
-            }
+          // Valider que la carte a les propriétés requises
+          if (!card || typeof card !== 'object') {
+            skippedCount++;
+            continue;
+          }
+          
+          if (!card.front || !card.back) {
+            skippedCount++;
+            continue;
+          }
+          
+          // Valider que front et back sont des chaînes non vides
+          const front = String(card.front).trim();
+          const back = String(card.back).trim();
+          
+          if (!front || !back) {
+            skippedCount++;
+            continue;
+          }
+          
+          try {
+            const { error } = await supabase
+              .from('shared_flashcards')
+              .insert([{
+                course_id: importCourseId,
+                question: front,
+                answer: back,
+                created_by: user.id
+              }]);
+            
+            if (error) throw error;
+            successCount++;
+          } catch (error) {
+            console.error('Error importing flashcard:', error);
+            errorCount++;
           }
         }
 
@@ -1628,7 +1673,11 @@ function App() {
         setShowNojiImport(false);
         setImportCourseId('');
         event.target.value = '';
-        alert(`✅ Import terminé\n${successCount} flashcards importées\n${errorCount} erreurs`);
+        
+        let message = `✅ Import terminé\n${successCount} flashcards importées`;
+        if (errorCount > 0) message += `\n${errorCount} erreurs`;
+        if (skippedCount > 0) message += `\n${skippedCount} cartes ignorées (invalides)`;
+        alert(message);
       } catch (error) {
         console.error('Error parsing JSON:', error);
         alert('❌ Erreur lors de la lecture du fichier JSON. Vérifiez que le format est correct.');
