@@ -5,6 +5,9 @@ import Login from './Login';
 import { supabase } from './supabaseClient';
 import Onboarding from './components/Onboarding';
 
+// localStorage key for onboarding
+const ONBOARDING_COMPLETED_KEY = 'tsi_manager_onboarding_completed';
+
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
   const ref = useRef(null);
@@ -869,7 +872,7 @@ function App() {
   // Check for first-time user onboarding after user is loaded
   useEffect(() => {
     if (user && !isLoading) {
-      const onboardingCompleted = localStorage.getItem('tsi_manager_onboarding_completed');
+      const onboardingCompleted = localStorage.getItem(ONBOARDING_COMPLETED_KEY);
       if (onboardingCompleted !== 'true') {
         setShowOnboarding(true);
       }

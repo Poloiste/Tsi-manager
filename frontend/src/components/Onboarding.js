@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Calendar, BookOpen, Brain, Lightbulb, MessageCircle, ChevronLeft, ChevronRight, X, HelpCircle } from 'lucide-react';
 
+// localStorage key for tracking onboarding completion
+const ONBOARDING_COMPLETED_KEY = 'tsi_manager_onboarding_completed';
+
 const Onboarding = ({ onClose }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [dontShowAgain, setDontShowAgain] = useState(false);
@@ -245,7 +248,7 @@ const Onboarding = ({ onClose }) => {
               id="dontShowAgain"
               checked={dontShowAgain}
               onChange={(e) => setDontShowAgain(e.target.checked)}
-              className="w-5 h-5 text-indigo-600 border-slate-600 rounded focus:ring-indigo-500"
+              className="w-5 h-5 text-indigo-600 bg-slate-700 border-slate-600 rounded focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-800"
             />
             <label htmlFor="dontShowAgain" className="text-slate-300 cursor-pointer">
               Ne plus afficher ce tutoriel au démarrage
@@ -270,14 +273,14 @@ const Onboarding = ({ onClose }) => {
 
   const handleClose = () => {
     if (dontShowAgain) {
-      localStorage.setItem('tsi_manager_onboarding_completed', 'true');
+      localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
     }
     onClose();
   };
 
   const handleSkipAndDisable = () => {
     // Skipping the tutorial always prevents it from showing again
-    localStorage.setItem('tsi_manager_onboarding_completed', 'true');
+    localStorage.setItem(ONBOARDING_COMPLETED_KEY, 'true');
     onClose();
   };
 
@@ -289,6 +292,7 @@ const Onboarding = ({ onClose }) => {
       role="dialog"
       aria-modal="true"
       aria-labelledby="onboarding-title"
+      aria-describedby="onboarding-subtitle"
     >
       <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl border-2 border-indigo-500/50 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
@@ -297,6 +301,7 @@ const Onboarding = ({ onClose }) => {
             onClick={handleSkipAndDisable}
             className="absolute top-4 right-4 p-2 hover:bg-slate-700/50 rounded-lg transition-all text-slate-400 hover:text-white"
             title="Passer le tutoriel"
+            aria-label="Passer le tutoriel"
           >
             <X className="w-6 h-6" />
           </button>
@@ -308,26 +313,30 @@ const Onboarding = ({ onClose }) => {
             <h2 className="text-4xl font-bold text-white mb-2" id="onboarding-title">
               {currentSlideData.title}
             </h2>
-            <p className="text-xl text-indigo-300">
+            <p className="text-xl text-indigo-300" id="onboarding-subtitle">
               {currentSlideData.subtitle}
             </p>
           </div>
 
           {/* Progress indicators */}
-          <div className="flex justify-center gap-2">
+          <div className="flex justify-center gap-3">
             {slides.map((_, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentSlide(index)}
-                className={`h-2 rounded-full transition-all p-2 ${
+                className={`rounded-full transition-all min-w-[44px] min-h-[44px] flex items-center justify-center ${
                   index === currentSlide
-                    ? 'w-8 bg-indigo-500'
-                    : 'w-2 bg-slate-600 hover:bg-slate-500'
+                    ? 'bg-indigo-500'
+                    : 'bg-slate-600 hover:bg-slate-500'
                 }`}
                 title={`Aller à l'étape ${index + 1}`}
                 aria-label={`Aller à l'étape ${index + 1}`}
                 aria-current={index === currentSlide ? 'step' : undefined}
-              />
+              >
+                <span className={`block h-2 rounded-full transition-all ${
+                  index === currentSlide ? 'w-8 bg-indigo-300' : 'w-2 bg-current'
+                }`} />
+              </button>
             ))}
           </div>
         </div>
