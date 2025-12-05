@@ -3,12 +3,12 @@ import { Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles, 
 import { useAuth } from './AuthContext';
 import Login from './Login';
 import { supabase } from './supabaseClient';
+
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
   const ref = useRef(null);
   
   useEffect(() => {
-    // Attendre que KaTeX soit chargé
     const renderMath = () => {
       if (ref.current && window.renderMathInElement && window.katex) {
         try {
@@ -39,11 +39,9 @@ const MathText = ({ children, className = "" }) => {
       }
     };
 
-    // Si KaTeX est déjà chargé, rendre immédiatement
     if (window.katex && window.renderMathInElement) {
       renderMath();
     } else {
-      // Sinon, attendre un peu que les scripts se chargent
       const timeout = setTimeout(renderMath, 100);
       return () => clearTimeout(timeout);
     }
@@ -51,8 +49,12 @@ const MathText = ({ children, className = "" }) => {
   
   return <span ref={ref} className={className}>{children}</span>;
 };
+
+// ==================== MAIN APP ====================
+function App() {
+  const { user, loading, signOut } = useAuth();
   
-  // États pour Planning
+  // États pour Planning  ← DOIT ÊTRE ICI, À L'INTÉRIEUR DE function App()
   const [currentWeek, setCurrentWeek] = useState(10);
   const [selectedDay, setSelectedDay] = useState(null);
   const [customEvents, setCustomEvents] = useState([]);
@@ -66,7 +68,7 @@ const MathText = ({ children, className = "" }) => {
     subject: '',
     time: '',
     duration: '',
-    date: '' // Nouvelle propriété pour stocker la date exacte
+    date: ''
   });
 
   // Calendrier des semaines TSI
