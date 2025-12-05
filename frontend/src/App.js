@@ -2884,13 +2884,13 @@ function App() {
                               {!showFlashcardAnswer ? (
                                 <div>
                                   <div className="text-sm text-indigo-300 mb-4">Question</div>
-                                  <p className="text-2xl font-bold text-white">{currentCard.question}</p>
+                                  <MathText className="text-2xl font-bold text-white">{currentCard.question}</MathText>
                                   <p className="text-sm text-slate-400 mt-6">👆 Cliquez pour voir la réponse</p>
                                 </div>
                               ) : (
                                 <div>
                                   <div className="text-sm text-purple-300 mb-4">Réponse</div>
-                                  <p className="text-xl text-white whitespace-pre-wrap">{currentCard.answer}</p>
+                                  <MathText className="text-xl text-white whitespace-pre-wrap">{currentCard.answer}</MathText>
                                 </div>
                               )}
                             </div>
