@@ -8,235 +8,194 @@ const Onboarding = ({ onClose }) => {
 
   const slides = [
     {
-      title: "Bienvenue sur TSI Manager ! 🎓",
-      subtitle: "Votre assistant pour réussir en TSI1",
+      title: "🎉 Salut ! Bienvenue sur TSI Manager",
+      subtitle: "L'app qui va te sauver la vie en prépa 😎",
       icon: <HelpCircle className="w-20 h-20 text-indigo-400" />,
       content: (
         <div className="text-center space-y-6">
           <p className="text-xl text-slate-300">
-            Découvrez toutes les fonctionnalités pour organiser votre travail,
-            réviser efficacement et communiquer avec vos camarades.
+            Fini le stress de savoir quoi réviser ce soir !
           </p>
-          <div className="p-4 bg-indigo-900/30 border border-indigo-500/50 rounded-lg">
-            <p className="text-indigo-200 font-semibold">
-              🚀 Commencez la visite guidée pour découvrir comment TSI Manager peut vous aider !
-            </p>
-          </div>
+          <p className="text-lg text-slate-400">
+            On t'a préparé un petit tour pour te montrer comment ça marche.
+          </p>
         </div>
       )
     },
     {
-      title: "Planning 📅",
-      subtitle: "Visualisez votre emploi du temps semaine par semaine",
+      title: "📅 Le Planning",
+      subtitle: "Ton emploi du temps, mais en mieux !",
       icon: <Calendar className="w-20 h-20 text-blue-400" />,
       content: (
         <div className="space-y-4 text-left">
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Navigation entre les semaines</h4>
-            <p className="text-slate-300 text-sm">
-              Parcourez les 33 semaines de l'année scolaire avec les flèches ← →
+            <p className="text-slate-300 text-base">
+              → Navigue entre les semaines (S1 à S33) avec les flèches
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Emploi du temps complet</h4>
-            <p className="text-slate-300 text-sm">
-              Consultez vos cours, TD et TP pour chaque jour de la semaine
+            <p className="text-slate-300 text-base">
+              → Clique sur un jour pour voir ce qui t'attend
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Événements personnalisés</h4>
-            <p className="text-slate-300 text-sm">
-              Ajoutez vos DS, colles et autres événements importants avec le bouton +
+            <p className="text-slate-300 text-base">
+              → Ajoute tes DS, colles et autres galères avec le +
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Travail du soir recommandé</h4>
-            <p className="text-slate-300 text-sm">
-              Consultez les suggestions de révision adaptées à chaque jour
+            <p className="text-slate-300 text-base">
+              → Check le travail du soir (oui, y'en a tous les jours 😅)
             </p>
           </div>
-          <div className="p-3 bg-indigo-900/20 border border-indigo-500/30 rounded-lg">
-            <p className="text-sm text-indigo-300">
-              💡 Astuce : Les événements importants sont surlignés en couleur !
+          <div className="p-4 bg-indigo-900/20 border border-indigo-500/30 rounded-lg">
+            <p className="text-base text-indigo-300">
+              💡 <span className="font-semibold">Pro tip :</span> Les trucs importants sont colorés pour pas les louper !
             </p>
           </div>
         </div>
       )
     },
     {
-      title: "Cours 📚",
-      subtitle: "Organisez et partagez vos cours par matière",
+      title: "📚 Les Cours",
+      subtitle: "Tous les cours de la classe au même endroit !",
       icon: <BookOpen className="w-20 h-20 text-purple-400" />,
       content: (
         <div className="space-y-4 text-left">
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Organisation par matière et chapitre</h4>
-            <p className="text-slate-300 text-sm">
-              Structurez vos cours de Maths, Physique, SII, Anglais, Français, Informatique...
+            <p className="text-slate-300 text-base">
+              → Triés par matière (Maths, Physique, SII...)
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Niveau de difficulté</h4>
-            <p className="text-slate-300 text-sm">
-              Définissez l'importance et la difficulté de chaque chapitre
+            <p className="text-slate-300 text-base">
+              → Avec les liens vers les docs (OneDrive & co)
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Liens vers ressources</h4>
-            <p className="text-slate-300 text-sm">
-              Ajoutez des liens OneDrive vers vos documents de cours
+            <p className="text-slate-300 text-base">
+              → Tu peux en ajouter pour aider les autres 🤝
             </p>
           </div>
-          <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Partage avec la classe</h4>
-            <p className="text-slate-300 text-sm">
-              Tous les cours sont partagés et accessibles à toute la classe
-            </p>
-          </div>
-          <div className="p-3 bg-purple-900/20 border border-purple-500/30 rounded-lg">
-            <p className="text-sm text-purple-300">
-              💡 Astuce : Ajoutez du contenu pour enrichir vos cours !
+          <div className="p-4 bg-purple-900/20 border border-purple-500/30 rounded-lg">
+            <p className="text-base text-purple-300">
+              💡 <span className="font-semibold">Pro tip :</span> Clique sur une matière pour voir les chapitres !
             </p>
           </div>
         </div>
       )
     },
     {
-      title: "Flashcards 🧠",
-      subtitle: "Révisez efficacement avec des cartes mémoire",
+      title: "🧠 Les Flashcards",
+      subtitle: "La méthode ultime pour retenir les formules !",
       icon: <Brain className="w-20 h-20 text-green-400" />,
       content: (
         <div className="space-y-4 text-left">
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Créer des flashcards</h4>
-            <p className="text-slate-300 text-sm">
-              Question/réponse pour mémoriser efficacement vos cours
+            <p className="text-slate-300 text-base">
+              → Crée des cartes question/réponse
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Support LaTeX pour les formules</h4>
-            <p className="text-slate-300 text-sm">
-              {'Écrivez des équations mathématiques : $\\frac{a}{b}$, $\\int$, $\\sum$'}
+            <p className="text-slate-300 text-base">
+              → Les formules LaTeX marchent : $\frac{'{a}'}{'{b}'}$, $\int$, etc.
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Mode révision avec suivi</h4>
-            <p className="text-slate-300 text-sm">
-              Révisez en mode aléatoire et suivez votre progression (correct/incorrect)
+            <p className="text-slate-300 text-base">
+              → Mode révision pour t'entraîner
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Import/Export</h4>
-            <p className="text-slate-300 text-sm">
-              Importez depuis Anki, Notion, CSV ou exportez au format JSON
+            <p className="text-slate-300 text-base">
+              → Importe/exporte pour partager avec la classe
             </p>
           </div>
-          <div className="p-3 bg-green-900/20 border border-green-500/30 rounded-lg">
-            <p className="text-sm text-green-300">
-              💡 Astuce : Révisez régulièrement pour une meilleure mémorisation !
+          <div className="p-4 bg-green-900/20 border border-green-500/30 rounded-lg">
+            <p className="text-base text-green-300">
+              💡 <span className="font-semibold">Pro tip :</span> Révise 15 min par jour, c'est plus efficace que 3h la veille du DS 😉
             </p>
           </div>
         </div>
       )
     },
     {
-      title: "Suggestions 💡",
-      subtitle: "Recommandations de révision personnalisées",
+      title: "💡 Les Suggestions",
+      subtitle: "L'app réfléchit pour toi (enfin presque)",
       icon: <Lightbulb className="w-20 h-20 text-yellow-400" />,
       content: (
         <div className="space-y-4 text-left">
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Basées sur vos évaluations</h4>
-            <p className="text-slate-300 text-sm">
-              Suggestions adaptées aux DS et colles à venir
+            <p className="text-slate-300 text-base">
+              → Elle te dit quoi bosser ce soir selon ton planning
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Planning de travail du soir</h4>
-            <p className="text-slate-300 text-sm">
-              Recommandations quotidiennes adaptées à chaque jour de la semaine
+            <p className="text-slate-300 text-base">
+              → 🔥 URGENT = le DS c'est demain, bouge-toi !
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Paramètres personnalisables</h4>
-            <p className="text-slate-300 text-sm">
-              Définissez vos jours de repos, durée de révision, matières prioritaires
+            <p className="text-slate-300 text-base">
+              → ⚠️ BIENTÔT = t'as encore un peu de temps
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Indicateurs d'urgence</h4>
-            <p className="text-slate-300 text-sm">
-              🔥 URGENT (J-2), ⚠️ BIENTÔT (J-4), révisions prioritaires
+            <p className="text-slate-300 text-base">
+              → Perso dans les paramètres (jours off, durée...)
             </p>
           </div>
-          <div className="p-3 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
-            <p className="text-sm text-yellow-300">
-              💡 Astuce : Configurez vos paramètres pour des suggestions optimales !
+          <div className="p-4 bg-yellow-900/20 border border-yellow-500/30 rounded-lg">
+            <p className="text-base text-yellow-300">
+              💡 <span className="font-semibold">Pro tip :</span> Le samedi c'est DM et colles, le dimanche on prépare la semaine !
             </p>
           </div>
         </div>
       )
     },
     {
-      title: "Chat 💬",
-      subtitle: "Communiquez avec vos camarades de classe",
+      title: "💬 Le Chat",
+      subtitle: "Pour poser des questions sans spammer le groupe WhatsApp 😄",
       icon: <MessageCircle className="w-20 h-20 text-pink-400" />,
       content: (
         <div className="space-y-4 text-left">
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Salons par matière</h4>
-            <p className="text-slate-300 text-sm">
-              Discutez dans des salons dédiés à chaque matière
+            <p className="text-slate-300 text-base">
+              → Un salon par matière
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Salon général</h4>
-            <p className="text-slate-300 text-sm">
-              Échangez librement sur tous les sujets
+            <p className="text-slate-300 text-base">
+              → Un salon général pour papoter
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Partage de questions</h4>
-            <p className="text-slate-300 text-sm">
-              Posez vos questions et aidez vos camarades
+            <p className="text-slate-300 text-base">
+              → Pose tes questions, aide les autres
             </p>
           </div>
-          <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <h4 className="font-bold text-white mb-2">✓ Messages en temps réel</h4>
-            <p className="text-slate-300 text-sm">
-              Communication instantanée avec toute la classe
-            </p>
-          </div>
-          <div className="p-3 bg-pink-900/20 border border-pink-500/30 rounded-lg">
-            <p className="text-sm text-pink-300">
-              💡 Astuce : Soyez respectueux et entraidez-vous !
+          <div className="p-4 bg-pink-900/20 border border-pink-500/30 rounded-lg">
+            <p className="text-base text-pink-300">
+              💡 <span className="font-semibold">Pro tip :</span> Si t'as pas compris un truc, y'a sûrement quelqu'un qui peut t'aider !
             </p>
           </div>
         </div>
       )
     },
     {
-      title: "Prêt à commencer ! 🚀",
-      subtitle: "Vous avez découvert toutes les fonctionnalités",
-      icon: <span className="text-8xl">🚀</span>,
+      title: "🎓 T'es prêt !",
+      subtitle: "Maintenant tu sais tout, go réviser ! 💪",
+      icon: <span className="text-8xl">🎓</span>,
       content: (
         <div className="space-y-6">
           <div className="p-6 bg-gradient-to-r from-indigo-900/30 to-purple-900/30 border border-indigo-500/50 rounded-lg">
-            <h4 className="font-bold text-white text-lg mb-3">📝 Raccourcis utiles</h4>
-            <ul className="space-y-2 text-slate-300 text-sm">
-              <li>• Bouton <span className="text-indigo-400 font-semibold">+</span> : Ajouter rapidement un cours, flashcard ou événement</li>
-              <li>• Onglets : Naviguez entre Planning, Cours, Flashcards, Suggestions, Chat et Stats</li>
-              <li>• Menu utilisateur (en haut à droite) : Déconnexion</li>
-            </ul>
-          </div>
-
-          <div className="p-6 bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-500/50 rounded-lg">
-            <h4 className="font-bold text-white text-lg mb-3">🎯 Conseils pour réussir</h4>
-            <ul className="space-y-2 text-slate-300 text-sm">
-              <li>• Ajoutez vos DS et colles dès que vous les connaissez</li>
-              <li>• Créez des flashcards régulièrement pendant vos révisions</li>
-              <li>• Consultez les suggestions chaque jour pour rester organisé</li>
-              <li>• Partagez vos cours et ressources avec la classe</li>
+            <h4 className="font-bold text-white text-xl mb-4">Rappel rapide :</h4>
+            <ul className="space-y-3 text-slate-300 text-base">
+              <li>📅 <span className="font-semibold">Planning</span> = ton emploi du temps</li>
+              <li>📚 <span className="font-semibold">Cours</span> = les docs de la classe</li>
+              <li>🧠 <span className="font-semibold">Flashcards</span> = pour mémoriser</li>
+              <li>💡 <span className="font-semibold">Suggestions</span> = quoi bosser ce soir</li>
+              <li>💬 <span className="font-semibold">Chat</span> = pour s'entraider</li>
             </ul>
           </div>
 
@@ -248,8 +207,8 @@ const Onboarding = ({ onClose }) => {
               onChange={(e) => setDontShowAgain(e.target.checked)}
               className="w-5 h-5 text-indigo-600 bg-slate-700 border-slate-600 rounded focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-800"
             />
-            <label htmlFor="dontShowAgain" className="text-slate-300 cursor-pointer">
-              Ne plus afficher ce tutoriel au démarrage
+            <label htmlFor="dontShowAgain" className="text-slate-300 cursor-pointer text-base">
+              ☐ Ne plus afficher ce tuto au démarrage
             </label>
           </div>
         </div>
@@ -366,10 +325,16 @@ const Onboarding = ({ onClose }) => {
           {currentSlide === slides.length - 1 ? (
             <button
               onClick={handleClose}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-lg"
             >
-              Commencer à utiliser TSI Manager
-              <span className="text-xl">🚀</span>
+              Let's go ! 🚀
+            </button>
+          ) : currentSlide === 0 ? (
+            <button
+              onClick={handleNext}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-lg"
+            >
+              C'est parti ! 🚀
             </button>
           ) : (
             <button
