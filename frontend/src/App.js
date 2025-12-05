@@ -5,42 +5,52 @@ import Login from './Login';
 import { supabase } from './supabaseClient';
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
-  const ref = React.useRef(null);
+  const ref = useRef(null);
   
-  React.useEffect(() => {
-    if (ref. current && window.renderMathInElement) {
-      window.renderMathInElement(ref.current, {
-        delimiters: [
-          {left: '$$', right: '$$', display: true},
-          {left: '$', right: '$', display: false},
-          {left: '\\(', right: '\\)', display: false},
-          {left: '\\[', right: '\\]', display: true}
-        ],
-        macros: {
-          "\\reals": "\\mathbb{R}",
-          "\\R": "\\mathbb{R}",
-          "\\naturals": "\\mathbb{N}",
-          "\\N": "\\mathbb{N}",
-          "\\integers": "\\mathbb{Z}",
-          "\\Z": "\\mathbb{Z}",
-          "\\rationals": "\\mathbb{Q}",
-          "\\Q": "\\mathbb{Q}",
-          "\\complexes": "\\mathbb{C}",
-          "\\C": "\\mathbb{C}",
-          "\\vect": "\\overrightarrow{#1}",
-          "\\norm": "\\left\\|#1\\right\\|",
-          "\\abs": "\\left|#1\\right|"
-        },
-        throwOnError: false
-      });
+  useEffect(() => {
+    // Attendre que KaTeX soit chargé
+    const renderMath = () => {
+      if (ref.current && window.renderMathInElement && window.katex) {
+        try {
+          window.renderMathInElement(ref.current, {
+            delimiters: [
+              {left: '$$', right: '$$', display: true},
+              {left: '$', right: '$', display: false},
+              {left: '\\(', right: '\\)', display: false},
+              {left: '\\[', right: '\\]', display: true}
+            ],
+            macros: {
+              "\\reals": "\\mathbb{R}",
+              "\\R": "\\mathbb{R}",
+              "\\naturals": "\\mathbb{N}",
+              "\\N": "\\mathbb{N}",
+              "\\integers": "\\mathbb{Z}",
+              "\\Z": "\\mathbb{Z}",
+              "\\rationals": "\\mathbb{Q}",
+              "\\Q": "\\mathbb{Q}",
+              "\\complexes": "\\mathbb{C}",
+              "\\C": "\\mathbb{C}"
+            },
+            throwOnError: false
+          });
+        } catch (e) {
+          console.log('KaTeX error:', e);
+        }
+      }
+    };
+
+    // Si KaTeX est déjà chargé, rendre immédiatement
+    if (window.katex && window.renderMathInElement) {
+      renderMath();
+    } else {
+      // Sinon, attendre un peu que les scripts se chargent
+      const timeout = setTimeout(renderMath, 100);
+      return () => clearTimeout(timeout);
     }
   }, [children]);
   
   return <span ref={ref} className={className}>{children}</span>;
 };
-// ==================== MAIN APP ====================
-function App() {
-  const { user, loading, signOut } = useAuth();
   
   // États pour Planning
   const [currentWeek, setCurrentWeek] = useState(10);
