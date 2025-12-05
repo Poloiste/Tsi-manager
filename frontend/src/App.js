@@ -15,9 +15,7 @@ const MathText = ({ children, className = "" }) => {
           window.renderMathInElement(ref.current, {
             delimiters: [
               {left: '$$', right: '$$', display: true},
-              {left: '$', right: '$', display: false},
-              {left: '\\(', right: '\\)', display: false},
-              {left: '\\[', right: '\\]', display: true}
+              {left: '$', right: '$', display: false}
             ],
             macros: {
               "\\reals": "\\mathbb{R}",
@@ -34,16 +32,27 @@ const MathText = ({ children, className = "" }) => {
             throwOnError: false
           });
         } catch (e) {
-          console.log('KaTeX error:', e);
+          // Silently ignore KaTeX errors
         }
       }
     };
 
-    if (window.katex && window.renderMathInElement) {
-      renderMath();
+    // Attendre que KaTeX soit complètement chargé
+    if (window.katex && window. renderMathInElement) {
+      setTimeout(renderMath, 50);
     } else {
-      const timeout = setTimeout(renderMath, 100);
-      return () => clearTimeout(timeout);
+      // Réessayer plusieurs fois si KaTeX n'est pas encore chargé
+      let attempts = 0;
+      const interval = setInterval(() => {
+        attempts++;
+        if (window.katex && window.renderMathInElement) {
+          clearInterval(interval);
+          renderMath();
+        } else if (attempts > 20) {
+          clearInterval(interval);
+        }
+      }, 100);
+      return () => clearInterval(interval);
     }
   }, [children]);
   
