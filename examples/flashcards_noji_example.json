@@ -1,0 +1,44 @@
+{
+  "cards": [
+    {
+      "front": "Quelle est la formule de l'énergie cinétique ?",
+      "back": "Ec = ½mv²",
+      "tags": ["Physique", "Mécanique"]
+    },
+    {
+      "front": "Dérivée de sin(x) ?",
+      "back": "cos(x)",
+      "tags": ["Mathématiques", "Dérivation"]
+    },
+    {
+      "front": "Qu'est-ce qu'un champ électrique ?",
+      "back": "Un champ vectoriel représentant la force électrique par unité de charge",
+      "tags": ["Physique", "Électromagnétisme"]
+    },
+    {
+      "front": "Intégrale de cos(x) ?",
+      "back": "sin(x) + C",
+      "tags": ["Mathématiques", "Intégration"]
+    },
+    {
+      "front": "Loi d'Ohm ?",
+      "back": "U = R × I",
+      "tags": ["Physique", "Électricité"]
+    },
+    {
+      "front": "Théorème de Pythagore ?",
+      "back": "a² + b² = c²",
+      "tags": ["Mathématiques", "Géométrie"]
+    },
+    {
+      "front": "Vitesse de la lumière ?",
+      "back": "c ≈ 3×10⁸ m/s",
+      "tags": ["Physique", "Optique"]
+    },
+    {
+      "front": "Dérivée de x² ?",
+      "back": "2x",
+      "tags": ["Mathématiques", "Dérivation"]
+    }
+  ]
+}
