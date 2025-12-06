@@ -2340,9 +2340,9 @@ function App() {
                                 if (relatedCourse) {
                                   setActiveTab('flashcards');
                                   setSelectedCourseForFlashcards(relatedCourse);
+                                  setShowSearchResults(false);
+                                  setSearchQuery('');
                                 }
-                                setShowSearchResults(false);
-                                setSearchQuery('');
                               }}
                               className="w-full text-left p-2 hover:bg-slate-800 rounded-lg transition-all"
                             >
