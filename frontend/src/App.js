@@ -207,6 +207,7 @@ function App() {
   const [newMessage, setNewMessage] = useState('');
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const messagesEndRef = useRef(null);
+  const searchInputRef = useRef(null);
   
   const [newCourse, setNewCourse] = useState({
     subject: '',
@@ -1021,7 +1022,7 @@ function App() {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
-        document.querySelector('input[placeholder*="Rechercher"]')?.focus();
+        searchInputRef.current?.focus();
       }
       if (e.key === 'Escape') {
         setShowSearchResults(false);
@@ -2283,6 +2284,7 @@ function App() {
               <div className="flex items-center bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2">
                 <Search className="w-4 h-4 text-slate-400 mr-2" />
                 <input
+                  ref={searchInputRef}
                   type="text"
                   placeholder="Rechercher... (Ctrl+K)"
                   value={searchQuery}
@@ -2334,8 +2336,11 @@ function App() {
                             <button
                               key={fc.id}
                               onClick={() => {
-                                setActiveTab('flashcards');
-                                setSelectedCourseForFlashcards(courses.find(c => c.id === fc.course_id));
+                                const relatedCourse = courses.find(c => c.id === fc.course_id);
+                                if (relatedCourse) {
+                                  setActiveTab('flashcards');
+                                  setSelectedCourseForFlashcards(relatedCourse);
+                                }
                                 setShowSearchResults(false);
                                 setSearchQuery('');
                               }}
