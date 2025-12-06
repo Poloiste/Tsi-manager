@@ -55,10 +55,12 @@ export const schoolCalendar2024_2025 = {
  * by checking the actual teaching dates, excluding vacation periods.
  * 
  * Behavior:
- * - If the date falls within a school week (Mon-Fri), returns that week number.
- * - If the date falls on a weekend within a school week period, returns the next school week.
- * - If the date falls during a vacation period, returns the next upcoming school week.
- * - If the date is before S1 or after S33, returns S1 (default).
+ * - If the date falls within a school week's date range, returns that week number.
+ * - If the date falls outside school week ranges (e.g., weekends, vacations), returns the next upcoming school week.
+ * - If the date is after S33, returns S1 (default for next school year).
+ * 
+ * Note: School weeks are defined as Monday-Friday periods. Weekends naturally fall outside
+ * these ranges and will return the next school week.
  * 
  * @param {Date} [date=new Date()] - The date to calculate the week for (defaults to current date)
  * @returns {number} Current or next school week number (1-33)
