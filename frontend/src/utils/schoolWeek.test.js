@@ -16,12 +16,14 @@ describe('getCurrentSchoolWeek', () => {
   });
 
   test('should return S2 in second week of September 2024', () => {
-    const date = new Date(2024, 8, 9); // September 9, 2024
+    const date = new Date(2024, 8, 9); // September 9, 2024 (7 days after Sept 2)
+    // Sept 2-8 is week 1, Sept 9-15 is week 2
     expect(getCurrentSchoolWeek(date)).toBe(2);
   });
 
   test('should return S4 at end of September 2024', () => {
-    const date = new Date(2024, 8, 25); // September 25, 2024
+    const date = new Date(2024, 8, 25); // September 25, 2024 (23 days after Sept 2)
+    // Sept 2-8: S1, Sept 9-15: S2, Sept 16-22: S3, Sept 23-29: S4
     expect(getCurrentSchoolWeek(date)).toBe(4);
   });
 

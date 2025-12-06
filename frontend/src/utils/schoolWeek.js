@@ -9,9 +9,9 @@
  * @returns {number} Current school week number (1-33)
  */
 export const getCurrentSchoolWeek = (date = new Date()) => {
-  const today = date;
-  const currentYear = today.getFullYear();
-  const currentMonth = today.getMonth(); // 0-11 (0 = January, 8 = September)
+  const targetDate = date;
+  const currentYear = targetDate.getFullYear();
+  const currentMonth = targetDate.getMonth(); // 0-11 (0 = January, 8 = September)
   
   // Determine the start of the school year
   // If we're between January (0) and August (7), the school year started last September
@@ -24,7 +24,7 @@ export const getCurrentSchoolWeek = (date = new Date()) => {
   }
   
   // Calculate the number of weeks since the start of the school year
-  const diffTime = today - schoolYearStart;
+  const diffTime = targetDate - schoolYearStart;
   const diffDays = Math.floor(diffTime / (24 * 60 * 60 * 1000));
   const diffWeeks = Math.floor(diffDays / 7);
   
