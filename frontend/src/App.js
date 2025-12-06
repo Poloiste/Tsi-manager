@@ -10,6 +10,7 @@ import Login from './Login';
 import { supabase } from './supabaseClient';
 import Onboarding from './components/Onboarding';
 import { ONBOARDING_COMPLETED_KEY } from './constants';
+import { getCurrentSchoolWeek } from './utils/schoolWeek';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -73,32 +74,6 @@ const getDayName = () => {
   const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   const today = new Date();
   return days[today.getDay()];
-};
-
-// Calculate current school week number (S1 starts early September)
-const getCurrentSchoolWeek = () => {
-  const today = new Date();
-  const currentYear = today.getFullYear();
-  const currentMonth = today.getMonth(); // 0-11 (0 = January, 8 = September)
-  
-  // Determine the start of the school year
-  // If we're between January (0) and August (7), the school year started last September
-  // If we're between September (8) and December (11), the school year started this September
-  let schoolYearStart;
-  if (currentMonth >= 8) { // September to December
-    schoolYearStart = new Date(currentYear, 8, 2); // September 2 of this year
-  } else { // January to August
-    schoolYearStart = new Date(currentYear - 1, 8, 2); // September 2 of last year
-  }
-  
-  // Calculate the number of weeks since the start of the school year
-  const diffTime = today - schoolYearStart;
-  const diffDays = Math.floor(diffTime / (24 * 60 * 60 * 1000));
-  const diffWeeks = Math.floor(diffDays / 7);
-  
-  // Week 1 starts on September 2
-  // Limit between 1 and 33
-  return Math.max(1, Math.min(33, diffWeeks + 1));
 };
 
 // ==================== MAIN APP ====================
