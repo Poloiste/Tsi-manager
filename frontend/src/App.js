@@ -78,12 +78,25 @@ const getDayName = () => {
 // Calculate current school week number (S1 starts early September)
 const getCurrentSchoolWeek = () => {
   const today = new Date();
-  // School year start date (September 2, 2024)
-  const schoolStart = new Date(2024, 8, 2); // Month is 0-indexed, so 8 = September
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth(); // 0-11 (0 = January, 8 = September)
   
-  const diffTime = today - schoolStart;
-  const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000));
+  // Determine the start of the school year
+  // If we're between January (0) and August (7), the school year started last September
+  // If we're between September (8) and December (11), the school year started this September
+  let schoolYearStart;
+  if (currentMonth >= 8) { // September to December
+    schoolYearStart = new Date(currentYear, 8, 2); // September 2 of this year
+  } else { // January to August
+    schoolYearStart = new Date(currentYear - 1, 8, 2); // September 2 of last year
+  }
   
+  // Calculate the number of weeks since the start of the school year
+  const diffTime = today - schoolYearStart;
+  const diffDays = Math.floor(diffTime / (24 * 60 * 60 * 1000));
+  const diffWeeks = Math.floor(diffDays / 7);
+  
+  // Week 1 starts on September 2
   // Limit between 1 and 33
   return Math.max(1, Math.min(33, diffWeeks + 1));
 };
