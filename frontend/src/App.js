@@ -2279,7 +2279,7 @@ function App() {
               ))}
             </div>
 
-            {/* Barre de recherche */}
+            {/* Barre de recherche - stopPropagation prevents closing dropdown when interacting with search */}
             <div className="relative hidden md:block" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2">
                 <Search className="w-4 h-4 text-slate-400 mr-2" />
@@ -2293,7 +2293,10 @@ function App() {
                   className="bg-transparent text-white placeholder-slate-400 outline-none w-48 lg:w-64"
                 />
                 {searchQuery && (
-                  <button onClick={() => { setSearchQuery(''); setShowSearchResults(false); }}>
+                  <button 
+                    onClick={() => { setSearchQuery(''); setShowSearchResults(false); }}
+                    aria-label="Clear search"
+                  >
                     <X className="w-4 h-4 text-slate-400 hover:text-white" />
                   </button>
                 )}
@@ -2342,6 +2345,8 @@ function App() {
                                   setSelectedCourseForFlashcards(relatedCourse);
                                   setShowSearchResults(false);
                                   setSearchQuery('');
+                                } else {
+                                  console.warn(`Course not found for flashcard: ${fc.id} (course_id: ${fc.course_id})`);
                                 }
                               }}
                               className="w-full text-left p-2 hover:bg-slate-800 rounded-lg transition-all"
