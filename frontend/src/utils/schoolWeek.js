@@ -5,10 +5,11 @@
  * This function determines which academic year we're currently in based on the month,
  * then calculates the week number from the start of that academic year.
  * 
+ * @param {Date} [date=new Date()] - The date to calculate the week for (defaults to current date)
  * @returns {number} Current school week number (1-33)
  */
-export const getCurrentSchoolWeek = () => {
-  const today = new Date();
+export const getCurrentSchoolWeek = (date = new Date()) => {
+  const today = date;
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth(); // 0-11 (0 = January, 8 = September)
   
