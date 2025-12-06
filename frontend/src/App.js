@@ -66,13 +66,35 @@ const MathText = ({ children, className = "" }) => {
   return <span ref={ref} className={className}>{children}</span>;
 };
 
+// ==================== UTILITY FUNCTIONS ====================
+
+// Get current day name in French
+const getDayName = () => {
+  const days = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  const today = new Date();
+  return days[today.getDay()];
+};
+
+// Calculate current school week number (S1 starts early September)
+const getCurrentSchoolWeek = () => {
+  const today = new Date();
+  // School year start date (September 2, 2024)
+  const schoolStart = new Date(2024, 8, 2); // Month is 0-indexed, so 8 = September
+  
+  const diffTime = today - schoolStart;
+  const diffWeeks = Math.floor(diffTime / (7 * 24 * 60 * 60 * 1000));
+  
+  // Limit between 1 and 33
+  return Math.max(1, Math.min(33, diffWeeks + 1));
+};
+
 // ==================== MAIN APP ====================
 function App() {
   const { user, loading, signOut } = useAuth();
   
   // États pour Planning  ← DOIT ÊTRE ICI, À L'INTÉRIEUR DE function App()
-  const [currentWeek, setCurrentWeek] = useState(10);
-  const [selectedDay, setSelectedDay] = useState(null);
+  const [currentWeek, setCurrentWeek] = useState(() => getCurrentSchoolWeek());
+  const [selectedDay, setSelectedDay] = useState(() => getDayName());
   const [customEvents, setCustomEvents] = useState([]);
   const [showAddEvent, setShowAddEvent] = useState(false);
   // eslint-disable-next-line no-unused-vars
@@ -2343,8 +2365,19 @@ function App() {
                 </button>
 
                 <button
+                  onClick={() => {
+                    setCurrentWeek(getCurrentSchoolWeek());
+                    setSelectedDay(getDayName());
+                  }}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2 transition-all"
+                >
+                  <Calendar className="w-4 h-4" />
+                  Aujourd'hui
+                </button>
+
+                <button
                   onClick={() => setShowAddEvent(true)}
-                  className="ml-4 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold flex items-center gap-2"
+                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold flex items-center gap-2"
                 >
                   <Plus className="w-5 h-5" />
                   Ajouter
@@ -2356,6 +2389,7 @@ function App() {
                 {days.map(day => {
                   const schedule = getDaySchedule(currentWeek, day);
                   const hasCustomEvents = customEvents.some(e => e.week === currentWeek && e.day === day);
+                  const isToday = day === getDayName() && currentWeek === getCurrentSchoolWeek();
                   
                   return (
                     <div
@@ -2367,10 +2401,13 @@ function App() {
                           : hasCustomEvents
                           ? 'bg-slate-800/50 border-yellow-500/50 hover:border-indigo-500/50'
                           : 'bg-slate-800/50 border-slate-700/50 hover:border-indigo-500/50'
-                      }`}
+                      } ${isToday ? 'ring-2 ring-green-500' : ''}`}
                     >
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-white">{day}</h3>
+                        <h3 className="font-bold text-white flex items-center gap-1">
+                          {day}
+                          {isToday && <span className="text-green-400">●</span>}
+                        </h3>
                         {hasCustomEvents && (
                           <span className="text-yellow-400 text-xs">◉</span>
                         )}
