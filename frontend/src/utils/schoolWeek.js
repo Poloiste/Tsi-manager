@@ -66,16 +66,18 @@ export const getCurrentSchoolWeek = (date = new Date()) => {
   const todayStr = today.toISOString().split('T')[0]; // Format YYYY-MM-DD
   
   // Check if we're in a school week
-  for (const [weekNum, dates] of Object.entries(schoolCalendar2024_2025)) {
+  for (let weekNum = 1; weekNum <= 33; weekNum++) {
+    const dates = schoolCalendar2024_2025[weekNum];
     if (todayStr >= dates.start && todayStr <= dates.end) {
-      return parseInt(weekNum);
+      return weekNum;
     }
   }
   
   // If not in a school week (vacation or weekend), find the next school week
-  for (const [weekNum, dates] of Object.entries(schoolCalendar2024_2025)) {
+  for (let weekNum = 1; weekNum <= 33; weekNum++) {
+    const dates = schoolCalendar2024_2025[weekNum];
     if (todayStr < dates.start) {
-      return parseInt(weekNum);
+      return weekNum;
     }
   }
   
