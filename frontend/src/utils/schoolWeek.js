@@ -54,9 +54,11 @@ export const schoolCalendar2024_2025 = {
  * This function finds which school week (S1-S33) corresponds to the given date
  * by checking the actual teaching dates, excluding vacation periods.
  * 
- * If the date falls within a school week, returns that week number.
- * If the date falls during a vacation or weekend, returns the next upcoming school week.
- * If the date is before S1 or after S33, returns S1.
+ * Behavior:
+ * - If the date falls within a school week (Mon-Fri), returns that week number.
+ * - If the date falls on a weekend within a school week period, returns the next school week.
+ * - If the date falls during a vacation period, returns the next upcoming school week.
+ * - If the date is before S1 or after S33, returns S1 (default).
  * 
  * @param {Date} [date=new Date()] - The date to calculate the week for (defaults to current date)
  * @returns {number} Current or next school week number (1-33)
@@ -65,23 +67,22 @@ export const getCurrentSchoolWeek = (date = new Date()) => {
   const today = new Date(date);
   const todayStr = today.toISOString().split('T')[0]; // Format YYYY-MM-DD
   
-  // Check if we're in a school week
+  // Single loop: check if in a school week or find the next one
   for (let weekNum = 1; weekNum <= 33; weekNum++) {
     const dates = schoolCalendar2024_2025[weekNum];
+    
+    // If we're in this school week, return it
     if (todayStr >= dates.start && todayStr <= dates.end) {
       return weekNum;
     }
-  }
-  
-  // If not in a school week (vacation or weekend), find the next school week
-  for (let weekNum = 1; weekNum <= 33; weekNum++) {
-    const dates = schoolCalendar2024_2025[weekNum];
+    
+    // If this week hasn't started yet, it's the next school week
     if (todayStr < dates.start) {
       return weekNum;
     }
   }
   
-  // Default: if after S33 or before S1, return S1
+  // Default: if after S33, return S1
   return 1;
 };
 
