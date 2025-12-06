@@ -7,6 +7,13 @@
  * - Noël: Dec 21 - Jan 5
  * - Hiver (Zone B): Feb 15 - Mar 2
  * - Printemps: Apr 12 - Apr 27
+ * 
+ * @note This calendar must be updated annually for each new school year.
+ * To update for a new year:
+ * 1. Obtain the official TSI school calendar for the new academic year
+ * 2. Update each week's start and end dates to match the actual teaching dates
+ * 3. Ensure vacation periods are excluded (weeks should only cover Monday-Friday of teaching periods)
+ * 4. Update the tests in schoolWeek.test.js to reflect the new dates
  */
 export const schoolCalendar2024_2025 = {
   1: { start: '2024-09-02', end: '2024-09-06' },
