@@ -400,23 +400,32 @@ function App() {
     
     const lowerQuery = query.toLowerCase();
     
-    // Recherche dans les cours
-    const matchingCourses = courses.filter(course => 
-      course.subject.toLowerCase().includes(lowerQuery) ||
-      course.chapter.toLowerCase().includes(lowerQuery) ||
-      (course.content && course.content.toLowerCase().includes(lowerQuery))
-    );
+    // Filtrer selon l'onglet actif
+    if (activeTab === 'flashcards') {
+      // Recherche dans les flashcards uniquement
+      const matchingFlashcards = flashcards.filter(fc =>
+        fc.question.toLowerCase().includes(lowerQuery) ||
+        fc.answer.toLowerCase().includes(lowerQuery)
+      );
+      
+      setSearchResults({
+        courses: [],
+        flashcards: matchingFlashcards.slice(0, 5)
+      });
+    } else if (activeTab === 'courses') {
+      // Recherche dans les cours uniquement
+      const matchingCourses = courses.filter(course => 
+        course.subject.toLowerCase().includes(lowerQuery) ||
+        course.chapter.toLowerCase().includes(lowerQuery) ||
+        (course.content && course.content.toLowerCase().includes(lowerQuery))
+      );
+      
+      setSearchResults({
+        courses: matchingCourses.slice(0, 5),
+        flashcards: []
+      });
+    }
     
-    // Recherche dans les flashcards
-    const matchingFlashcards = flashcards.filter(fc =>
-      fc.question.toLowerCase().includes(lowerQuery) ||
-      fc.answer.toLowerCase().includes(lowerQuery)
-    );
-    
-    setSearchResults({
-      courses: matchingCourses.slice(0, 5),
-      flashcards: matchingFlashcards.slice(0, 5)
-    });
     setShowSearchResults(true);
   };
 
@@ -1012,9 +1021,12 @@ function App() {
   // Raccourcis clavier pour la recherche
   useEffect(() => {
     const handleKeyDown = (e) => {
+      // Ne fonctionne que si la recherche est visible (flashcards ou courses)
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        searchInputRef.current?.focus();
+        if (activeTab === 'flashcards' || activeTab === 'courses') {
+          e.preventDefault();
+          searchInputRef.current?.focus();
+        }
       }
       if (e.key === 'Escape') {
         setShowSearchResults(false);
@@ -1023,7 +1035,7 @@ function App() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [activeTab]);
 
   // Loading check - must be after all hooks
   if (loading) {
@@ -2271,88 +2283,90 @@ function App() {
               ))}
             </div>
 
-            {/* Barre de recherche - stopPropagation prevents closing dropdown when interacting with search */}
-            <div className="relative hidden md:block" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2">
-                <Search className="w-4 h-4 text-slate-400 mr-2" />
-                <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Rechercher... (Ctrl+K)"
-                  value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
-                  className="bg-transparent text-white placeholder-slate-400 outline-none w-48 lg:w-64"
-                />
-                {searchQuery && (
-                  <button 
-                    onClick={() => { setSearchQuery(''); setShowSearchResults(false); }}
-                    aria-label="Clear search"
-                  >
-                    <X className="w-4 h-4 text-slate-400 hover:text-white" />
-                  </button>
-                )}
-              </div>
-              
-              {/* Dropdown des résultats */}
-              {showSearchResults && (
-                <div className="absolute top-full mt-2 w-80 lg:w-96 bg-slate-900 border border-indigo-500/30 rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto">
-                  {searchResults.courses.length === 0 && searchResults.flashcards.length === 0 ? (
-                    <p className="p-4 text-slate-400 text-center">Aucun résultat pour "{searchQuery}"</p>
-                  ) : (
-                    <>
-                      {/* Résultats Cours */}
-                      {searchResults.courses.length > 0 && (
-                        <div className="p-3 border-b border-slate-700">
-                          <h4 className="text-xs font-semibold text-slate-400 mb-2">📚 COURS ({searchResults.courses.length})</h4>
-                          {searchResults.courses.map(course => (
-                            <button
-                              key={course.id}
-                              onClick={() => {
-                                setActiveTab('courses');
-                                setExpandedSubject(course.subject);
-                                setShowSearchResults(false);
-                                setSearchQuery('');
-                              }}
-                              className="w-full text-left p-2 hover:bg-slate-800 rounded-lg transition-all"
-                            >
-                              <span className="text-white font-medium">{course.subject}</span>
-                              <span className="text-slate-400"> - {course.chapter}</span>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                      
-                      {/* Résultats Flashcards */}
-                      {searchResults.flashcards.length > 0 && (
-                        <div className="p-3">
-                          <h4 className="text-xs font-semibold text-slate-400 mb-2">🧠 FLASHCARDS ({searchResults.flashcards.length})</h4>
-                          {searchResults.flashcards.map(fc => (
-                            <button
-                              key={fc.id}
-                              onClick={() => {
-                                const relatedCourse = courses.find(c => c.id === fc.course_id);
-                                if (relatedCourse) {
-                                  setActiveTab('flashcards');
-                                  setSelectedCourseForFlashcards(relatedCourse);
-                                  setShowSearchResults(false);
-                                  setSearchQuery('');
-                                } else {
-                                  console.warn(`Course not found for flashcard: ${fc.id} (course_id: ${fc.course_id})`);
-                                }
-                              }}
-                              className="w-full text-left p-2 hover:bg-slate-800 rounded-lg transition-all"
-                            >
-                              <p className="text-white text-sm truncate">{fc.question}</p>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </>
+            {/* Barre de recherche - Conditionnelle (uniquement pour flashcards et courses) */}
+            {(activeTab === 'flashcards' || activeTab === 'courses') && (
+              <div className="relative hidden md:block" onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2">
+                  <Search className="w-4 h-4 text-slate-400 mr-2" />
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    placeholder={activeTab === 'flashcards' ? "Rechercher des flashcards..." : "Rechercher des cours..."}
+                    value={searchQuery}
+                    onChange={(e) => handleSearch(e.target.value)}
+                    onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
+                    className="bg-transparent text-white placeholder-slate-400 outline-none w-48 lg:w-64"
+                  />
+                  {searchQuery && (
+                    <button 
+                      onClick={() => { setSearchQuery(''); setShowSearchResults(false); }}
+                      aria-label="Clear search"
+                    >
+                      <X className="w-4 h-4 text-slate-400 hover:text-white" />
+                    </button>
                   )}
                 </div>
-              )}
-            </div>
+                
+                {/* Dropdown des résultats */}
+                {showSearchResults && (
+                  <div className="absolute top-full mt-2 w-80 lg:w-96 bg-slate-900 border border-indigo-500/30 rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto">
+                    {searchResults.courses.length === 0 && searchResults.flashcards.length === 0 ? (
+                      <p className="p-4 text-slate-400 text-center">Aucun résultat pour "{searchQuery}"</p>
+                    ) : (
+                      <>
+                        {/* Résultats Cours */}
+                        {searchResults.courses.length > 0 && (
+                          <div className="p-3 border-b border-slate-700">
+                            <h4 className="text-xs font-semibold text-slate-400 mb-2">📚 COURS ({searchResults.courses.length})</h4>
+                            {searchResults.courses.map(course => (
+                              <button
+                                key={course.id}
+                                onClick={() => {
+                                  setActiveTab('courses');
+                                  setExpandedSubject(course.subject);
+                                  setShowSearchResults(false);
+                                  setSearchQuery('');
+                                }}
+                                className="w-full text-left p-2 hover:bg-slate-800 rounded-lg transition-all"
+                              >
+                                <span className="text-white font-medium">{course.subject}</span>
+                                <span className="text-slate-400"> - {course.chapter}</span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        
+                        {/* Résultats Flashcards */}
+                        {searchResults.flashcards.length > 0 && (
+                          <div className="p-3">
+                            <h4 className="text-xs font-semibold text-slate-400 mb-2">🧠 FLASHCARDS ({searchResults.flashcards.length})</h4>
+                            {searchResults.flashcards.map(fc => (
+                              <button
+                                key={fc.id}
+                                onClick={() => {
+                                  const relatedCourse = courses.find(c => c.id === fc.courseId);
+                                  if (relatedCourse) {
+                                    setActiveTab('flashcards');
+                                    setSelectedCourseForFlashcards(relatedCourse);
+                                    setShowSearchResults(false);
+                                    setSearchQuery('');
+                                  } else {
+                                    console.warn(`Course not found for flashcard: ${fc.id} (courseId: ${fc.courseId})`);
+                                  }
+                                }}
+                                className="w-full text-left p-2 hover:bg-slate-800 rounded-lg transition-all"
+                              >
+                                <p className="text-white text-sm truncate">{fc.question}</p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Right section - Days counter and logout */}
             <div className="flex items-center gap-2 sm:gap-4">

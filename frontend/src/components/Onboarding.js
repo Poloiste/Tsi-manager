@@ -198,19 +198,6 @@ const Onboarding = ({ onClose }) => {
               <li>💬 <span className="font-semibold">Chat</span> = pour s'entraider</li>
             </ul>
           </div>
-
-          <div className="flex items-center justify-center gap-3 p-4 bg-slate-800/50 rounded-lg border border-slate-700">
-            <input
-              type="checkbox"
-              id="dontShowAgain"
-              checked={dontShowAgain}
-              onChange={(e) => setDontShowAgain(e.target.checked)}
-              className="w-5 h-5 text-indigo-600 bg-slate-700 border-slate-600 rounded focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-800"
-            />
-            <label htmlFor="dontShowAgain" className="text-slate-300 cursor-pointer text-base">
-              Ne plus afficher ce tuto au démarrage
-            </label>
-          </div>
         </div>
       )
     }
@@ -251,99 +238,110 @@ const Onboarding = ({ onClose }) => {
       aria-labelledby="onboarding-title"
       aria-describedby="onboarding-subtitle"
     >
-      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 rounded-3xl border-2 border-indigo-500/50 shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden">
+      <div className="max-w-lg w-full md:rounded-2xl rounded-none bg-slate-800/95 border border-indigo-500/20 shadow-2xl max-h-[95vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="relative p-8 bg-gradient-to-r from-indigo-900/50 to-purple-900/50 border-b border-indigo-500/30">
+        <div className="relative p-6 bg-gradient-to-r from-indigo-900/50 to-purple-900/50 border-b border-indigo-500/30 flex-shrink-0">
           <button
             onClick={handleSkipAndDisable}
-            className="absolute top-4 right-4 p-2 hover:bg-slate-700/50 rounded-lg transition-all text-slate-400 hover:text-white"
+            className="absolute top-3 right-3 p-2 hover:bg-slate-700/50 rounded-lg transition-all text-slate-400 hover:text-white min-w-[44px] min-h-[44px] flex items-center justify-center"
             title="Passer le tutoriel"
             aria-label="Passer le tutoriel"
           >
             <X className="w-6 h-6" />
           </button>
           
-          <div className="flex flex-col items-center text-center mb-6">
+          <div className="flex flex-col items-center text-center">
             <div className="mb-4">
               {currentSlideData.icon}
             </div>
-            <h2 className="text-4xl font-bold text-white mb-2" id="onboarding-title">
+            <h2 className="text-2xl md:text-3xl font-bold text-white mb-2" id="onboarding-title">
               {currentSlideData.title}
             </h2>
-            <p className="text-xl text-indigo-300" id="onboarding-subtitle">
+            <p className="text-base md:text-lg text-indigo-300" id="onboarding-subtitle">
               {currentSlideData.subtitle}
             </p>
           </div>
+        </div>
 
-          {/* Progress indicators */}
-          <div className="flex justify-center gap-3">
+        {/* Content - Scrollable */}
+        <div className="p-6 overflow-y-auto flex-1">
+          {currentSlideData.content}
+        </div>
+
+        {/* Footer - Navigation */}
+        <div className="p-4 md:p-6 bg-slate-900/50 border-t border-slate-700 flex-shrink-0">
+          {/* Progress indicators - Above buttons on mobile */}
+          <div className="flex justify-center gap-2 mb-4">
             {slides.map((_, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentSlide(index)}
-                className={`rounded-full transition-all min-w-[44px] min-h-[44px] flex items-center justify-center ${
+                className={`h-3 rounded-full transition-all ${
                   index === currentSlide
-                    ? 'bg-indigo-500'
-                    : 'bg-slate-600 hover:bg-slate-500'
+                    ? 'w-8 bg-indigo-500'
+                    : 'w-3 bg-slate-600 hover:bg-slate-500'
                 }`}
                 title={`Aller à l'étape ${index + 1}`}
                 aria-label={`Aller à l'étape ${index + 1}`}
                 aria-current={index === currentSlide ? 'step' : undefined}
-              >
-                <span className={`block h-2 rounded-full transition-all ${
-                  index === currentSlide ? 'w-8 bg-indigo-300' : 'w-2 bg-current'
-                }`} />
-              </button>
+              />
             ))}
           </div>
-        </div>
 
-        {/* Content */}
-        <div className="p-8 overflow-y-auto max-h-[50vh]">
-          {currentSlideData.content}
-        </div>
+          {/* Navigation buttons */}
+          <div className="flex flex-col md:flex-row gap-3">
+            <button
+              onClick={handlePrevious}
+              disabled={currentSlide === 0}
+              className={`w-full md:w-auto px-6 py-3 rounded-lg font-semibold transition-all text-base md:text-sm flex items-center justify-center gap-2 ${
+                currentSlide === 0
+                  ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
+                  : 'bg-slate-700 text-white hover:bg-slate-600'
+              }`}
+            >
+              <ChevronLeft className="w-5 h-5" />
+              Précédent
+            </button>
 
-        {/* Footer */}
-        <div className="p-6 bg-slate-900/50 border-t border-slate-700 flex items-center justify-between">
-          <button
-            onClick={handlePrevious}
-            disabled={currentSlide === 0}
-            className={`flex items-center gap-2 px-6 py-3 rounded-lg font-semibold transition-all ${
-              currentSlide === 0
-                ? 'bg-slate-800 text-slate-600 cursor-not-allowed'
-                : 'bg-slate-700 text-white hover:bg-slate-600'
-            }`}
-          >
-            <ChevronLeft className="w-5 h-5" />
-            Précédent
-          </button>
-
-          <div className="text-slate-400 font-semibold">
-            {currentSlide + 1} / {slides.length}
+            {currentSlide === slides.length - 1 ? (
+              <button
+                onClick={handleClose}
+                className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-lg flex items-center justify-center gap-2"
+              >
+                Let's go ! 🚀
+              </button>
+            ) : currentSlide === 0 ? (
+              <button
+                onClick={handleNext}
+                className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-lg flex items-center justify-center gap-2"
+              >
+                C'est parti ! 🚀
+              </button>
+            ) : (
+              <button
+                onClick={handleNext}
+                className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-base md:text-sm flex items-center justify-center gap-2"
+              >
+                Suivant
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            )}
           </div>
 
-          {currentSlide === slides.length - 1 ? (
-            <button
-              onClick={handleClose}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-lg"
-            >
-              Let's go ! 🚀
-            </button>
-          ) : currentSlide === 0 ? (
-            <button
-              onClick={handleNext}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-lg"
-            >
-              C'est parti ! 🚀
-            </button>
-          ) : (
-            <button
-              onClick={handleNext}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
-            >
-              Suivant
-              <ChevronRight className="w-5 h-5" />
-            </button>
+          {/* Checkbox "Ne plus afficher" - Only on last slide */}
+          {currentSlide === slides.length - 1 && (
+            <div className="mt-4 flex items-center justify-center gap-3 p-3 bg-slate-800/50 rounded-lg border border-slate-700">
+              <input
+                type="checkbox"
+                id="dontShowAgain"
+                checked={dontShowAgain}
+                onChange={(e) => setDontShowAgain(e.target.checked)}
+                className="w-5 h-5 text-indigo-600 bg-slate-700 border-slate-600 rounded focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 focus:ring-offset-slate-800 cursor-pointer"
+              />
+              <label htmlFor="dontShowAgain" className="text-slate-300 cursor-pointer text-base font-medium">
+                Ne plus afficher ce tuto au démarrage
+              </label>
+            </div>
           )}
         </div>
       </div>
