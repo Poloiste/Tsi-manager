@@ -98,6 +98,8 @@ function App() {
   });
 
   // Calendrier des semaines TSI 2025-2026 (dates réelles, vacances exclues)
+  // Note: Ces dates affichent les jours de classe (Lundi-Vendredi) pour l'interface utilisateur.
+  // Le calendrier sous-jacent (schoolWeek.js) couvre Lundi-Dimanche pour le calcul des semaines.
   const weekCalendar = {
     1: { dates: '1-5 sept', label: 'S1' },
     2: { dates: '8-12 sept', label: 'S2' },

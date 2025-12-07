@@ -8,6 +8,9 @@
  * - Hiver (Zone B): Feb 15 - Mar 2
  * - Printemps: Apr 12 - Apr 27
  * 
+ * @note This calendar covers Monday-Sunday (full week) for accurate calculations.
+ * The display calendar in App.js shows Monday-Friday (class days) for UI purposes.
+ * 
  * @note This calendar must be updated annually for each new school year.
  * To update for a new year:
  * 1. Obtain the official TSI school calendar for the new academic year
