@@ -1,5 +1,5 @@
 /**
- * School calendar for TSI 2024-2025
+ * School calendar for TSI 2025-2026
  * Maps each school week (S1-S33) to actual teaching dates, excluding vacation periods
  * 
  * Vacation periods:
@@ -12,47 +12,47 @@
  * To update for a new year:
  * 1. Obtain the official TSI school calendar for the new academic year
  * 2. Update each week's start and end dates to match the actual teaching dates
- * 3. Ensure vacation periods are excluded (weeks should only cover Monday-Friday of teaching periods)
+ * 3. Ensure vacation periods are excluded (weeks should cover Monday-Sunday of teaching periods)
  * 4. Update the tests in schoolWeek.test.js to reflect the new dates
  */
-export const schoolCalendar2024_2025 = {
-  1: { start: '2024-09-02', end: '2024-09-06' },
-  2: { start: '2024-09-09', end: '2024-09-13' },
-  3: { start: '2024-09-16', end: '2024-09-20' },
-  4: { start: '2024-09-23', end: '2024-09-27' },
-  5: { start: '2024-09-30', end: '2024-10-04' },
-  6: { start: '2024-10-07', end: '2024-10-11' },
-  7: { start: '2024-10-14', end: '2024-10-18' },
+export const schoolCalendar2025_2026 = {
+  1: { start: '2025-09-01', end: '2025-09-07' },
+  2: { start: '2025-09-08', end: '2025-09-14' },
+  3: { start: '2025-09-15', end: '2025-09-21' },
+  4: { start: '2025-09-22', end: '2025-09-28' },
+  5: { start: '2025-09-29', end: '2025-10-05' },
+  6: { start: '2025-10-06', end: '2025-10-12' },
+  7: { start: '2025-10-13', end: '2025-10-19' },
   // VACANCES TOUSSAINT: 19 oct - 3 nov
-  8: { start: '2024-11-04', end: '2024-11-08' },
-  9: { start: '2024-11-11', end: '2024-11-15' },
-  10: { start: '2024-11-18', end: '2024-11-22' },
-  11: { start: '2024-11-25', end: '2024-11-29' },
-  12: { start: '2024-12-02', end: '2024-12-06' },
-  13: { start: '2024-12-09', end: '2024-12-13' },
-  14: { start: '2024-12-16', end: '2024-12-20' },
+  8: { start: '2025-11-03', end: '2025-11-09' },
+  9: { start: '2025-11-10', end: '2025-11-16' },
+  10: { start: '2025-11-17', end: '2025-11-23' },
+  11: { start: '2025-11-24', end: '2025-11-30' },
+  12: { start: '2025-12-01', end: '2025-12-07' },
+  13: { start: '2025-12-08', end: '2025-12-14' },
+  14: { start: '2025-12-15', end: '2025-12-21' },
   // VACANCES NOËL: 21 déc - 5 jan
-  15: { start: '2025-01-06', end: '2025-01-10' },
-  16: { start: '2025-01-13', end: '2025-01-17' },
-  17: { start: '2025-01-20', end: '2025-01-24' },
-  18: { start: '2025-01-27', end: '2025-01-31' },
-  19: { start: '2025-02-03', end: '2025-02-07' },
-  20: { start: '2025-02-10', end: '2025-02-14' },
+  15: { start: '2026-01-05', end: '2026-01-11' },
+  16: { start: '2026-01-12', end: '2026-01-18' },
+  17: { start: '2026-01-19', end: '2026-01-25' },
+  18: { start: '2026-01-26', end: '2026-02-01' },
+  19: { start: '2026-02-02', end: '2026-02-08' },
+  20: { start: '2026-02-09', end: '2026-02-15' },
   // VACANCES HIVER: 15 fév - 2 mars (zone B)
-  21: { start: '2025-03-03', end: '2025-03-07' },
-  22: { start: '2025-03-10', end: '2025-03-14' },
-  23: { start: '2025-03-17', end: '2025-03-21' },
-  24: { start: '2025-03-24', end: '2025-03-28' },
-  25: { start: '2025-03-31', end: '2025-04-04' },
-  26: { start: '2025-04-07', end: '2025-04-11' },
+  21: { start: '2026-03-02', end: '2026-03-08' },
+  22: { start: '2026-03-09', end: '2026-03-15' },
+  23: { start: '2026-03-16', end: '2026-03-22' },
+  24: { start: '2026-03-23', end: '2026-03-29' },
+  25: { start: '2026-03-30', end: '2026-04-05' },
+  26: { start: '2026-04-06', end: '2026-04-12' },
   // VACANCES PRINTEMPS: 12 avr - 27 avr
-  27: { start: '2025-04-28', end: '2025-05-02' },
-  28: { start: '2025-05-05', end: '2025-05-09' },
-  29: { start: '2025-05-12', end: '2025-05-16' },
-  30: { start: '2025-05-19', end: '2025-05-23' },
-  31: { start: '2025-05-26', end: '2025-05-30' },
-  32: { start: '2025-06-02', end: '2025-06-06' },
-  33: { start: '2025-06-09', end: '2025-06-13' }
+  27: { start: '2026-04-27', end: '2026-05-03' },
+  28: { start: '2026-05-04', end: '2026-05-10' },
+  29: { start: '2026-05-11', end: '2026-05-17' },
+  30: { start: '2026-05-18', end: '2026-05-24' },
+  31: { start: '2026-05-25', end: '2026-05-31' },
+  32: { start: '2026-06-01', end: '2026-06-07' },
+  33: { start: '2026-06-08', end: '2026-06-14' }
 };
 
 /**
@@ -66,8 +66,8 @@ export const schoolCalendar2024_2025 = {
  * - If the date falls outside school week ranges (e.g., weekends, vacations), returns the next upcoming school week.
  * - If the date is after S33, returns S1 (default for next school year).
  * 
- * Note: School weeks are defined as Monday-Friday periods. Weekends naturally fall outside
- * these ranges and will return the next school week.
+ * Note: School weeks are defined as Monday-Sunday periods to cover the entire week
+ * including weekends. This ensures accurate week calculations.
  * 
  * @param {Date} [date=new Date()] - The date to calculate the week for (defaults to current date)
  * @returns {number} Current or next school week number (1-33)
@@ -78,7 +78,7 @@ export const getCurrentSchoolWeek = (date = new Date()) => {
   
   // Single loop: check if in a school week or find the next one
   for (let weekNum = 1; weekNum <= 33; weekNum++) {
-    const dates = schoolCalendar2024_2025[weekNum];
+    const dates = schoolCalendar2025_2026[weekNum];
     
     // If we're in this school week, return it
     if (todayStr >= dates.start && todayStr <= dates.end) {

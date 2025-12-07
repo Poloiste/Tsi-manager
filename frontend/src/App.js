@@ -97,7 +97,7 @@ function App() {
     date: ''
   });
 
-  // Calendrier des semaines TSI 2024-2025 (dates réelles, vacances exclues)
+  // Calendrier des semaines TSI 2025-2026 (dates réelles, vacances exclues)
   const weekCalendar = {
     1: { dates: '2-6 sept', label: 'S1' },
     2: { dates: '9-13 sept', label: 'S2' },
