@@ -1,0 +1,43 @@
+/**
+ * Date utilities for handling date calculations with proper timezone handling
+ */
+
+/**
+ * Parse a date string (YYYY-MM-DD) and return a Date object in local timezone at midnight
+ * This avoids the UTC timezone issues that occur when using new Date("YYYY-MM-DD")
+ * 
+ * @param {string} dateString - Date string in YYYY-MM-DD format
+ * @returns {Date} Date object set to midnight in local timezone
+ */
+export const parseLocalDate = (dateString) => {
+  const [year, month, day] = dateString.split('-').map(Number);
+  const date = new Date(year, month - 1, day); // month is 0-indexed
+  date.setHours(0, 0, 0, 0);
+  return date;
+};
+
+/**
+ * Normalize a date to midnight in local timezone
+ * 
+ * @param {Date} date - Date to normalize
+ * @returns {Date} New date object set to midnight in local timezone
+ */
+export const normalizeToMidnight = (date) => {
+  const normalized = new Date(date);
+  normalized.setHours(0, 0, 0, 0);
+  return normalized;
+};
+
+/**
+ * Calculate the number of days between two dates
+ * Both dates are normalized to midnight before calculation to ensure accurate day counts
+ * 
+ * @param {Date} fromDate - Starting date
+ * @param {Date} toDate - Ending date
+ * @returns {number} Number of days between the dates (can be negative if toDate is before fromDate)
+ */
+export const calculateDaysBetween = (fromDate, toDate) => {
+  const from = normalizeToMidnight(fromDate);
+  const to = normalizeToMidnight(toDate);
+  return Math.floor((to - from) / (1000 * 60 * 60 * 24));
+};

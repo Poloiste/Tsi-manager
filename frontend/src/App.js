@@ -11,6 +11,7 @@ import { supabase } from './supabaseClient';
 import Onboarding from './components/Onboarding';
 import { ONBOARDING_COMPLETED_KEY } from './constants';
 import { getCurrentSchoolWeek } from './utils/schoolWeek';
+import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './utils/dateUtils';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -98,46 +99,48 @@ function App() {
   });
 
   // Calendrier des semaines TSI 2025-2026 (dates réelles, vacances exclues)
+  // Format d'affichage: { dates: 'jour-jour mois', label: 'Sxx' }
   // Note: Ces dates affichent les jours de classe (Lundi-Vendredi) pour l'interface utilisateur.
   // Le calendrier sous-jacent (schoolWeek.js) couvre Lundi-Dimanche pour le calcul des semaines.
+  // Les dates complètes au format YYYY-MM-DD sont définies dans schoolWeek.js
   const weekCalendar = {
-    1: { dates: '1-5 sept', label: 'S1' },
-    2: { dates: '8-12 sept', label: 'S2' },
-    3: { dates: '15-19 sept', label: 'S3' },
-    4: { dates: '22-26 sept', label: 'S4' },
-    5: { dates: '29 sept-3 oct', label: 'S5' },
-    6: { dates: '6-10 oct', label: 'S6' },
-    7: { dates: '13-17 oct', label: 'S7' },
+    1: { dates: '1-5 sept', label: 'S1' },           // 2025-09-01 à 2025-09-05
+    2: { dates: '8-12 sept', label: 'S2' },          // 2025-09-08 à 2025-09-12
+    3: { dates: '15-19 sept', label: 'S3' },         // 2025-09-15 à 2025-09-19
+    4: { dates: '22-26 sept', label: 'S4' },         // 2025-09-22 à 2025-09-26
+    5: { dates: '29 sept-3 oct', label: 'S5' },      // 2025-09-29 à 2025-10-03
+    6: { dates: '6-10 oct', label: 'S6' },           // 2025-10-06 à 2025-10-10
+    7: { dates: '13-17 oct', label: 'S7' },          // 2025-10-13 à 2025-10-17
     // VACANCES TOUSSAINT: 19 oct - 3 nov
-    8: { dates: '3-7 nov', label: 'S8' },
-    9: { dates: '10-14 nov', label: 'S9' },
-    10: { dates: '17-21 nov', label: 'S10' },
-    11: { dates: '24-28 nov', label: 'S11' },
-    12: { dates: '1-5 déc', label: 'S12' },
-    13: { dates: '8-12 déc', label: 'S13' },
-    14: { dates: '15-19 déc', label: 'S14' },
+    8: { dates: '3-7 nov', label: 'S8' },            // 2025-11-03 à 2025-11-07
+    9: { dates: '10-14 nov', label: 'S9' },          // 2025-11-10 à 2025-11-14
+    10: { dates: '17-21 nov', label: 'S10' },        // 2025-11-17 à 2025-11-21
+    11: { dates: '24-28 nov', label: 'S11' },        // 2025-11-24 à 2025-11-28
+    12: { dates: '1-5 déc', label: 'S12' },          // 2025-12-01 à 2025-12-05
+    13: { dates: '8-12 déc', label: 'S13' },         // 2025-12-08 à 2025-12-12
+    14: { dates: '15-19 déc', label: 'S14' },        // 2025-12-15 à 2025-12-19
     // VACANCES NOËL: 21 déc - 5 jan
-    15: { dates: '5-9 jan', label: 'S15' },
-    16: { dates: '12-16 jan', label: 'S16' },
-    17: { dates: '19-23 jan', label: 'S17' },
-    18: { dates: '26-30 jan', label: 'S18' },
-    19: { dates: '2-6 fév', label: 'S19' },
-    20: { dates: '9-13 fév', label: 'S20' },
+    15: { dates: '5-9 jan', label: 'S15' },          // 2026-01-05 à 2026-01-09
+    16: { dates: '12-16 jan', label: 'S16' },        // 2026-01-12 à 2026-01-16
+    17: { dates: '19-23 jan', label: 'S17' },        // 2026-01-19 à 2026-01-23
+    18: { dates: '26-30 jan', label: 'S18' },        // 2026-01-26 à 2026-01-30
+    19: { dates: '2-6 fév', label: 'S19' },          // 2026-02-02 à 2026-02-06
+    20: { dates: '9-13 fév', label: 'S20' },         // 2026-02-09 à 2026-02-13
     // VACANCES HIVER: 15 fév - 2 mars (zone B)
-    21: { dates: '2-6 mars', label: 'S21' },
-    22: { dates: '9-13 mars', label: 'S22' },
-    23: { dates: '16-20 mars', label: 'S23' },
-    24: { dates: '23-27 mars', label: 'S24' },
-    25: { dates: '30 mars-3 avr', label: 'S25' },
-    26: { dates: '6-10 avr', label: 'S26' },
+    21: { dates: '2-6 mars', label: 'S21' },         // 2026-03-02 à 2026-03-06
+    22: { dates: '9-13 mars', label: 'S22' },        // 2026-03-09 à 2026-03-13
+    23: { dates: '16-20 mars', label: 'S23' },       // 2026-03-16 à 2026-03-20
+    24: { dates: '23-27 mars', label: 'S24' },       // 2026-03-23 à 2026-03-27
+    25: { dates: '30 mars-3 avr', label: 'S25' },    // 2026-03-30 à 2026-04-03
+    26: { dates: '6-10 avr', label: 'S26' },         // 2026-04-06 à 2026-04-10
     // VACANCES PRINTEMPS: 12 avr - 27 avr
-    27: { dates: '27 avr-1 mai', label: 'S27' },
-    28: { dates: '4-8 mai', label: 'S28' },
-    29: { dates: '11-15 mai', label: 'S29' },
-    30: { dates: '18-22 mai', label: 'S30' },
-    31: { dates: '25-29 mai', label: 'S31' },
-    32: { dates: '1-5 juin', label: 'S32' },
-    33: { dates: '8-12 juin', label: 'S33' }
+    27: { dates: '27 avr-1 mai', label: 'S27' },     // 2026-04-27 à 2026-05-01
+    28: { dates: '4-8 mai', label: 'S28' },          // 2026-05-04 à 2026-05-08
+    29: { dates: '11-15 mai', label: 'S29' },        // 2026-05-11 à 2026-05-15
+    30: { dates: '18-22 mai', label: 'S30' },        // 2026-05-18 à 2026-05-22
+    31: { dates: '25-29 mai', label: 'S31' },        // 2026-05-25 à 2026-05-29
+    32: { dates: '1-5 juin', label: 'S32' },         // 2026-06-01 à 2026-06-05
+    33: { dates: '8-12 juin', label: 'S33' }         // 2026-06-08 à 2026-06-12
   };
 
   // États pour Cours et Flashcards
@@ -442,8 +445,10 @@ function App() {
         
         // Si l'événement a une date exacte
         if (event.date) {
-          const eventDate = new Date(event.date);
-          daysUntil = Math.floor((eventDate - today) / (1000 * 60 * 60 * 24));
+          // Parser la date en composants locaux pour éviter les problèmes UTC
+          const eventDate = parseLocalDate(event.date);
+          const todayNormalized = normalizeToMidnight(today);
+          daysUntil = calculateDaysBetween(todayNormalized, eventDate);
         } else {
           // Sinon calculer approximativement avec semaine/jour
           const weekOffset = event.week - currentWeek;
