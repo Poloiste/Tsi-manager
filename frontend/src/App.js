@@ -2099,26 +2099,8 @@ function App() {
           const dayName = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'][selectedDate.getDay()];
           eventToAdd.day = dayName;
           
-          // Trouver la semaine TSI correspondante
-          const startOfSchoolYear = new Date('2024-09-01');
-          const diffTime = selectedDate - startOfSchoolYear;
-          const diffWeeks = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7));
-          
-          // Ajuster pour correspondre aux semaines TSI (S1 = semaine du 1er septembre)
-          let calculatedWeek = diffWeeks + 1;
-          
-          // Gérer les vacances (approximativement)
-          if (selectedDate >= new Date('2024-10-19') && selectedDate <= new Date('2024-11-03')) {
-            calculatedWeek -= 2; // Vacances Toussaint
-          } else if (selectedDate >= new Date('2024-12-21') && selectedDate <= new Date('2025-01-05')) {
-            calculatedWeek -= 2; // Vacances Noël
-          } else if (selectedDate >= new Date('2025-02-08') && selectedDate <= new Date('2025-02-23')) {
-            calculatedWeek -= 2; // Vacances Hiver
-          } else if (selectedDate >= new Date('2025-04-05') && selectedDate <= new Date('2025-04-21')) {
-            calculatedWeek -= 2; // Vacances Printemps
-          }
-          
-          eventToAdd.week = Math.max(1, Math.min(33, calculatedWeek));
+          // Utiliser la fonction qui vérifie le vrai calendrier TSI
+          eventToAdd.week = getCurrentSchoolWeek(selectedDate);
         }
         
         // Insert into Supabase
