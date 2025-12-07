@@ -31,6 +31,34 @@ describe('parseLocalDate', () => {
     expect(newYear.getMonth()).toBe(0);
     expect(newYear.getDate()).toBe(1);
   });
+
+  test('should throw error for invalid format', () => {
+    expect(() => parseLocalDate('2025/12/08')).toThrow('Invalid date format');
+    expect(() => parseLocalDate('12-08-2025')).toThrow('Invalid date format');
+    expect(() => parseLocalDate('2025-12')).toThrow('Invalid date format');
+    expect(() => parseLocalDate('invalid')).toThrow('Invalid date format');
+    expect(() => parseLocalDate('')).toThrow('Invalid date format');
+  });
+
+  test('should throw error for invalid month', () => {
+    expect(() => parseLocalDate('2025-13-01')).toThrow('Invalid month');
+    expect(() => parseLocalDate('2025-00-01')).toThrow('Invalid month');
+  });
+
+  test('should throw error for invalid day', () => {
+    expect(() => parseLocalDate('2025-12-32')).toThrow('Invalid day');
+    expect(() => parseLocalDate('2025-12-00')).toThrow('Invalid day');
+  });
+
+  test('should throw error for invalid date (e.g., Feb 30)', () => {
+    expect(() => parseLocalDate('2025-02-30')).toThrow('Invalid date');
+  });
+
+  test('should throw error for non-string input', () => {
+    expect(() => parseLocalDate(null)).toThrow('Invalid date format');
+    expect(() => parseLocalDate(undefined)).toThrow('Invalid date format');
+    expect(() => parseLocalDate(123)).toThrow('Invalid date format');
+  });
 });
 
 describe('normalizeToMidnight', () => {
