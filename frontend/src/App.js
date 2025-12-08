@@ -18,6 +18,8 @@ import { getCurrentSchoolWeek } from './utils/schoolWeek';
 import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './utils/dateUtils';
 import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
 import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType } from './utils/suggestionHelpers';
+import { useSRS } from './hooks/useSRS';
+import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } from './utils/srsAlgorithm';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -202,6 +204,14 @@ function App() {
   const [notionImportText, setNotionImportText] = useState('');
   const [importCourseId, setImportCourseId] = useState('');
   const [selectedCoursesForExport, setSelectedCoursesForExport] = useState([]);
+  
+  // États pour SRS (Spaced Repetition System)
+  const [isSRSMode, setIsSRSMode] = useState(false);  // Mode révision SRS vs mode normal
+  const [srsFlashcards, setSrsFlashcards] = useState([]);  // Cartes SRS avec données
+  const [currentSRSIndex, setCurrentSRSIndex] = useState(0);
+
+  // Hook SRS
+  const srs = useSRS(user?.id);
   
   // États pour Chat/Discussions
   const [channels, setChannels] = useState([]);
@@ -963,9 +973,18 @@ function App() {
       
       if (statsError) console.error('Error loading flashcard stats:', statsError);
       
+      // Load SRS data
+      const { data: srsData, error: srsError } = await supabase
+        .from('user_flashcard_srs')
+        .select('*')
+        .eq('user_id', user?.id);
+      
+      if (srsError) console.error('Error loading SRS data:', srsError);
+      
       // Merge data
       const flashcardsWithStats = (data || []).map(flashcard => {
         const stats = (statsData || []).find(s => s.flashcard_id === flashcard.id);
+        const srs = (srsData || []).find(s => s.flashcard_id === flashcard.id);
         
         return {
           id: flashcard.id,
@@ -978,7 +997,8 @@ function App() {
           incorrectCount: stats?.incorrect_count || 0,
           authorName: flashcard.created_by_name || 'Anonyme',
           isImported: !!flashcard.imported_from,
-          importSource: flashcard.imported_from || null
+          importSource: flashcard.imported_from || null,
+          srsData: srs || null
         };
       });
       
@@ -1543,6 +1563,81 @@ function App() {
       alert(`Session terminée !\n✅ Correct: ${flashcardStats.correct}\nâŒ Incorrect: ${flashcardStats.incorrect}\nâ­ï¸ Passées: ${flashcardStats.skipped + 1}`);
       setSelectedCourseForFlashcards(null);
     }
+  };
+
+
+  // ==================== FONCTIONS SRS (SPACED REPETITION SYSTEM) ====================
+  
+  // Démarrer une session de révision SRS
+  const startSRSSession = async () => {
+    if (!user) return;
+    
+    try {
+      const cards = await srs.loadCardsToReview();
+      
+      if (cards.length === 0) {
+        alert('🎉 Aucune carte à réviser maintenant !\nRevenez plus tard.');
+        return;
+      }
+      
+      setSrsFlashcards(cards);
+      setCurrentSRSIndex(0);
+      setIsSRSMode(true);
+      setShowFlashcardAnswer(false);
+      setFlashcardStats({ correct: 0, incorrect: 0, skipped: 0 });
+    } catch (error) {
+      console.error('Error starting SRS session:', error);
+      alert('Erreur lors du chargement des cartes à réviser');
+    }
+  };
+  
+  // Gérer une réponse SRS avec difficulté
+  const handleSRSAnswer = async (difficulty) => {
+    if (!user || srsFlashcards.length === 0) return;
+    
+    const currentCard = srsFlashcards[currentSRSIndex];
+    
+    try {
+      // Enregistrer la révision avec l'algorithme SM-2
+      await srs.recordReview(currentCard.id, difficulty);
+      
+      // Mettre à jour les statistiques de session
+      if (difficulty === 'again' || difficulty === 'hard') {
+        setFlashcardStats(prev => ({ ...prev, incorrect: prev.incorrect + 1 }));
+      } else {
+        setFlashcardStats(prev => ({ ...prev, correct: prev.correct + 1 }));
+      }
+      
+      // Passer à la carte suivante
+      if (currentSRSIndex < srsFlashcards.length - 1) {
+        setCurrentSRSIndex(currentSRSIndex + 1);
+        setShowFlashcardAnswer(false);
+      } else {
+        // Fin de la session
+        const totalCorrect = flashcardStats.correct + (isDifficultyCorrect(difficulty) ? 1 : 0);
+        const totalIncorrect = flashcardStats.incorrect + (!isDifficultyCorrect(difficulty) ? 1 : 0);
+        
+        alert(`🎉 Session terminée !\n\n✅ Réussies: ${totalCorrect}\n❌ À revoir: ${totalIncorrect}\n\nContinuez comme ça !`);
+        setIsSRSMode(false);
+        setSrsFlashcards([]);
+        setCurrentSRSIndex(0);
+        
+        // Recharger les statistiques
+        await srs.getReviewStats();
+        await loadFlashcards();
+      }
+    } catch (error) {
+      console.error('Error handling SRS answer:', error);
+      alert('Erreur lors de l\'enregistrement de la révision');
+    }
+  };
+  
+  // Quitter la session SRS
+  const exitSRSSession = () => {
+    setIsSRSMode(false);
+    setSrsFlashcards([]);
+    setCurrentSRSIndex(0);
+    setShowFlashcardAnswer(false);
   };
 
 
@@ -3090,6 +3185,56 @@ function App() {
                 <p className="text-indigo-300 text-lg">Flashcards pour maximiser la rétention</p>
               </div>
 
+              {/* Section SRS - Révisions du jour */}
+              {!selectedCourseForFlashcards && !isSRSMode && courses.length > 0 && (
+                <div className="mb-8 max-w-4xl mx-auto">
+                  <div className="p-6 bg-gradient-to-r from-red-900/30 to-orange-900/30 border-2 border-red-500/50 rounded-2xl">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <Brain className="w-8 h-8 text-red-300" />
+                        <div>
+                          <h3 className="text-2xl font-bold text-white">Révisions du jour</h3>
+                          <p className="text-red-200 text-sm">Système de répétition espacée (SRS)</p>
+                        </div>
+                      </div>
+                      {srs.stats.due > 0 && (
+                        <div className="bg-red-500 text-white px-4 py-2 rounded-full font-bold text-xl">
+                          {srs.stats.due}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                      <div className="bg-slate-900/50 p-3 rounded-lg">
+                        <div className="text-red-300 text-2xl font-bold">{srs.stats.due}</div>
+                        <div className="text-slate-400 text-xs">À réviser</div>
+                      </div>
+                      <div className="bg-slate-900/50 p-3 rounded-lg">
+                        <div className="text-yellow-300 text-2xl font-bold">{srs.stats.learning}</div>
+                        <div className="text-slate-400 text-xs">En apprentissage</div>
+                      </div>
+                      <div className="bg-slate-900/50 p-3 rounded-lg">
+                        <div className="text-green-300 text-2xl font-bold">{srs.stats.mastered}</div>
+                        <div className="text-slate-400 text-xs">Maîtrisées</div>
+                      </div>
+                      <div className="bg-slate-900/50 p-3 rounded-lg">
+                        <div className="text-blue-300 text-2xl font-bold">{srs.stats.new}</div>
+                        <div className="text-slate-400 text-xs">Nouvelles</div>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={startSRSSession}
+                      disabled={srs.stats.due === 0}
+                      className="w-full px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-xl hover:from-red-500 hover:to-orange-500 transition-all font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Brain className="w-6 h-6" />
+                      {srs.stats.due > 0 ? '🧠 Commencer la révision SRS' : '✅ Aucune carte à réviser'}
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Section Import/Export */}
               {!selectedCourseForFlashcards && courses.length > 0 && (
                 <div className="mb-8 max-w-4xl mx-auto">
@@ -3247,7 +3392,126 @@ function App() {
                 </div>
               )}
 
-              {selectedCourseForFlashcards ? (
+              {/* Mode SRS Review Session */}
+              {isSRSMode ? (
+                <div className="max-w-3xl mx-auto">
+                  <button
+                    onClick={exitSRSSession}
+                    className="mb-6 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all flex items-center gap-2"
+                  >
+                    <X className="w-4 h-4" />
+                    Quitter la session SRS
+                  </button>
+
+                  {(() => {
+                    const currentCard = srsFlashcards[currentSRSIndex];
+                    if (!currentCard) return null;
+
+                    return (
+                      <div>
+                        {/* En-tête de session SRS */}
+                        <div className="mb-6 p-6 bg-gradient-to-r from-red-900/30 to-orange-900/30 border border-red-500/50 rounded-xl">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <Brain className="w-6 h-6 text-red-300" />
+                              <div>
+                                <h3 className="text-xl font-bold text-white">Session SRS</h3>
+                                <p className="text-sm text-slate-400">
+                                  {currentCard.course?.subject} - {currentCard.course?.chapter}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-2xl font-bold text-red-300">
+                                {currentSRSIndex + 1} / {srsFlashcards.length}
+                              </div>
+                              <div className="text-xs text-slate-400">cartes</div>
+                            </div>
+                          </div>
+                          
+                          {/* Stats de session */}
+                          <div className="flex gap-4">
+                            <div className="flex items-center gap-2">
+                              <span className="text-green-400">✅</span>
+                              <span className="text-white font-semibold">{flashcardStats.correct}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-red-400">❌</span>
+                              <span className="text-white font-semibold">{flashcardStats.incorrect}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Flashcard SRS */}
+                        <div className="mb-6">
+                          <div 
+                            className="min-h-[300px] p-8 bg-gradient-to-br from-red-900/50 to-orange-900/50 border-2 border-red-500/50 rounded-2xl cursor-pointer hover:border-red-400 transition-all flex items-center justify-center"
+                            onClick={() => setShowFlashcardAnswer(!showFlashcardAnswer)}
+                          >
+                            <div className="text-center">
+                              {!showFlashcardAnswer ? (
+                                <div>
+                                  <div className="text-sm text-red-300 mb-4">Question</div>
+                                  <MathText className="text-2xl font-bold text-white">{currentCard.question}</MathText>
+                                  <p className="text-sm text-slate-400 mt-6">👆 Cliquez pour voir la réponse</p>
+                                </div>
+                              ) : (
+                                <div>
+                                  <div className="text-sm text-orange-300 mb-4">Réponse</div>
+                                  <MathText className="text-xl text-white whitespace-pre-wrap">{currentCard.answer}</MathText>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Boutons de difficulté SRS */}
+                        {showFlashcardAnswer && (
+                          <div className="space-y-4">
+                            <p className="text-center text-slate-300 font-semibold mb-2">
+                              Comment avez-vous trouvé cette carte ?
+                            </p>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                              <button
+                                onClick={() => handleSRSAnswer('again')}
+                                className="px-4 py-6 bg-red-600/30 border-2 border-red-500/50 text-red-300 rounded-xl hover:bg-red-600/50 transition-all font-bold text-center"
+                              >
+                                <div className="text-3xl mb-2">😫</div>
+                                <div className="text-sm">À revoir</div>
+                                <div className="text-xs text-red-400 mt-1">&lt; 1 jour</div>
+                              </button>
+                              <button
+                                onClick={() => handleSRSAnswer('hard')}
+                                className="px-4 py-6 bg-orange-600/30 border-2 border-orange-500/50 text-orange-300 rounded-xl hover:bg-orange-600/50 transition-all font-bold text-center"
+                              >
+                                <div className="text-3xl mb-2">😕</div>
+                                <div className="text-sm">Difficile</div>
+                                <div className="text-xs text-orange-400 mt-1">1-2 jours</div>
+                              </button>
+                              <button
+                                onClick={() => handleSRSAnswer('good')}
+                                className="px-4 py-6 bg-green-600/30 border-2 border-green-500/50 text-green-300 rounded-xl hover:bg-green-600/50 transition-all font-bold text-center"
+                              >
+                                <div className="text-3xl mb-2">🙂</div>
+                                <div className="text-sm">Bien</div>
+                                <div className="text-xs text-green-400 mt-1">Intervalle normal</div>
+                              </button>
+                              <button
+                                onClick={() => handleSRSAnswer('easy')}
+                                className="px-4 py-6 bg-blue-600/30 border-2 border-blue-500/50 text-blue-300 rounded-xl hover:bg-blue-600/50 transition-all font-bold text-center"
+                              >
+                                <div className="text-3xl mb-2">😊</div>
+                                <div className="text-sm">Facile</div>
+                                <div className="text-xs text-blue-400 mt-1">Intervalle long</div>
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+              ) : selectedCourseForFlashcards ? (
                 // Mode Session de révision
                 <div className="max-w-3xl mx-auto">
                   <button
@@ -3430,10 +3694,16 @@ function App() {
                                     {/* Liste des Flashcards */}
                                     {isChapterExpanded && (
                                       <div className="pl-4 mt-2 space-y-1">
-                                        {chapterFlashcards.map(card => (
+                                        {chapterFlashcards.map(card => {
+                                          // Get SRS status for this card
+                                          const srsStatus = getCardStatus(card.srsData);
+                                          const statusEmoji = getStatusEmoji(srsStatus);
+                                          const statusLabel = getStatusLabel(srsStatus);
+                                          
+                                          return (
                                           <div key={card.id} className="flex items-center justify-between p-2 bg-slate-900/50 rounded text-sm hover:bg-slate-800/50 transition-all">
                                             <div className="flex items-center gap-2 flex-1 min-w-0">
-                                              <span>🎴</span>
+                                              <span title={statusLabel}>{statusEmoji}</span>
                                               <span 
                                                 className="truncate max-w-xs text-white" 
                                                 title={card.question}
@@ -3466,7 +3736,7 @@ function App() {
                                               </button>
                                             </div>
                                           </div>
-                                        ))}
+                                        )})}
                                       </div>
                                     )}
                                   </div>
@@ -3884,6 +4154,139 @@ function App() {
                     </div>
                   </div>
                   <p className="text-red-200 font-semibold">Évaluations à venir</p>
+                </div>
+              </div>
+
+              {/* SRS Statistics Section */}
+              <div className="mt-12">
+                <h3 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
+                  <Brain className="w-8 h-8 text-indigo-400" />
+                  Statistiques SRS
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                  <div className="p-6 bg-gradient-to-br from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-2xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-4xl">🔴</div>
+                      <div className="text-3xl font-bold text-red-300">{srs.stats.due}</div>
+                    </div>
+                    <p className="text-red-200 font-semibold">À réviser</p>
+                    <p className="text-red-400/60 text-xs mt-1">Cartes dues aujourd'hui</p>
+                  </div>
+
+                  <div className="p-6 bg-gradient-to-br from-yellow-900/30 to-amber-900/30 border border-yellow-500/30 rounded-2xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-4xl">🟡</div>
+                      <div className="text-3xl font-bold text-yellow-300">{srs.stats.learning}</div>
+                    </div>
+                    <p className="text-yellow-200 font-semibold">En apprentissage</p>
+                    <p className="text-yellow-400/60 text-xs mt-1">Intervalle ≤ 21 jours</p>
+                  </div>
+
+                  <div className="p-6 bg-gradient-to-br from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-2xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-4xl">🟢</div>
+                      <div className="text-3xl font-bold text-green-300">{srs.stats.mastered}</div>
+                    </div>
+                    <p className="text-green-200 font-semibold">Maîtrisées</p>
+                    <p className="text-green-400/60 text-xs mt-1">Intervalle &gt; 21 jours</p>
+                  </div>
+
+                  <div className="p-6 bg-gradient-to-br from-blue-900/30 to-cyan-900/30 border border-blue-500/30 rounded-2xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-4xl">🔵</div>
+                      <div className="text-3xl font-bold text-blue-300">{srs.stats.new}</div>
+                    </div>
+                    <p className="text-blue-200 font-semibold">Nouvelles</p>
+                    <p className="text-blue-400/60 text-xs mt-1">Jamais révisées</p>
+                  </div>
+                </div>
+
+                {/* SRS Progress */}
+                <div className="p-6 bg-slate-800/50 border border-slate-700/50 rounded-2xl">
+                  <h4 className="text-xl font-bold text-white mb-4">Progression SRS</h4>
+                  <div className="space-y-4">
+                    {/* Total cards */}
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-slate-300">Total des cartes</span>
+                        <span className="text-white font-bold">
+                          {srs.stats.due + srs.stats.learning + srs.stats.mastered + srs.stats.new}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Mastery rate */}
+                    {(srs.stats.due + srs.stats.learning + srs.stats.mastered) > 0 && (
+                      <div>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span className="text-slate-300">Taux de maîtrise</span>
+                          <span className="text-white font-bold">
+                            {Math.round((srs.stats.mastered / (srs.stats.due + srs.stats.learning + srs.stats.mastered)) * 100)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+                          <div 
+                            className="bg-gradient-to-r from-green-600 to-emerald-500 h-full transition-all duration-500"
+                            style={{ 
+                              width: `${Math.round((srs.stats.mastered / (srs.stats.due + srs.stats.learning + srs.stats.mastered)) * 100)}%` 
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Progress breakdown */}
+                    <div>
+                      <p className="text-sm text-slate-400 mb-2">Répartition</p>
+                      <div className="flex gap-2 h-6 rounded-full overflow-hidden">
+                        {srs.stats.due > 0 && (
+                          <div 
+                            className="bg-red-500 flex items-center justify-center text-xs font-bold text-white"
+                            style={{ 
+                              width: `${(srs.stats.due / (srs.stats.due + srs.stats.learning + srs.stats.mastered + srs.stats.new)) * 100}%` 
+                            }}
+                            title={`${srs.stats.due} à réviser`}
+                          >
+                            {srs.stats.due > 5 && srs.stats.due}
+                          </div>
+                        )}
+                        {srs.stats.learning > 0 && (
+                          <div 
+                            className="bg-yellow-500 flex items-center justify-center text-xs font-bold text-white"
+                            style={{ 
+                              width: `${(srs.stats.learning / (srs.stats.due + srs.stats.learning + srs.stats.mastered + srs.stats.new)) * 100}%` 
+                            }}
+                            title={`${srs.stats.learning} en apprentissage`}
+                          >
+                            {srs.stats.learning > 5 && srs.stats.learning}
+                          </div>
+                        )}
+                        {srs.stats.mastered > 0 && (
+                          <div 
+                            className="bg-green-500 flex items-center justify-center text-xs font-bold text-white"
+                            style={{ 
+                              width: `${(srs.stats.mastered / (srs.stats.due + srs.stats.learning + srs.stats.mastered + srs.stats.new)) * 100}%` 
+                            }}
+                            title={`${srs.stats.mastered} maîtrisées`}
+                          >
+                            {srs.stats.mastered > 5 && srs.stats.mastered}
+                          </div>
+                        )}
+                        {srs.stats.new > 0 && (
+                          <div 
+                            className="bg-blue-500 flex items-center justify-center text-xs font-bold text-white"
+                            style={{ 
+                              width: `${(srs.stats.new / (srs.stats.due + srs.stats.learning + srs.stats.mastered + srs.stats.new)) * 100}%` 
+                            }}
+                            title={`${srs.stats.new} nouvelles`}
+                          >
+                            {srs.stats.new > 5 && srs.stats.new}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
