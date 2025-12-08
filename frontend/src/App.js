@@ -2524,7 +2524,7 @@ function App() {
             </div>
             
             {/* Desktop Navigation - Hidden on mobile */}
-            <div className="hidden lg:flex items-center gap-1 bg-slate-900/50 border border-indigo-500/20 rounded-full p-1">
+            <div className={`hidden lg:flex items-center gap-1 border rounded-full p-1 ${themeClasses.bg.tertiary} ${themeClasses.border.subtle}`}>
               {[
                 { id: 'planning', label: '📅 Planning' },
                 { id: 'chat', label: '💬 Discussions' },
@@ -2539,7 +2539,7 @@ function App() {
                   className={`px-4 py-2 rounded-full transition-all text-sm font-semibold ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                      : 'text-indigo-300 hover:text-indigo-100'
+                      : `${themeClasses.text.accent} ${themeClasses.hover.replace('hover:bg-', 'hover:text-indigo-')}100`
                   }`}
                 >
                   {tab.label}
@@ -2548,7 +2548,7 @@ function App() {
             </div>
 
             {/* Tablet Navigation - Horizontal scroll with compact tabs */}
-            <div className="hidden md:flex lg:hidden items-center gap-1 bg-slate-900/50 border border-indigo-500/20 rounded-full p-1 overflow-x-auto max-w-md scrollbar-hide">
+            <div className={`hidden md:flex lg:hidden items-center gap-1 border rounded-full p-1 overflow-x-auto max-w-md scrollbar-hide ${themeClasses.bg.tertiary} ${themeClasses.border.subtle}`}>
               {[
                 { id: 'planning', icon: '📅', label: 'Planning' },
                 { id: 'chat', icon: '💬', label: 'Chat' },
@@ -2563,7 +2563,7 @@ function App() {
                   className={`px-3 py-2 rounded-full transition-all text-xs font-semibold whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                      : 'text-indigo-300 hover:text-indigo-100'
+                      : `${themeClasses.text.accent} hover:text-indigo-100`
                   }`}
                 >
                   {tab.icon} {tab.label}
@@ -2574,8 +2574,8 @@ function App() {
             {/* Barre de recherche - Conditionnelle (uniquement pour flashcards et courses) */}
             {(activeTab === 'flashcards' || activeTab === 'courses') && (
               <div className="relative hidden md:block" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2">
-                  <Search className="w-4 h-4 text-slate-400 mr-2" />
+                <div className={`flex items-center border rounded-lg px-3 py-2 ${themeClasses.bg.card} ${themeClasses.border.default}`}>
+                  <Search className={`w-4 h-4 mr-2 ${themeClasses.text.muted}`} />
                   <input
                     ref={searchInputRef}
                     type="text"
@@ -2583,21 +2583,21 @@ function App() {
                     value={searchQuery}
                     onChange={(e) => handleSearch(e.target.value)}
                     onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
-                    className="bg-transparent text-white placeholder-slate-400 outline-none w-48 lg:w-64"
+                    className={`bg-transparent outline-none w-48 lg:w-64 ${themeClasses.text.primary} placeholder-${isDark ? 'slate-400' : 'gray-400'}`}
                   />
                   {searchQuery && (
                     <button 
                       onClick={() => { setSearchQuery(''); setShowSearchResults(false); }}
                       aria-label="Clear search"
                     >
-                      <X className="w-4 h-4 text-slate-400 hover:text-white" />
+                      <X className={`w-4 h-4 ${themeClasses.text.muted} ${themeClasses.hover.replace('hover:bg-', 'hover:text-')}white`} />
                     </button>
                   )}
                 </div>
                 
                 {/* Dropdown des résultats */}
                 {showSearchResults && (
-                  <div className="absolute top-full mt-2 w-80 lg:w-96 bg-slate-900 border border-indigo-500/30 rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto">
+                  <div className={`absolute top-full mt-2 w-80 lg:w-96 border rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto ${themeClasses.bg.secondary} ${themeClasses.border.subtle}`}>
                     {searchResults.courses.length === 0 && searchResults.flashcards.length === 0 ? (
                       <p className="p-4 text-slate-400 text-center">Aucun résultat pour "{searchQuery}"</p>
                     ) : (
@@ -2746,7 +2746,7 @@ function App() {
           
           {/* Drawer */}
           <div 
-            className="absolute top-[73px] right-0 left-0 bg-slate-950/95 backdrop-blur-xl border-b border-indigo-500/20 shadow-2xl"
+            className={`absolute top-[73px] right-0 left-0 backdrop-blur-xl border-b shadow-2xl ${themeClasses.bg.primary}/95 ${themeClasses.border.subtle}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 py-3 space-y-2">
@@ -2767,7 +2767,7 @@ function App() {
                   className={`w-full px-4 py-3 rounded-lg transition-all text-left font-semibold ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                      : 'text-indigo-300 hover:bg-slate-800/50 hover:text-indigo-100'
+                      : `${themeClasses.text.accent} ${themeClasses.hover} hover:text-indigo-100`
                   }`}
                 >
                   {tab.label}
@@ -2775,7 +2775,7 @@ function App() {
               ))}
               
               {/* Mobile-only actions */}
-              <div className="pt-2 border-t border-indigo-500/20">
+              <div className={`pt-2 border-t ${themeClasses.border.subtle}`}>
                 <div className="px-4 py-2 text-center">
                   <div className="text-2xl font-bold text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text">{daysUntil}</div>
                   <div className="text-xs text-indigo-300">jours avant concours</div>
