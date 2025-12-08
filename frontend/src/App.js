@@ -3,7 +3,7 @@ import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
   FolderOpen, LogOut, Send, MessageCircle, Menu, Download, Copy, FileText,
-  HelpCircle, Search, Award, TrendingUp, Target, Flame
+  HelpCircle, Search, Award, Target, Flame
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';

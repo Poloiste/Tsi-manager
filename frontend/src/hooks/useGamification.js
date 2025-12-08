@@ -107,6 +107,91 @@ export function useGamification(userId) {
     }
   }, [userId]);
 
+  // Ajouter de l'XP au profil
+  const addXP = useCallback(async (amount) => {
+    if (!userId || !userProfile) return;
+
+    try {
+      const newTotalXP = (userProfile.total_xp || 0) + amount;
+
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({
+          total_xp: newTotalXP,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      // Mettre à jour le state local
+      setUserProfile(prev => ({
+        ...prev,
+        total_xp: newTotalXP
+      }));
+    } catch (error) {
+      console.error('Error adding XP:', error);
+    }
+  }, [userId, userProfile]);
+
+  // Mettre à jour le profil utilisateur après une activité
+  const updateUserProfile = useCallback(async (stats) => {
+    if (!userId || !userProfile) return;
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const lastActivityDate = userProfile.last_activity_date;
+
+      // Calculer le streak
+      let newStreak = userProfile.current_streak || 0;
+      let newLongestStreak = userProfile.longest_streak || 0;
+
+      if (lastActivityDate) {
+        const lastDate = new Date(lastActivityDate);
+        const todayDate = new Date(today);
+        const diffDays = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) {
+          // Même jour, pas de changement de streak
+        } else if (diffDays === 1) {
+          // Jour consécutif
+          newStreak += 1;
+        } else {
+          // Streak cassé
+          newStreak = 1;
+        }
+      } else {
+        // Première activité
+        newStreak = 1;
+      }
+
+      // Mettre à jour le plus long streak
+      newLongestStreak = Math.max(newLongestStreak, newStreak);
+
+      // Mettre à jour le profil
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({
+          current_streak: newStreak,
+          longest_streak: newLongestStreak,
+          total_reviews: (userProfile.total_reviews || 0) + (stats.reviews_count || 0),
+          correct_reviews: (userProfile.correct_reviews || 0) + (stats.correct_count || 0),
+          incorrect_reviews: (userProfile.incorrect_reviews || 0) + (stats.incorrect_count || 0),
+          sessions_count: (userProfile.sessions_count || 0) + (stats.sessions_count || 0),
+          last_activity_date: today,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      // Recharger le profil
+      await loadUserProfile();
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+    }
+  }, [userId, userProfile, loadUserProfile]);
+
   // Vérifier et débloquer de nouveaux badges
   const checkAndUnlockBadges = useCallback(async () => {
     if (!userId || !userProfile) return;
@@ -186,34 +271,7 @@ export function useGamification(userId) {
       console.error('Error checking badges:', error);
       return [];
     }
-  }, [userId, userProfile, loadUserBadges]);
-
-  // Ajouter de l'XP au profil
-  const addXP = useCallback(async (amount) => {
-    if (!userId || !userProfile) return;
-
-    try {
-      const newTotalXP = (userProfile.total_xp || 0) + amount;
-
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({
-          total_xp: newTotalXP,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId);
-
-      if (error) throw error;
-
-      // Mettre à jour le state local
-      setUserProfile(prev => ({
-        ...prev,
-        total_xp: newTotalXP
-      }));
-    } catch (error) {
-      console.error('Error adding XP:', error);
-    }
-  }, [userId, userProfile]);
+  }, [userId, userProfile, loadUserBadges, addXP]);
 
   // Mettre à jour les statistiques du jour
   const updateDailyStats = useCallback(async (stats) => {
@@ -265,73 +323,15 @@ export function useGamification(userId) {
       // Mettre à jour le profil utilisateur
       await updateUserProfile(stats);
 
+      // Vérifier les badges après mise à jour du profil
+      await checkAndUnlockBadges();
+
       // Recharger les stats
       await loadDailyStats();
     } catch (error) {
       console.error('Error updating daily stats:', error);
     }
-  }, [userId, loadDailyStats]);
-
-  // Mettre à jour le profil utilisateur après une activité
-  const updateUserProfile = useCallback(async (stats) => {
-    if (!userId || !userProfile) return;
-
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const lastActivityDate = userProfile.last_activity_date;
-
-      // Calculer le streak
-      let newStreak = userProfile.current_streak || 0;
-      let newLongestStreak = userProfile.longest_streak || 0;
-
-      if (lastActivityDate) {
-        const lastDate = new Date(lastActivityDate);
-        const todayDate = new Date(today);
-        const diffDays = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24));
-
-        if (diffDays === 0) {
-          // Même jour, pas de changement de streak
-        } else if (diffDays === 1) {
-          // Jour consécutif
-          newStreak += 1;
-        } else {
-          // Streak cassé
-          newStreak = 1;
-        }
-      } else {
-        // Première activité
-        newStreak = 1;
-      }
-
-      // Mettre à jour le plus long streak
-      newLongestStreak = Math.max(newLongestStreak, newStreak);
-
-      // Mettre à jour le profil
-      const { error } = await supabase
-        .from('user_profiles')
-        .update({
-          current_streak: newStreak,
-          longest_streak: newLongestStreak,
-          total_reviews: (userProfile.total_reviews || 0) + (stats.reviews_count || 0),
-          correct_reviews: (userProfile.correct_reviews || 0) + (stats.correct_count || 0),
-          incorrect_reviews: (userProfile.incorrect_reviews || 0) + (stats.incorrect_count || 0),
-          sessions_count: (userProfile.sessions_count || 0) + (stats.sessions_count || 0),
-          last_activity_date: today,
-          updated_at: new Date().toISOString()
-        })
-        .eq('user_id', userId);
-
-      if (error) throw error;
-
-      // Recharger le profil
-      await loadUserProfile();
-
-      // Vérifier les badges après mise à jour du profil
-      await checkAndUnlockBadges();
-    } catch (error) {
-      console.error('Error updating user profile:', error);
-    }
-  }, [userId, userProfile, loadUserProfile, checkAndUnlockBadges]);
+  }, [userId, loadDailyStats, updateUserProfile, checkAndUnlockBadges]);
 
   // Incrémenter le nombre de cartes créées
   const incrementCardsCreated = useCallback(async (count = 1) => {
