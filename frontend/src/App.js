@@ -12,6 +12,7 @@ import Onboarding from './components/Onboarding';
 import { ONBOARDING_COMPLETED_KEY } from './constants';
 import { getCurrentSchoolWeek } from './utils/schoolWeek';
 import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './utils/dateUtils';
+import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -2180,8 +2181,7 @@ function App() {
 
   const getDaySchedule = (week, day) => {
     const base = baseSchedule[day] || [];
-    const custom = customEvents.filter(e => e.week === week && e.day === day);
-    return [...base, ...custom];
+    return getDayScheduleUtil(base, customEvents, week, day);
   };
 
   const getTypeColor = (type) => {
