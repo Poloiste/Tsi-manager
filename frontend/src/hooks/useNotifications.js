@@ -208,8 +208,7 @@ export function useNotifications(userId) {
         .from('scheduled_reminders')
         .update({ dismissed_at: new Date().toISOString() })
         .eq('user_id', userId)
-        .is('dismissed_at', null)
-        .not('delivered_at', 'is', null);
+        .is('dismissed_at', null);
 
       if (error) throw error;
 
@@ -268,11 +267,21 @@ export function useNotifications(userId) {
           .update({ delivered_at: now })
           .in('id', reminderIds);
 
-        // Show browser notifications if enabled
+        // Show browser notifications if enabled (limit to first 3 to avoid spam)
         if (settings.browser_notifications_enabled && permission === 'granted') {
-          dueReminders.forEach(reminder => {
+          const notificationsToShow = dueReminders.slice(0, 3);
+          notificationsToShow.forEach(reminder => {
             sendBrowserNotification(reminder.title, reminder.message, '🔔');
           });
+          
+          // If more than 3, show a summary notification
+          if (dueReminders.length > 3) {
+            sendBrowserNotification(
+              'Rappels en attente',
+              `${dueReminders.length} rappels vous attendent`,
+              '🔔'
+            );
+          }
         }
 
         await loadReminders(); // Reload to update list

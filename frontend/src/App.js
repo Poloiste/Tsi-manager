@@ -1111,11 +1111,10 @@ function App() {
         
         // Check upcoming tests
         if (notificationSettings.upcoming_test_reminder_enabled) {
-          const upcomingTests = getUpcomingTests(currentWeek, notificationSettings.upcoming_test_days_before || 3);
+          const daysThreshold = notificationSettings.upcoming_test_days_before || 3;
+          const upcomingTests = getUpcomingTests(currentWeek, daysThreshold);
           upcomingTests.forEach(test => {
-            if (test.daysUntil <= (notificationSettings.upcoming_test_days_before || 3) && test.daysUntil > 0) {
-              showInfo(`📅 ${test.type} de ${test.subject} dans ${test.daysUntil} jour${test.daysUntil > 1 ? 's' : ''}`);
-            }
+            showInfo(`📅 ${test.type} de ${test.subject} dans ${test.daysUntil} jour${test.daysUntil > 1 ? 's' : ''}`);
           });
         }
       };

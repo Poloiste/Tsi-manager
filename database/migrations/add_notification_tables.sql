@@ -32,10 +32,12 @@ CREATE TABLE IF NOT EXISTS scheduled_reminders (
   delivered_at TIMESTAMP WITH TIME ZONE,
   dismissed_at TIMESTAMP WITH TIME ZONE,
   metadata JSONB, -- Additional data like test_id, course_id, etc.
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  INDEX idx_user_scheduled_reminders (user_id, scheduled_for),
-  INDEX idx_user_pending_reminders (user_id, delivered_at, dismissed_at)
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_user_scheduled_reminders ON scheduled_reminders (user_id, scheduled_for);
+CREATE INDEX IF NOT EXISTS idx_user_pending_reminders ON scheduled_reminders (user_id, delivered_at, dismissed_at);
 
 -- Enable Row Level Security
 ALTER TABLE user_notification_settings ENABLE ROW LEVEL SECURITY;

@@ -120,7 +120,10 @@ export function useToast() {
   const [toasts, setToasts] = useState([]);
 
   const addToast = (message, type = 'info', duration = 5000) => {
-    const id = Date.now() + Math.random();
+    // Generate a more reliable unique ID
+    const id = typeof crypto !== 'undefined' && crypto.randomUUID 
+      ? crypto.randomUUID() 
+      : `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const newToast = { id, message, type, duration };
     
     setToasts(prev => [...prev, newToast]);
