@@ -5,6 +5,7 @@ import React from 'react';
  * Switches between dark and light mode with animated icon
  */
 export function ThemeToggle({ theme, onToggle }) {
+  // For display purposes, treat 'system' as dark since we can't detect system preference in this component
   const isDark = theme === 'dark' || theme === 'system';
   
   return (

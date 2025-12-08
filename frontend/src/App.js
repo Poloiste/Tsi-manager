@@ -2583,14 +2583,14 @@ function App() {
                     value={searchQuery}
                     onChange={(e) => handleSearch(e.target.value)}
                     onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
-                    className={`bg-transparent outline-none w-48 lg:w-64 ${themeClasses.text.primary} placeholder-${isDark ? 'slate-400' : 'gray-400'}`}
+                    className={`bg-transparent outline-none w-48 lg:w-64 ${themeClasses.text.primary} ${isDark ? 'placeholder-slate-400' : 'placeholder-gray-400'}`}
                   />
                   {searchQuery && (
                     <button 
                       onClick={() => { setSearchQuery(''); setShowSearchResults(false); }}
                       aria-label="Clear search"
                     >
-                      <X className={`w-4 h-4 ${themeClasses.text.muted} hover:${themeClasses.text.primary.replace('text-', 'text-')}`} />
+                      <X className={`w-4 h-4 ${themeClasses.text.muted} ${isDark ? 'hover:text-white' : 'hover:text-gray-900'}`} />
                     </button>
                   )}
                 </div>
