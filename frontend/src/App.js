@@ -3,7 +3,7 @@ import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
   FolderOpen, LogOut, Send, MessageCircle, Menu, Download, Copy, FileText,
-  HelpCircle, Search, Award, Target, Flame, Bell
+  HelpCircle, Search, Award, Target, Flame, Bell, Globe
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
@@ -17,6 +17,8 @@ import { NotificationSettings } from './components/NotificationSettings';
 import { ToastContainer, useToast } from './components/Toast';
 import { useGamification } from './hooks/useGamification';
 import { useNotifications } from './hooks/useNotifications';
+import { useQuiz } from './hooks/useQuiz';
+import { usePublicDecks } from './hooks/usePublicDecks';
 import { ONBOARDING_COMPLETED_KEY } from './constants';
 import { getCurrentSchoolWeek } from './utils/schoolWeek';
 import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './utils/dateUtils';
@@ -24,6 +26,12 @@ import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
 import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType } from './utils/suggestionHelpers';
 import { useSRS } from './hooks/useSRS';
 import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } from './utils/srsAlgorithm';
+import { QuizSetup } from './components/QuizSetup';
+import { QuizSession } from './components/QuizSession';
+import { QuizResults } from './components/QuizResults';
+import { PublicLibrary } from './components/PublicLibrary';
+import { DeckDetail } from './components/DeckDetail';
+import { PublishDeckModal } from './components/PublishDeckModal';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -219,6 +227,15 @@ function App() {
   
   // Hook Quiz
   const quiz = useQuiz(user?.id);
+  
+  // Hook Public Decks
+  const publicDecks = usePublicDecks(user?.id);
+  
+  // États pour Public Decks / Communauté
+  const [selectedDeck, setSelectedDeck] = useState(null);
+  const [showDeckDetail, setShowDeckDetail] = useState(false);
+  const [showPublishDeck, setShowPublishDeck] = useState(false);
+  const [selectedCourseToPublish, setSelectedCourseToPublish] = useState(null);
   
   // États pour Quiz
   const [quizView, setQuizView] = useState('home'); // 'home' | 'setup' | 'session' | 'results'
@@ -2530,6 +2547,7 @@ function App() {
                 { id: 'chat', label: '💬 Discussions' },
                 { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
+                { id: 'community', label: '🌐 Communauté' },
                 { id: 'quiz', label: '📝 Quiz' },
                 { id: 'suggestions', label: '🎯 Suggestions' },
                 { id: 'stats', label: '📊 Stats' }
@@ -2555,6 +2573,7 @@ function App() {
                 { id: 'chat', icon: '💬', label: 'Chat' },
                 { id: 'flashcards', icon: '🎴', label: 'Révision' },
                 { id: 'courses', icon: '📚', label: 'Cours' },
+                { id: 'community', icon: '🌐', label: 'Communauté' },
                 { id: 'quiz', icon: '📝', label: 'Quiz' },
                 { id: 'suggestions', icon: '🎯', label: 'Sugg.' },
                 { id: 'stats', icon: '📊', label: 'Stats' }
@@ -2754,6 +2773,7 @@ function App() {
                 { id: 'chat', label: '💬 Discussions' },
                 { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
+                { id: 'community', label: '🌐 Communauté' },
                 { id: 'quiz', label: '📝 Quiz' },
                 { id: 'suggestions', label: '🎯 Suggestions' },
                 { id: 'stats', label: '📊 Stats' }
@@ -4662,8 +4682,235 @@ function App() {
               )}
             </div>
           )}
+
+          {/* TAB COMMUNITY */}
+          {activeTab === 'community' && (
+            <div className="w-full">
+              {/* Header Section */}
+              <div className="mb-8 text-center">
+                <h2 className="text-5xl font-bold text-white mb-3 flex items-center justify-center gap-3">
+                  <span className="text-4xl">🌐</span>
+                  Communauté
+                </h2>
+                <p className="text-indigo-300 text-lg">
+                  Découvrez et partagez des decks de flashcards
+                </p>
+              </div>
+
+              {/* Publish Button */}
+              <div className="max-w-6xl mx-auto mb-8">
+                <button
+                  onClick={() => {
+                    if (courses.length === 0) {
+                      showWarning('Vous devez d\'abord créer un cours avant de publier un deck');
+                      return;
+                    }
+                    // Show course selection for publishing
+                    setShowPublishDeck(true);
+                  }}
+                  className="w-full px-6 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 hover:shadow-lg hover:shadow-indigo-500/50 text-white rounded-2xl transition-all flex items-center justify-center gap-3 font-bold text-lg"
+                >
+                  <Upload className="w-6 h-6" />
+                  📤 Publier un deck
+                </button>
+              </div>
+
+              {/* Public Library */}
+              <PublicLibrary
+                decks={publicDecks.publicDecks}
+                filters={publicDecks.filters}
+                onFilterChange={(newFilters) => {
+                  publicDecks.setFilters(newFilters);
+                  publicDecks.loadPublicDecks(newFilters);
+                }}
+                onSearch={publicDecks.searchDecks}
+                onImport={async (deck) => {
+                  try {
+                    await publicDecks.downloadDeck(deck.id);
+                    showSuccess(`Deck "${deck.title}" importé avec succès ! 🎉`);
+                    // Reload courses to show the imported deck
+                    await loadCourses();
+                    await loadFlashcards();
+                  } catch (error) {
+                    console.error('Error importing deck:', error);
+                    showWarning(error.message || 'Erreur lors de l\'import du deck');
+                  }
+                }}
+                onView={(deck) => {
+                  setSelectedDeck(deck);
+                  setShowDeckDetail(true);
+                }}
+                isLoading={publicDecks.isLoading}
+              />
+
+              {/* My Published Decks Section */}
+              {publicDecks.myPublishedDecks.length > 0 && (
+                <div className="max-w-6xl mx-auto mt-12">
+                  <div className="mb-6">
+                    <h3 className="text-3xl font-bold text-white mb-2">📚 Mes decks publiés</h3>
+                    <p className="text-slate-400">Gérez vos decks partagés avec la communauté</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {publicDecks.myPublishedDecks.map((deck) => (
+                      <div
+                        key={deck.id}
+                        className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700 p-6 hover:border-indigo-500/50 transition-all"
+                      >
+                        <div className="flex items-start justify-between mb-4">
+                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            deck.is_active 
+                              ? 'bg-green-600/20 text-green-300 border border-green-500/50'
+                              : 'bg-slate-600/20 text-slate-400 border border-slate-500/50'
+                          }`}>
+                            {deck.is_active ? 'Actif' : 'Inactif'}
+                          </span>
+                        </div>
+                        <h4 className="text-xl font-bold text-white mb-2">{deck.title}</h4>
+                        <p className="text-slate-400 text-sm mb-4 line-clamp-2">
+                          {deck.description || 'Aucune description'}
+                        </p>
+                        <div className="grid grid-cols-3 gap-2 text-center mb-4">
+                          <div>
+                            <div className="text-lg font-bold text-indigo-400">{deck.cards_count}</div>
+                            <div className="text-xs text-slate-500">Cartes</div>
+                          </div>
+                          <div>
+                            <div className="text-lg font-bold text-yellow-400">
+                              {deck.average_rating > 0 ? deck.average_rating.toFixed(1) : 'N/A'}
+                            </div>
+                            <div className="text-xs text-slate-500">Note</div>
+                          </div>
+                          <div>
+                            <div className="text-lg font-bold text-green-400">{deck.downloads_count}</div>
+                            <div className="text-xs text-slate-500">DL</div>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setSelectedDeck(deck);
+                              setShowDeckDetail(true);
+                            }}
+                            className="flex-1 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-all text-sm"
+                          >
+                            Voir
+                          </button>
+                          {deck.is_active && (
+                            <button
+                              onClick={async () => {
+                                if (window.confirm('Voulez-vous vraiment retirer ce deck de la bibliothèque publique ?')) {
+                                  try {
+                                    await publicDecks.unpublishDeck(deck.id);
+                                    showSuccess('Deck retiré de la bibliothèque publique');
+                                  } catch (error) {
+                                    showWarning('Erreur lors du retrait du deck');
+                                  }
+                                }
+                              }}
+                              className="flex-1 px-3 py-2 bg-red-600/30 hover:bg-red-600/50 text-red-300 rounded-lg transition-all text-sm"
+                            >
+                              Retirer
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Deck Detail Modal */}
+      {showDeckDetail && selectedDeck && (
+        <DeckDetail
+          deck={selectedDeck}
+          userId={user?.id}
+          onImport={async (deck) => {
+            try {
+              await publicDecks.downloadDeck(deck.id);
+              showSuccess(`Deck "${deck.title}" importé avec succès ! 🎉`);
+              setShowDeckDetail(false);
+              // Reload courses to show the imported deck
+              await loadCourses();
+              await loadFlashcards();
+            } catch (error) {
+              console.error('Error importing deck:', error);
+              showWarning(error.message || 'Erreur lors de l\'import du deck');
+            }
+          }}
+          onClose={() => {
+            setShowDeckDetail(false);
+            setSelectedDeck(null);
+          }}
+        />
+      )}
+
+      {/* Publish Deck Modal */}
+      {showPublishDeck && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-indigo-500/30 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-slate-900/95 backdrop-blur-sm border-b border-slate-700 p-6 flex items-center justify-between z-10">
+              <h2 className="text-2xl font-bold text-white">Sélectionner un cours à publier</h2>
+              <button
+                onClick={() => setShowPublishDeck(false)}
+                className="text-slate-400 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              {courses.map((course) => {
+                const courseFlashcards = flashcards.filter(fc => fc.courseId === course.id);
+                return (
+                  <button
+                    key={course.id}
+                    onClick={() => {
+                      setSelectedCourseToPublish(course);
+                      setShowPublishDeck(false);
+                    }}
+                    disabled={courseFlashcards.length === 0}
+                    className="w-full text-left p-4 bg-slate-800/50 border border-slate-700 rounded-xl hover:border-indigo-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-lg font-bold text-white">
+                        {course.subject} - {course.chapter}
+                      </h3>
+                      <span className="text-sm text-slate-400">
+                        {courseFlashcards.length} carte{courseFlashcards.length > 1 ? 's' : ''}
+                      </span>
+                    </div>
+                    {courseFlashcards.length === 0 && (
+                      <p className="text-sm text-red-400">Ce cours ne contient aucune flashcard</p>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Publish Deck Form Modal */}
+      {selectedCourseToPublish && (
+        <PublishDeckModal
+          course={selectedCourseToPublish}
+          flashcards={flashcards.filter(fc => fc.courseId === selectedCourseToPublish.id)}
+          onPublish={async (courseId, metadata) => {
+            try {
+              await publicDecks.publishDeck(courseId, metadata);
+              showSuccess('Deck publié avec succès ! 🚀');
+              setSelectedCourseToPublish(null);
+            } catch (error) {
+              console.error('Error publishing deck:', error);
+              throw error;
+            }
+          }}
+          onClose={() => setSelectedCourseToPublish(null)}
+        />
+      )}
 
       {/* Modal Ajouter Événement */}
       {showAddEvent && (
