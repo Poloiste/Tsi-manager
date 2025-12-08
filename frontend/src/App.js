@@ -3990,6 +3990,139 @@ function App() {
                   <p className="text-red-200 font-semibold">Évaluations à venir</p>
                 </div>
               </div>
+
+              {/* SRS Statistics Section */}
+              <div className="mt-12">
+                <h3 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
+                  <Brain className="w-8 h-8 text-indigo-400" />
+                  Statistiques SRS
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                  <div className="p-6 bg-gradient-to-br from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-2xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-4xl">🔴</div>
+                      <div className="text-3xl font-bold text-red-300">{srs.stats.due}</div>
+                    </div>
+                    <p className="text-red-200 font-semibold">À réviser</p>
+                    <p className="text-red-400/60 text-xs mt-1">Cartes dues aujourd'hui</p>
+                  </div>
+
+                  <div className="p-6 bg-gradient-to-br from-yellow-900/30 to-amber-900/30 border border-yellow-500/30 rounded-2xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-4xl">🟡</div>
+                      <div className="text-3xl font-bold text-yellow-300">{srs.stats.learning}</div>
+                    </div>
+                    <p className="text-yellow-200 font-semibold">En apprentissage</p>
+                    <p className="text-yellow-400/60 text-xs mt-1">Intervalle ≤ 21 jours</p>
+                  </div>
+
+                  <div className="p-6 bg-gradient-to-br from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-2xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-4xl">🟢</div>
+                      <div className="text-3xl font-bold text-green-300">{srs.stats.mastered}</div>
+                    </div>
+                    <p className="text-green-200 font-semibold">Maîtrisées</p>
+                    <p className="text-green-400/60 text-xs mt-1">Intervalle &gt; 21 jours</p>
+                  </div>
+
+                  <div className="p-6 bg-gradient-to-br from-blue-900/30 to-cyan-900/30 border border-blue-500/30 rounded-2xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-4xl">🔵</div>
+                      <div className="text-3xl font-bold text-blue-300">{srs.stats.new}</div>
+                    </div>
+                    <p className="text-blue-200 font-semibold">Nouvelles</p>
+                    <p className="text-blue-400/60 text-xs mt-1">Jamais révisées</p>
+                  </div>
+                </div>
+
+                {/* SRS Progress */}
+                <div className="p-6 bg-slate-800/50 border border-slate-700/50 rounded-2xl">
+                  <h4 className="text-xl font-bold text-white mb-4">Progression SRS</h4>
+                  <div className="space-y-4">
+                    {/* Total cards */}
+                    <div>
+                      <div className="flex justify-between text-sm mb-2">
+                        <span className="text-slate-300">Total des cartes</span>
+                        <span className="text-white font-bold">
+                          {srs.stats.due + srs.stats.learning + srs.stats.mastered + srs.stats.new}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Mastery rate */}
+                    {(srs.stats.due + srs.stats.learning + srs.stats.mastered) > 0 && (
+                      <div>
+                        <div className="flex justify-between text-sm mb-2">
+                          <span className="text-slate-300">Taux de maîtrise</span>
+                          <span className="text-white font-bold">
+                            {Math.round((srs.stats.mastered / (srs.stats.due + srs.stats.learning + srs.stats.mastered)) * 100)}%
+                          </span>
+                        </div>
+                        <div className="w-full bg-slate-700 rounded-full h-3 overflow-hidden">
+                          <div 
+                            className="bg-gradient-to-r from-green-600 to-emerald-500 h-full transition-all duration-500"
+                            style={{ 
+                              width: `${Math.round((srs.stats.mastered / (srs.stats.due + srs.stats.learning + srs.stats.mastered)) * 100)}%` 
+                            }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Progress breakdown */}
+                    <div>
+                      <p className="text-sm text-slate-400 mb-2">Répartition</p>
+                      <div className="flex gap-2 h-6 rounded-full overflow-hidden">
+                        {srs.stats.due > 0 && (
+                          <div 
+                            className="bg-red-500 flex items-center justify-center text-xs font-bold text-white"
+                            style={{ 
+                              width: `${(srs.stats.due / (srs.stats.due + srs.stats.learning + srs.stats.mastered + srs.stats.new)) * 100}%` 
+                            }}
+                            title={`${srs.stats.due} à réviser`}
+                          >
+                            {srs.stats.due > 5 && srs.stats.due}
+                          </div>
+                        )}
+                        {srs.stats.learning > 0 && (
+                          <div 
+                            className="bg-yellow-500 flex items-center justify-center text-xs font-bold text-white"
+                            style={{ 
+                              width: `${(srs.stats.learning / (srs.stats.due + srs.stats.learning + srs.stats.mastered + srs.stats.new)) * 100}%` 
+                            }}
+                            title={`${srs.stats.learning} en apprentissage`}
+                          >
+                            {srs.stats.learning > 5 && srs.stats.learning}
+                          </div>
+                        )}
+                        {srs.stats.mastered > 0 && (
+                          <div 
+                            className="bg-green-500 flex items-center justify-center text-xs font-bold text-white"
+                            style={{ 
+                              width: `${(srs.stats.mastered / (srs.stats.due + srs.stats.learning + srs.stats.mastered + srs.stats.new)) * 100}%` 
+                            }}
+                            title={`${srs.stats.mastered} maîtrisées`}
+                          >
+                            {srs.stats.mastered > 5 && srs.stats.mastered}
+                          </div>
+                        )}
+                        {srs.stats.new > 0 && (
+                          <div 
+                            className="bg-blue-500 flex items-center justify-center text-xs font-bold text-white"
+                            style={{ 
+                              width: `${(srs.stats.new / (srs.stats.due + srs.stats.learning + srs.stats.mastered + srs.stats.new)) * 100}%` 
+                            }}
+                            title={`${srs.stats.new} nouvelles`}
+                          >
+                            {srs.stats.new > 5 && srs.stats.new}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
         </div>
