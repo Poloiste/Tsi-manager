@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Bell, Clock, AlertTriangle, Calendar, Target, X } from 'lucide-react';
+import { Bell, Clock, AlertTriangle, Target, X } from 'lucide-react';
 
 /**
  * Composant de paramètres de notifications

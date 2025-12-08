@@ -12,6 +12,13 @@ export function Toast({ message, type = 'info', onClose, duration = 5000 }) {
   const [isVisible, setIsVisible] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
 
+  const handleClose = () => {
+    setIsLeaving(true);
+    setTimeout(() => {
+      if (onClose) onClose();
+    }, 300); // Match animation duration
+  };
+
   useEffect(() => {
     // Slide in animation
     setTimeout(() => setIsVisible(true), 10);
@@ -24,14 +31,8 @@ export function Toast({ message, type = 'info', onClose, duration = 5000 }) {
 
       return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [duration]);
-
-  const handleClose = () => {
-    setIsLeaving(true);
-    setTimeout(() => {
-      if (onClose) onClose();
-    }, 300); // Match animation duration
-  };
 
   const getToastStyle = () => {
     const styles = {

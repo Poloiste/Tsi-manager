@@ -221,6 +221,26 @@ export function useNotifications(userId) {
     }
   }, [userId, loadReminders]);
 
+  // Envoyer une notification browser
+  const sendBrowserNotification = useCallback((title, body, icon = '🔔') => {
+    if (!settings?.browser_notifications_enabled || permission !== 'granted') {
+      return false;
+    }
+
+    try {
+      new Notification(title, { 
+        body, 
+        icon: icon,
+        badge: icon,
+        tag: 'tsi-manager-notification'
+      });
+      return true;
+    } catch (error) {
+      console.error('Error sending browser notification:', error);
+      return false;
+    }
+  }, [settings, permission]);
+
   // Vérifier et afficher les rappels dus
   const checkDueReminders = useCallback(async () => {
     if (!userId || !settings) return [];
@@ -263,27 +283,7 @@ export function useNotifications(userId) {
       console.error('Error checking due reminders:', error);
       return [];
     }
-  }, [userId, settings, permission, loadReminders]);
-
-  // Envoyer une notification browser
-  const sendBrowserNotification = useCallback((title, body, icon = '🔔') => {
-    if (!settings?.browser_notifications_enabled || permission !== 'granted') {
-      return false;
-    }
-
-    try {
-      new Notification(title, { 
-        body, 
-        icon: icon,
-        badge: icon,
-        tag: 'tsi-manager-notification'
-      });
-      return true;
-    } catch (error) {
-      console.error('Error sending browser notification:', error);
-      return false;
-    }
-  }, [settings, permission]);
+  }, [userId, settings, permission, loadReminders, sendBrowserNotification]);
 
   // Initialiser au chargement
   useEffect(() => {
