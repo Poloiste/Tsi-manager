@@ -105,7 +105,7 @@ export function QuizResults({ quiz, answers, questions, onRetry, onClose }) {
           {[...Array(50)].map((_, i) => (
             <div
               key={i}
-              className="absolute animate-confetti"
+              className="absolute animate-confetti-fall"
               style={{
                 left: `${Math.random() * 100}%`,
                 top: '-10%',
@@ -263,31 +263,6 @@ export function QuizResults({ quiz, answers, questions, onRetry, onClose }) {
       </div>
     </div>
   );
-}
-
-// CSS pour l'animation des confettis (à ajouter dans index.css ou App.css)
-const confettiStyles = `
-@keyframes confetti {
-  0% {
-    transform: translateY(0) rotateZ(0deg);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(100vh) rotateZ(360deg);
-    opacity: 0;
-  }
-}
-
-.animate-confetti {
-  animation: confetti linear forwards;
-}
-`;
-
-// Injecter les styles
-if (typeof document !== 'undefined') {
-  const style = document.createElement('style');
-  style.textContent = confettiStyles;
-  document.head.appendChild(style);
 }
 
 export default QuizResults;

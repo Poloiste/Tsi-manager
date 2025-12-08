@@ -222,6 +222,7 @@ function App() {
   
   // États pour Quiz
   const [quizView, setQuizView] = useState('home'); // 'home' | 'setup' | 'session' | 'results'
+  const [quizError, setQuizError] = useState(null);
   
   // États pour Chat/Discussions
   const [channels, setChannels] = useState([]);
@@ -4329,6 +4330,7 @@ function App() {
                     <button
                       onClick={async () => {
                         try {
+                          setQuizError(null);
                           await quiz.createQuiz({
                             title: 'Quiz Rapide',
                             mode: 'training',
@@ -4340,7 +4342,7 @@ function App() {
                           setQuizView('session');
                         } catch (error) {
                           console.error('Error starting quick quiz:', error);
-                          alert('Erreur lors du démarrage du quiz. Assurez-vous d\'avoir des flashcards.');
+                          setQuizError(error.message || 'Erreur lors du démarrage du quiz. Assurez-vous d\'avoir des flashcards.');
                         }
                       }}
                       className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl p-8 text-left hover:shadow-2xl hover:shadow-purple-500/50 transition-all hover:scale-[1.02] border border-purple-500/20"
@@ -4350,6 +4352,25 @@ function App() {
                       <p className="text-purple-200">10 questions, toutes matières</p>
                     </button>
                   </div>
+
+                  {/* Error display */}
+                  {quizError && (
+                    <div className="max-w-4xl mx-auto mb-8">
+                      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
+                        <span className="text-2xl">⚠️</span>
+                        <div className="flex-1">
+                          <p className="text-red-400 font-semibold">Erreur</p>
+                          <p className="text-red-300 text-sm mt-1">{quizError}</p>
+                        </div>
+                        <button
+                          onClick={() => setQuizError(null)}
+                          className="text-red-400 hover:text-red-300"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Historique des quiz */}
                   <div className="max-w-6xl mx-auto">
@@ -4450,19 +4471,39 @@ function App() {
               )}
 
               {quizView === 'setup' && (
-                <QuizSetup
-                  courses={courses}
-                  onStartQuiz={async (options) => {
-                    try {
-                      await quiz.createQuiz(options);
-                      quiz.startQuiz();
-                      setQuizView('session');
-                    } catch (error) {
-                      console.error('Error creating quiz:', error);
-                      alert('Erreur lors de la création du quiz: ' + error.message);
-                    }
-                  }}
-                />
+                <>
+                  {quizError && (
+                    <div className="max-w-3xl mx-auto mb-6">
+                      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
+                        <span className="text-2xl">⚠️</span>
+                        <div className="flex-1">
+                          <p className="text-red-400 font-semibold">Erreur</p>
+                          <p className="text-red-300 text-sm mt-1">{quizError}</p>
+                        </div>
+                        <button
+                          onClick={() => setQuizError(null)}
+                          className="text-red-400 hover:text-red-300"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <QuizSetup
+                    courses={courses}
+                    onStartQuiz={async (options) => {
+                      try {
+                        setQuizError(null);
+                        await quiz.createQuiz(options);
+                        quiz.startQuiz();
+                        setQuizView('session');
+                      } catch (error) {
+                        console.error('Error creating quiz:', error);
+                        setQuizError(error.message || 'Erreur lors de la création du quiz');
+                      }
+                    }}
+                  />
+                </>
               )}
 
               {quizView === 'session' && quiz.currentQuiz && (

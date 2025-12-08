@@ -64,8 +64,12 @@ export function useQuiz(userId) {
         throw new Error('Aucune flashcard trouvée avec ces critères');
       }
 
-      // Sélectionner des questions aléatoires
-      const shuffled = [...flashcards].sort(() => 0.5 - Math.random());
+      // Sélectionner des questions aléatoires avec Fisher-Yates shuffle
+      const shuffled = [...flashcards];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
       const selectedQuestions = shuffled.slice(0, Math.min(questionCount, flashcards.length));
 
       // Créer la session de quiz dans la base de données
@@ -149,7 +153,7 @@ export function useQuiz(userId) {
           flashcard_id: flashcardId,
           user_answer: userAnswer || null,
           is_correct: isCorrect,
-          time_spent_seconds: 0 // Peut être calculé plus tard si nécessaire
+          time_spent_seconds: 0 // Can be calculated later if needed
         }]);
 
       if (error) throw error;
