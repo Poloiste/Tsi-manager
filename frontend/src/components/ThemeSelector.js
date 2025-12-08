@@ -22,7 +22,7 @@ export function ThemeSelector({ currentTheme, onSelect }) {
             transition-all duration-200
             ${currentTheme === option.value
               ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-              : 'bg-slate-800/50 dark:bg-slate-800/50 light:bg-gray-200 text-slate-300 dark:text-slate-300 light:text-gray-700 hover:bg-slate-700/50 dark:hover:bg-slate-700/50 light:hover:bg-gray-300'
+              : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
             }
           `}
           aria-label={option.label}

@@ -2539,7 +2539,7 @@ function App() {
                   className={`px-4 py-2 rounded-full transition-all text-sm font-semibold ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                      : `${themeClasses.text.accent} ${themeClasses.hover.replace('hover:bg-', 'hover:text-indigo-')}100`
+                      : `${themeClasses.text.accent} hover:text-indigo-100`
                   }`}
                 >
                   {tab.label}
@@ -2590,7 +2590,7 @@ function App() {
                       onClick={() => { setSearchQuery(''); setShowSearchResults(false); }}
                       aria-label="Clear search"
                     >
-                      <X className={`w-4 h-4 ${themeClasses.text.muted} ${themeClasses.hover.replace('hover:bg-', 'hover:text-')}white`} />
+                      <X className={`w-4 h-4 ${themeClasses.text.muted} hover:${themeClasses.text.primary.replace('text-', 'text-')}`} />
                     </button>
                   )}
                 </div>
