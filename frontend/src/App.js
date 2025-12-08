@@ -13,6 +13,7 @@ import { ONBOARDING_COMPLETED_KEY } from './constants';
 import { getCurrentSchoolWeek } from './utils/schoolWeek';
 import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './utils/dateUtils';
 import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
+import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType } from './utils/suggestionHelpers';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -619,60 +620,6 @@ function App() {
     }
   };
 
-  // Helper function: Get preparation days based on test type
-  const getPreparationDays = (type) => {
-    switch(type) {
-      case 'DS':
-      case 'Examen':
-        return 7; // Start 7 days before
-      case 'DM':
-        return 4; // Start 4 days before
-      case 'Colle':
-      case 'TP Noté':
-        return 3; // Start 3 days before
-      default:
-        return 3;
-    }
-  };
-
-  // Helper function: Get urgency multiplier based on days until test and type
-  const getUrgencyMultiplier = (daysUntil, type) => {
-    if (type === 'DS' || type === 'Examen') {
-      // DS: progressive urgency over 7 days
-      if (daysUntil <= 1) return 2.5;
-      if (daysUntil <= 2) return 2.0;
-      if (daysUntil <= 3) return 1.7;
-      if (daysUntil <= 5) return 1.4;
-      return 1.2;
-    } else if (type === 'DM') {
-      // DM: urgency over 4 days
-      if (daysUntil <= 1) return 2.0;
-      if (daysUntil <= 2) return 1.6;
-      return 1.3;
-    } else {
-      // Colle/TP: urgency over 3 days
-      if (daysUntil <= 1) return 2.0;
-      if (daysUntil <= 2) return 1.5;
-      return 1.2;
-    }
-  };
-
-  // Helper function: Get suggested duration based on test type and days until test
-  const getSuggestedDuration = (type, daysUntil) => {
-    if (type === 'DS' || type === 'Examen') {
-      if (daysUntil <= 1) return '1h - 1h30';
-      if (daysUntil <= 3) return '45min - 1h';
-      return '30min - 45min';
-    } else if (type === 'DM') {
-      if (daysUntil <= 1) return '45min - 1h';
-      return '30min - 45min';
-    } else {
-      // Colle/TP
-      if (daysUntil <= 1) return '30min - 45min';
-      return '20min - 30min';
-    }
-  };
-
   // Helper function: Calculate days from a specific day to a test
   const calculateDaysFromDayToTest = (fromDay, test) => {
     const dayIndex = days.indexOf(fromDay);
@@ -717,15 +664,6 @@ function App() {
     
     // Get all upcoming tests (extend window to catch preparation period)
     const upcomingTests = getUpcomingTests(weekNum, 14);
-    
-    // Base score by test type
-    const baseScoreByType = {
-      'DS': 60,
-      'Examen': 60,
-      'DM': 40,
-      'Colle': 35,
-      'TP Noté': 30
-    };
     
     // Calculate priority scores for each subject based on the specific day
     const subjectScores = {};
