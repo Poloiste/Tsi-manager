@@ -15,7 +15,7 @@ import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './uti
 import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
 import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType } from './utils/suggestionHelpers';
 import { useSRS } from './hooks/useSRS';
-import { getCardStatus, getStatusEmoji, getStatusLabel } from './utils/srsAlgorithm';
+import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } from './utils/srsAlgorithm';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -1561,8 +1561,8 @@ function App() {
         setShowFlashcardAnswer(false);
       } else {
         // Fin de la session
-        const totalCorrect = flashcardStats.correct + (difficulty !== 'again' && difficulty !== 'hard' ? 1 : 0);
-        const totalIncorrect = flashcardStats.incorrect + (difficulty === 'again' || difficulty === 'hard' ? 1 : 0);
+        const totalCorrect = flashcardStats.correct + (isDifficultyCorrect(difficulty) ? 1 : 0);
+        const totalIncorrect = flashcardStats.incorrect + (!isDifficultyCorrect(difficulty) ? 1 : 0);
         
         alert(`🎉 Session terminée !\n\n✅ Réussies: ${totalCorrect}\n❌ À revoir: ${totalIncorrect}\n\nContinuez comme ça !`);
         setIsSRSMode(false);

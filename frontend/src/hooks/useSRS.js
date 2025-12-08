@@ -5,7 +5,7 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
-import { calculateNextReview, responseToQuality, getCardStatus } from '../utils/srsAlgorithm';
+import { calculateNextReview, responseToQuality, getCardStatus, isDifficultyCorrect } from '../utils/srsAlgorithm';
 
 /**
  * Hook to manage SRS functionality for a user
@@ -181,21 +181,46 @@ export function useSRS(userId) {
       if (updateError) throw updateError;
 
       // Also update the user_flashcard_stats table for backward compatibility
-      const { error: statsError } = await supabase
+      // First, try to get existing stats
+      const { data: existingStats } = await supabase
         .from('user_flashcard_stats')
-        .upsert({
-          user_id: userId,
-          flashcard_id: flashcardId,
-          correct_count: difficulty === 'again' || difficulty === 'hard' ? 0 : 1,
-          incorrect_count: difficulty === 'again' || difficulty === 'hard' ? 1 : 0,
-          last_reviewed: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,flashcard_id',
-          ignoreDuplicates: false
-        });
+        .select('*')
+        .eq('user_id', userId)
+        .eq('flashcard_id', flashcardId)
+        .single();
 
-      if (statsError) {
-        console.warn('Error updating flashcard stats:', statsError);
+      const isCorrect = isDifficultyCorrect(difficulty);
+      
+      if (existingStats) {
+        // Update existing stats by incrementing
+        const { error: statsError } = await supabase
+          .from('user_flashcard_stats')
+          .update({
+            correct_count: isCorrect ? existingStats.correct_count + 1 : existingStats.correct_count,
+            incorrect_count: !isCorrect ? existingStats.incorrect_count + 1 : existingStats.incorrect_count,
+            last_reviewed: new Date().toISOString()
+          })
+          .eq('user_id', userId)
+          .eq('flashcard_id', flashcardId);
+
+        if (statsError) {
+          console.warn('Error updating flashcard stats:', statsError);
+        }
+      } else {
+        // Insert new stats
+        const { error: statsError } = await supabase
+          .from('user_flashcard_stats')
+          .insert({
+            user_id: userId,
+            flashcard_id: flashcardId,
+            correct_count: isCorrect ? 1 : 0,
+            incorrect_count: !isCorrect ? 1 : 0,
+            last_reviewed: new Date().toISOString()
+          });
+
+        if (statsError) {
+          console.warn('Error inserting flashcard stats:', statsError);
+        }
       }
 
       return updatedData;

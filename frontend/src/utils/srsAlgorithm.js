@@ -170,3 +170,13 @@ export function getStatusLabel(status) {
   
   return labelMap[status] || 'Inconnue';
 }
+
+/**
+ * Check if a difficulty response is considered correct
+ * 
+ * @param {string} difficulty - User's response: 'again', 'hard', 'good', 'easy'
+ * @returns {boolean} True if the response is considered correct
+ */
+export function isDifficultyCorrect(difficulty) {
+  return difficulty !== 'again' && difficulty !== 'hard';
+}

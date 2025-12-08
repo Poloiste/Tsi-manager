@@ -6,7 +6,8 @@ import {
   responseToQuality,
   getCardStatus,
   getStatusEmoji,
-  getStatusLabel
+  getStatusLabel,
+  isDifficultyCorrect
 } from './srsAlgorithm';
 
 describe('calculateNextReview', () => {
@@ -255,5 +256,23 @@ describe('getStatusLabel', () => {
 
   test('should return default label for unknown status', () => {
     expect(getStatusLabel('unknown')).toBe('Inconnue');
+  });
+});
+
+describe('isDifficultyCorrect', () => {
+  test('should return false for "again"', () => {
+    expect(isDifficultyCorrect('again')).toBe(false);
+  });
+
+  test('should return false for "hard"', () => {
+    expect(isDifficultyCorrect('hard')).toBe(false);
+  });
+
+  test('should return true for "good"', () => {
+    expect(isDifficultyCorrect('good')).toBe(true);
+  });
+
+  test('should return true for "easy"', () => {
+    expect(isDifficultyCorrect('easy')).toBe(true);
   });
 });
