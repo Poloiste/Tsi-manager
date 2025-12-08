@@ -3,7 +3,7 @@ import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
   FolderOpen, LogOut, Send, MessageCircle, Menu, Download, Copy, FileText,
-  HelpCircle, Search, Award, Target, Flame
+  HelpCircle, Search, Award, Target, Flame, Bell
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
@@ -12,11 +12,11 @@ import Onboarding from './components/Onboarding';
 import { Badge } from './components/Badge';
 import { BadgeUnlockModal } from './components/BadgeUnlockModal';
 import { ActivityHeatmap } from './components/ActivityHeatmap';
-import { QuizSetup } from './components/QuizSetup';
-import { QuizSession } from './components/QuizSession';
-import { QuizResults } from './components/QuizResults';
+import { NotificationCenter } from './components/NotificationCenter';
+import { NotificationSettings } from './components/NotificationSettings';
+import { ToastContainer, useToast } from './components/Toast';
 import { useGamification } from './hooks/useGamification';
-import { useQuiz } from './hooks/useQuiz';
+import { useNotifications } from './hooks/useNotifications';
 import { ONBOARDING_COMPLETED_KEY } from './constants';
 import { getCurrentSchoolWeek } from './utils/schoolWeek';
 import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './utils/dateUtils';
@@ -246,6 +246,25 @@ function App() {
     incrementCardsCreated,
     setNewBadge
   } = useGamification(user?.id);
+  
+  // Hook de notifications
+  const {
+    settings: notificationSettings,
+    reminders,
+    permission: notificationPermission,
+    unreadCount,
+    updateSettings: updateNotificationSettings,
+    requestPermission: requestNotificationPermission,
+    dismissReminder,
+    dismissAllReminders
+  } = useNotifications(user?.id);
+  
+  // Hook de toasts
+  const { toasts, removeToast, showSuccess, showInfo, showWarning } = useToast();
+  
+  // États pour les notifications
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   
   const [newCourse, setNewCourse] = useState({
     subject: '',
@@ -1071,6 +1090,55 @@ function App() {
       }
     }
   }, [user, isLoading]);
+
+  // Check for notifications after data is loaded
+  useEffect(() => {
+    if (user && !isLoading && courses.length > 0 && notificationSettings) {
+      const checkNotifications = () => {
+        // Check for due cards
+        if (srs.stats.due > 0 && notificationSettings.due_cards_reminder_enabled) {
+          showInfo(`🔴 ${srs.stats.due} carte${srs.stats.due > 1 ? 's' : ''} à réviser aujourd'hui`);
+        }
+        
+        // Check streak in danger
+        if (userProfile && notificationSettings.streak_warning_enabled) {
+          const today = new Date().toISOString().split('T')[0];
+          const lastActivity = userProfile.last_activity_date;
+          
+          if (lastActivity) {
+            const lastDate = new Date(lastActivity);
+            const todayDate = new Date(today);
+            const daysSinceActivity = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24));
+            
+            if (daysSinceActivity >= 1 && userProfile.current_streak > 0) {
+              showWarning(`🔥 Ton streak de ${userProfile.current_streak} jours est en danger ! Révise aujourd'hui.`);
+            }
+          }
+        }
+        
+        // Check upcoming tests
+        if (notificationSettings.upcoming_test_reminder_enabled) {
+          const daysThreshold = notificationSettings.upcoming_test_days_before || 3;
+          const upcomingTests = getUpcomingTests(currentWeek, daysThreshold);
+          upcomingTests.forEach(test => {
+            showInfo(`📅 ${test.type} de ${test.subject} dans ${test.daysUntil} jour${test.daysUntil > 1 ? 's' : ''}`);
+          });
+        }
+      };
+
+      // Check notifications once after 2 seconds
+      const timer = setTimeout(checkNotifications, 2000);
+      return () => clearTimeout(timer);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, isLoading, courses, notificationSettings, srs.stats.due, userProfile, currentWeek]);
+
+  // Watch for new badges and show toast
+  useEffect(() => {
+    if (newBadge && notificationSettings?.goal_achieved_notification_enabled) {
+      showSuccess(`🏆 Nouveau badge débloqué : ${newBadge.name} !`, 7000);
+    }
+  }, [newBadge, notificationSettings, showSuccess]);
 
   // Save expansion state to localStorage
   useEffect(() => {
@@ -2615,6 +2683,43 @@ function App() {
                 <HelpCircle className="w-4 h-4" />
                 <span className="hidden md:inline">Aide</span>
               </button>
+              
+              {/* Notification button */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="hidden sm:flex px-3 sm:px-4 py-2 bg-indigo-600/30 border border-indigo-500/50 text-indigo-300 rounded-lg hover:bg-indigo-600/50 transition-all font-semibold items-center gap-2 text-sm relative"
+                  title="Notifications"
+                >
+                  <Bell className="w-4 h-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full font-bold min-w-[20px] text-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                
+                {/* Notification Center Dropdown */}
+                {showNotifications && (
+                  <>
+                    {/* Backdrop */}
+                    <div 
+                      className="fixed inset-0 z-40"
+                      onClick={() => setShowNotifications(false)}
+                    />
+                    <NotificationCenter
+                      notifications={reminders}
+                      onDismiss={dismissReminder}
+                      onDismissAll={dismissAllReminders}
+                      onClose={() => setShowNotifications(false)}
+                      onOpenSettings={() => {
+                        setShowNotifications(false);
+                        setShowNotificationSettings(true);
+                      }}
+                    />
+                  </>
+                )}
+              </div>
               
               {/* Logout button - Hidden on small mobile */}
               <button
@@ -5451,6 +5556,20 @@ function App() {
           onClose={() => setNewBadge(null)}
         />
       )}
+
+      {/* Notification Settings Modal */}
+      {showNotificationSettings && (
+        <NotificationSettings
+          settings={notificationSettings}
+          onUpdate={updateNotificationSettings}
+          onClose={() => setShowNotificationSettings(false)}
+          onRequestPermission={requestNotificationPermission}
+          permission={notificationPermission}
+        />
+      )}
+
+      {/* Toast Container */}
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
     </div>
   );
 }
