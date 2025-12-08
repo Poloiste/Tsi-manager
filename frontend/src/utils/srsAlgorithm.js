@@ -100,7 +100,7 @@ export function responseToQuality(difficulty) {
  * Get the status of a flashcard based on its SRS data
  * 
  * @param {Object|null} srsData - SRS data object with next_review_date and interval_days
- * @returns {string} Status: 'new', 'due', 'soon', or 'mastered'
+ * @returns {string} Status: 'new', 'due', 'soon', 'mastered', or 'learning'
  */
 export function getCardStatus(srsData) {
   // If no SRS data exists, card is new
