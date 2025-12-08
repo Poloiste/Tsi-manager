@@ -26,7 +26,6 @@ export function useQuiz(userId) {
    * @param {string} options.title - Titre du quiz (optionnel)
    * @param {string} options.mode - Mode: 'training' | 'exam' | 'preparation'
    * @param {Array<string>} options.courseIds - IDs des cours sélectionnés
-   * @param {string} options.subjectFilter - Filtre par matière (optionnel)
    * @param {number} options.questionCount - Nombre de questions
    * @param {number} options.timeLimitMinutes - Limite de temps en minutes (null = pas de limite)
    * @returns {Promise<Object>} Le quiz créé
@@ -36,7 +35,7 @@ export function useQuiz(userId) {
     
     setIsLoading(true);
     try {
-      const { title, mode, courseIds, subjectFilter, questionCount, timeLimitMinutes } = options;
+      const { title, mode, courseIds, questionCount, timeLimitMinutes } = options;
 
       // Récupérer les flashcards correspondantes
       let query = supabase
@@ -49,11 +48,6 @@ export function useQuiz(userId) {
       // Filtrer par cours si spécifié
       if (courseIds && courseIds.length > 0) {
         query = query.in('course_id', courseIds);
-      }
-
-      // Filtrer par matière si spécifié
-      if (subjectFilter) {
-        query = query.eq('shared_courses.subject', subjectFilter);
       }
 
       const { data: flashcards, error: flashcardsError } = await query;

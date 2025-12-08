@@ -4,6 +4,8 @@ import { Clock, CheckCircle, XCircle, ChevronRight } from 'lucide-react';
 /**
  * Composant MathText - Rendu des équations LaTeX avec KaTeX
  */
+const KATEX_LOAD_MAX_ATTEMPTS = 20;
+
 const MathText = ({ children, className = "" }) => {
   const ref = useRef(null);
   
@@ -33,7 +35,7 @@ const MathText = ({ children, className = "" }) => {
         if (window.katex && window.renderMathInElement) {
           clearInterval(interval);
           renderMath();
-        } else if (attempts > 20) {
+        } else if (attempts > KATEX_LOAD_MAX_ATTEMPTS) {
           clearInterval(interval);
         }
       }, 100);
