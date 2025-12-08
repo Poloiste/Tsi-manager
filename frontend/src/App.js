@@ -217,6 +217,13 @@ function App() {
   // Hook SRS
   const srs = useSRS(user?.id);
   
+  // Hook Quiz
+  const quiz = useQuiz(user?.id);
+  
+  // États pour Quiz
+  const [quizView, setQuizView] = useState('home'); // 'home' | 'setup' | 'session' | 'results'
+  const [quizError, setQuizError] = useState(null);
+  
   // États pour Chat/Discussions
   const [channels, setChannels] = useState([]);
   const [selectedChannel, setSelectedChannel] = useState(null);
@@ -2523,6 +2530,7 @@ function App() {
                 { id: 'chat', label: '💬 Discussions' },
                 { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
+                { id: 'quiz', label: '📝 Quiz' },
                 { id: 'suggestions', label: '🎯 Suggestions' },
                 { id: 'stats', label: '📊 Stats' }
               ].map(tab => (
@@ -2547,6 +2555,7 @@ function App() {
                 { id: 'chat', icon: '💬', label: 'Chat' },
                 { id: 'flashcards', icon: '🎴', label: 'Révision' },
                 { id: 'courses', icon: '📚', label: 'Cours' },
+                { id: 'quiz', icon: '📝', label: 'Quiz' },
                 { id: 'suggestions', icon: '🎯', label: 'Sugg.' },
                 { id: 'stats', icon: '📊', label: 'Stats' }
               ].map(tab => (
@@ -2745,6 +2754,7 @@ function App() {
                 { id: 'chat', label: '💬 Discussions' },
                 { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
+                { id: 'quiz', label: '📝 Quiz' },
                 { id: 'suggestions', label: '🎯 Suggestions' },
                 { id: 'stats', label: '📊 Stats' }
               ].map(tab => (
@@ -4398,6 +4408,258 @@ function App() {
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* TAB QUIZ */}
+          {activeTab === 'quiz' && (
+            <div className="w-full">
+              {quizView === 'home' && (
+                <>
+                  <div className="mb-12 text-center">
+                    <h2 className="text-5xl font-bold text-white mb-3">📝 Mode Quiz</h2>
+                    <p className="text-indigo-300 text-lg">Testez vos connaissances</p>
+                  </div>
+
+                  {/* Boutons actions principales */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12 max-w-4xl mx-auto">
+                    <button
+                      onClick={() => setQuizView('setup')}
+                      className="bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl p-8 text-left hover:shadow-2xl hover:shadow-indigo-500/50 transition-all hover:scale-[1.02] border border-indigo-500/20"
+                    >
+                      <div className="text-5xl mb-4">🚀</div>
+                      <h3 className="text-2xl font-bold text-white mb-2">Nouveau Quiz</h3>
+                      <p className="text-indigo-200">Configuration complète et personnalisée</p>
+                    </button>
+
+                    <button
+                      onClick={async () => {
+                        try {
+                          setQuizError(null);
+                          await quiz.createQuiz({
+                            title: 'Quiz Rapide',
+                            mode: 'training',
+                            courseIds: courses.map(c => c.id),
+                            questionCount: 10,
+                            timeLimitMinutes: null
+                          });
+                          quiz.startQuiz();
+                          setQuizView('session');
+                        } catch (error) {
+                          console.error('Error starting quick quiz:', error);
+                          setQuizError(error.message || 'Erreur lors du démarrage du quiz. Assurez-vous d\'avoir des flashcards.');
+                        }
+                      }}
+                      className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl p-8 text-left hover:shadow-2xl hover:shadow-purple-500/50 transition-all hover:scale-[1.02] border border-purple-500/20"
+                    >
+                      <div className="text-5xl mb-4">⚡</div>
+                      <h3 className="text-2xl font-bold text-white mb-2">Quiz Rapide</h3>
+                      <p className="text-purple-200">10 questions, toutes matières</p>
+                    </button>
+                  </div>
+
+                  {/* Error display */}
+                  {quizError && (
+                    <div className="max-w-4xl mx-auto mb-8">
+                      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
+                        <span className="text-2xl">⚠️</span>
+                        <div className="flex-1">
+                          <p className="text-red-400 font-semibold">Erreur</p>
+                          <p className="text-red-300 text-sm mt-1">{quizError}</p>
+                        </div>
+                        <button
+                          onClick={() => setQuizError(null)}
+                          className="text-red-400 hover:text-red-300"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Historique des quiz */}
+                  <div className="max-w-6xl mx-auto">
+                    <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-indigo-500/20 shadow-2xl p-8">
+                      <h3 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
+                        📊 Historique des Quiz
+                      </h3>
+
+                      {quiz.isLoading ? (
+                        <div className="text-center py-12 text-slate-400">
+                          <div className="animate-spin w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+                          Chargement...
+                        </div>
+                      ) : quiz.quizHistory.length === 0 ? (
+                        <div className="text-center py-12 text-slate-400">
+                          <div className="text-6xl mb-4">📝</div>
+                          <p className="text-xl">Aucun quiz complété pour le moment</p>
+                          <p className="text-sm mt-2">Lancez votre premier quiz pour commencer !</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {quiz.quizHistory.map(q => {
+                            const scoreColor = q.score >= 90 ? 'text-green-400' : q.score >= 70 ? 'text-blue-400' : q.score >= 50 ? 'text-yellow-400' : 'text-red-400';
+                            const modeEmoji = q.mode === 'training' ? '🎯' : q.mode === 'exam' ? '📝' : '🎓';
+                            const timeAgo = (() => {
+                              const date = new Date(q.completed_at);
+                              const now = new Date();
+                              const diffMs = now - date;
+                              const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+                              const diffDays = Math.floor(diffHours / 24);
+                              
+                              if (diffDays > 0) return `il y a ${diffDays} jour${diffDays > 1 ? 's' : ''}`;
+                              if (diffHours > 0) return `il y a ${diffHours}h`;
+                              return 'À l\'instant';
+                            })();
+
+                            return (
+                              <div
+                                key={q.id}
+                                className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 hover:border-indigo-500/50 transition-all"
+                              >
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                  <div className="flex items-center gap-4 flex-1">
+                                    <div className="text-4xl">{modeEmoji}</div>
+                                    <div className="flex-1 min-w-0">
+                                      <h4 className="text-white font-bold text-lg mb-1">{q.title}</h4>
+                                      <p className="text-slate-400 text-sm">
+                                        {q.total_questions} questions • {Math.floor(q.time_spent_seconds / 60)}:{(q.time_spent_seconds % 60).toString().padStart(2, '0')}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-6">
+                                    <div className="text-center">
+                                      <div className={`text-3xl font-bold ${scoreColor}`}>{q.score}%</div>
+                                      <div className="text-xs text-slate-400">{timeAgo}</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Statistiques globales */}
+                  {quiz.quizHistory.length > 0 && (
+                    <div className="max-w-6xl mx-auto mt-8">
+                      <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-indigo-500/20 shadow-2xl p-8">
+                        <h3 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
+                          📈 Statistiques Quiz
+                        </h3>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                          <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 text-center">
+                            <div className="text-3xl font-bold text-indigo-400">{quiz.getQuizStats().totalCompleted}</div>
+                            <div className="text-slate-400 text-sm mt-2">Quiz complétés</div>
+                          </div>
+                          <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 text-center">
+                            <div className="text-3xl font-bold text-purple-400">{quiz.getQuizStats().averageScore}%</div>
+                            <div className="text-slate-400 text-sm mt-2">Score moyen</div>
+                          </div>
+                          <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 text-center">
+                            <div className="text-3xl font-bold text-green-400">{quiz.getQuizStats().bestScore}%</div>
+                            <div className="text-slate-400 text-sm mt-2">Meilleur score</div>
+                          </div>
+                          <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 text-center">
+                            <div className="text-3xl font-bold text-blue-400">
+                              {Math.floor(quiz.getQuizStats().totalTimeSpent / 60)}h
+                            </div>
+                            <div className="text-slate-400 text-sm mt-2">Temps total</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {quizView === 'setup' && (
+                <>
+                  {quizError && (
+                    <div className="max-w-3xl mx-auto mb-6">
+                      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 flex items-start gap-3">
+                        <span className="text-2xl">⚠️</span>
+                        <div className="flex-1">
+                          <p className="text-red-400 font-semibold">Erreur</p>
+                          <p className="text-red-300 text-sm mt-1">{quizError}</p>
+                        </div>
+                        <button
+                          onClick={() => setQuizError(null)}
+                          className="text-red-400 hover:text-red-300"
+                        >
+                          <X className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  <QuizSetup
+                    courses={courses}
+                    onStartQuiz={async (options) => {
+                      try {
+                        setQuizError(null);
+                        await quiz.createQuiz(options);
+                        quiz.startQuiz();
+                        setQuizView('session');
+                      } catch (error) {
+                        console.error('Error creating quiz:', error);
+                        setQuizError(error.message || 'Erreur lors de la création du quiz');
+                      }
+                    }}
+                  />
+                </>
+              )}
+
+              {quizView === 'session' && quiz.currentQuiz && (
+                <QuizSession
+                  quiz={quiz.currentQuiz}
+                  questions={quiz.questions}
+                  currentIndex={quiz.currentIndex}
+                  answers={quiz.answers}
+                  timeRemaining={quiz.timeRemaining}
+                  onSubmitAnswer={quiz.submitAnswer}
+                  onNextQuestion={quiz.nextQuestion}
+                  onFinish={async () => {
+                    try {
+                      await quiz.finishQuiz();
+                      
+                      // Ajouter XP pour le quiz
+                      const correctCount = quiz.answers.filter(a => a.is_correct).length;
+                      const totalQuestions = quiz.questions.length;
+                      const score = Math.round((correctCount / totalQuestions) * 100);
+                      
+                      let xpEarned = correctCount * 5; // 5 XP par bonne réponse
+                      if (score > 80) {
+                        xpEarned += 50; // Bonus pour score > 80%
+                      }
+                      
+                      await addXP(xpEarned);
+                      
+                      setQuizView('results');
+                    } catch (error) {
+                      console.error('Error finishing quiz:', error);
+                    }
+                  }}
+                />
+              )}
+
+              {quizView === 'results' && quiz.currentQuiz && (
+                <QuizResults
+                  quiz={quiz.currentQuiz}
+                  answers={quiz.answers}
+                  questions={quiz.questions}
+                  onRetry={() => {
+                    quiz.resetQuiz();
+                    setQuizView('setup');
+                  }}
+                  onClose={() => {
+                    quiz.resetQuiz();
+                    quiz.loadQuizHistory();
+                    setQuizView('home');
+                  }}
+                />
+              )}
             </div>
           )}
         </div>
