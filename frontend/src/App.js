@@ -24,6 +24,9 @@ import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
 import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType } from './utils/suggestionHelpers';
 import { useSRS } from './hooks/useSRS';
 import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } from './utils/srsAlgorithm';
+import { useTheme } from './hooks/useTheme';
+import { getThemeClasses } from './utils/themeColors';
+import { ThemeToggle } from './components/ThemeToggle';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -92,6 +95,10 @@ const getDayName = () => {
 // ==================== MAIN APP ====================
 function App() {
   const { user, loading, signOut } = useAuth();
+  
+  // Theme management
+  const { theme, toggleTheme, isDark } = useTheme();
+  const themeClasses = getThemeClasses(isDark ? 'dark' : 'light');
   
   // États pour Planning  ← DOIT ÊTRE ICI, À L'INTÉRIEUR DE function App()
   const [currentWeek, setCurrentWeek] = useState(() => getCurrentSchoolWeek());
@@ -2508,11 +2515,11 @@ function App() {
 
   return (
     <div 
-      className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900"
+      className={`min-h-screen transition-colors duration-300 ${isDark ? 'dark bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900' : 'light bg-gradient-to-br from-gray-50 via-blue-50 to-gray-100'}`}
       onClick={() => setShowSearchResults(false)}
     >
       {/* Header */}
-      <nav className="fixed top-0 left-0 right-0 bg-slate-950/80 backdrop-blur-xl border-b border-indigo-500/20 z-50">
+      <nav className={`fixed top-0 left-0 right-0 backdrop-blur-xl border-b z-50 ${themeClasses.bg.secondary}/80 ${themeClasses.border.subtle}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Logo - Always visible */}
@@ -2524,7 +2531,7 @@ function App() {
             </div>
             
             {/* Desktop Navigation - Hidden on mobile */}
-            <div className="hidden lg:flex items-center gap-1 bg-slate-900/50 border border-indigo-500/20 rounded-full p-1">
+            <div className={`hidden lg:flex items-center gap-1 border rounded-full p-1 ${themeClasses.bg.tertiary} ${themeClasses.border.subtle}`}>
               {[
                 { id: 'planning', label: '📅 Planning' },
                 { id: 'chat', label: '💬 Discussions' },
@@ -2540,7 +2547,7 @@ function App() {
                   className={`px-4 py-2 rounded-full transition-all text-sm font-semibold ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                      : 'text-indigo-300 hover:text-indigo-100'
+                      : `${themeClasses.text.accent} hover:text-indigo-100`
                   }`}
                 >
                   {tab.label}
@@ -2549,7 +2556,7 @@ function App() {
             </div>
 
             {/* Tablet Navigation - Horizontal scroll with compact tabs */}
-            <div className="hidden md:flex lg:hidden items-center gap-1 bg-slate-900/50 border border-indigo-500/20 rounded-full p-1 overflow-x-auto max-w-md scrollbar-hide">
+            <div className={`hidden md:flex lg:hidden items-center gap-1 border rounded-full p-1 overflow-x-auto max-w-md scrollbar-hide ${themeClasses.bg.tertiary} ${themeClasses.border.subtle}`}>
               {[
                 { id: 'planning', icon: '📅', label: 'Planning' },
                 { id: 'chat', icon: '💬', label: 'Chat' },
@@ -2565,7 +2572,7 @@ function App() {
                   className={`px-3 py-2 rounded-full transition-all text-xs font-semibold whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                      : 'text-indigo-300 hover:text-indigo-100'
+                      : `${themeClasses.text.accent} hover:text-indigo-100`
                   }`}
                 >
                   {tab.icon} {tab.label}
@@ -2576,8 +2583,8 @@ function App() {
             {/* Barre de recherche - Conditionnelle (uniquement pour flashcards et courses) */}
             {(activeTab === 'flashcards' || activeTab === 'courses') && (
               <div className="relative hidden md:block" onClick={(e) => e.stopPropagation()}>
-                <div className="flex items-center bg-slate-800/50 border border-slate-700 rounded-lg px-3 py-2">
-                  <Search className="w-4 h-4 text-slate-400 mr-2" />
+                <div className={`flex items-center border rounded-lg px-3 py-2 ${themeClasses.bg.card} ${themeClasses.border.default}`}>
+                  <Search className={`w-4 h-4 mr-2 ${themeClasses.text.muted}`} />
                   <input
                     ref={searchInputRef}
                     type="text"
@@ -2585,21 +2592,21 @@ function App() {
                     value={searchQuery}
                     onChange={(e) => handleSearch(e.target.value)}
                     onFocus={() => searchQuery.length >= 2 && setShowSearchResults(true)}
-                    className="bg-transparent text-white placeholder-slate-400 outline-none w-48 lg:w-64"
+                    className={`bg-transparent outline-none w-48 lg:w-64 ${themeClasses.text.primary} ${isDark ? 'placeholder-slate-400' : 'placeholder-gray-400'}`}
                   />
                   {searchQuery && (
                     <button 
                       onClick={() => { setSearchQuery(''); setShowSearchResults(false); }}
                       aria-label="Clear search"
                     >
-                      <X className="w-4 h-4 text-slate-400 hover:text-white" />
+                      <X className={`w-4 h-4 ${themeClasses.text.muted} ${isDark ? 'hover:text-white' : 'hover:text-gray-900'}`} />
                     </button>
                   )}
                 </div>
                 
                 {/* Dropdown des résultats */}
                 {showSearchResults && (
-                  <div className="absolute top-full mt-2 w-80 lg:w-96 bg-slate-900 border border-indigo-500/30 rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto">
+                  <div className={`absolute top-full mt-2 w-80 lg:w-96 border rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto ${themeClasses.bg.secondary} ${themeClasses.border.subtle}`}>
                     {searchResults.courses.length === 0 && searchResults.flashcards.length === 0 ? (
                       <p className="p-4 text-slate-400 text-center">Aucun résultat pour "{searchQuery}"</p>
                     ) : (
@@ -2721,6 +2728,9 @@ function App() {
                 )}
               </div>
               
+              {/* Theme toggle button */}
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
+              
               {/* Logout button - Hidden on small mobile */}
               <button
                 onClick={signOut}
@@ -2745,7 +2755,7 @@ function App() {
           
           {/* Drawer */}
           <div 
-            className="absolute top-[73px] right-0 left-0 bg-slate-950/95 backdrop-blur-xl border-b border-indigo-500/20 shadow-2xl"
+            className={`absolute top-[73px] right-0 left-0 backdrop-blur-xl border-b shadow-2xl ${themeClasses.bg.primary}/95 ${themeClasses.border.subtle}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-4 py-3 space-y-2">
@@ -2767,7 +2777,7 @@ function App() {
                   className={`w-full px-4 py-3 rounded-lg transition-all text-left font-semibold ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                      : 'text-indigo-300 hover:bg-slate-800/50 hover:text-indigo-100'
+                      : `${themeClasses.text.accent} ${themeClasses.hover} hover:text-indigo-100`
                   }`}
                 >
                   {tab.label}
@@ -2775,7 +2785,7 @@ function App() {
               ))}
               
               {/* Mobile-only actions */}
-              <div className="pt-2 border-t border-indigo-500/20">
+              <div className={`pt-2 border-t ${themeClasses.border.subtle}`}>
                 <div className="px-4 py-2 text-center">
                   <div className="text-2xl font-bold text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text">{daysUntil}</div>
                   <div className="text-xs text-indigo-300">jours avant concours</div>
@@ -2811,8 +2821,8 @@ function App() {
           {activeTab === 'planning' && (
             <div className="w-full">
               <div className="mb-12 text-center">
-                <h2 className="text-5xl font-bold text-white mb-3">Planning TSI1</h2>
-                <p className="text-indigo-300 text-lg">Emploi du temps adaptatif avec planning du soir</p>
+                <h2 className={`text-5xl font-bold mb-3 ${themeClasses.text.primary}`}>Planning TSI1</h2>
+                <p className={`text-lg ${themeClasses.text.accent}`}>Emploi du temps adaptatif avec planning du soir</p>
               </div>
 
               {/* Sélecteur de semaine */}
@@ -2820,7 +2830,7 @@ function App() {
                 <button
                   onClick={() => setCurrentWeek(Math.max(1, currentWeek - 1))}
                   disabled={currentWeek === 1}
-                  className="p-3 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 disabled:opacity-30 transition-all"
+                  className={`p-3 rounded-lg disabled:opacity-30 transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover}`}
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
@@ -2833,7 +2843,7 @@ function App() {
                 <button
                   onClick={() => setCurrentWeek(Math.min(33, currentWeek + 1))}
                   disabled={currentWeek === 33}
-                  className="p-3 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 disabled:opacity-30 transition-all"
+                  className={`p-3 rounded-lg disabled:opacity-30 transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover}`}
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
