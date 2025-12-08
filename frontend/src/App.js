@@ -13,6 +13,7 @@ import { ONBOARDING_COMPLETED_KEY } from './constants';
 import { getCurrentSchoolWeek } from './utils/schoolWeek';
 import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './utils/dateUtils';
 import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
+import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType } from './utils/suggestionHelpers';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -619,6 +620,39 @@ function App() {
     }
   };
 
+  // Helper function: Calculate days from a specific day to a test
+  const calculateDaysFromDayToTest = (fromDay, test) => {
+    const dayIndex = days.indexOf(fromDay);
+    const testDayIndex = days.indexOf(test.day);
+    
+    // If test has an exact date, use it
+    if (test.date) {
+      const today = new Date();
+      const testDate = parseLocalDate(test.date);
+      const todayNormalized = normalizeToMidnight(today);
+      
+      // Calculate total days from today to test
+      const totalDaysToTest = calculateDaysBetween(todayNormalized, testDate);
+      
+      // Calculate days from current day of week to the specified day
+      const todayDayIndex = days.indexOf(getDayName());
+      let daysToSpecifiedDay = dayIndex - todayDayIndex;
+      
+      // Adjust for next week if needed
+      if (daysToSpecifiedDay < 0) {
+        daysToSpecifiedDay += 7;
+      }
+      
+      // Days from the specified day to the test
+      return totalDaysToTest - daysToSpecifiedDay;
+    } else {
+      // Fallback to week/day calculation
+      const weekOffset = test.week - currentWeek;
+      let daysUntil = (weekOffset * 7) + (testDayIndex - dayIndex);
+      return daysUntil;
+    }
+  };
+
   const getSuggestedReviews = (day, weekNum = currentWeek) => {
     // Check if it's a rest day
     if (revisionSettings.restDays.includes(day)) {
@@ -628,10 +662,10 @@ function App() {
     // Calculate available time based on settings
     const totalSlots = Math.floor(revisionSettings.totalDuration / revisionSettings.sessionDuration);
     
-    const upcomingTests = getUpcomingTests(weekNum, 7);
-    const weekContext = { upcomingTests };
+    // Get all upcoming tests (extend window to catch preparation period)
+    const upcomingTests = getUpcomingTests(weekNum, 14);
     
-    // Calculate priority scores for each subject
+    // Calculate priority scores for each subject based on the specific day
     const subjectScores = {};
     subjects.forEach(subject => {
       let score = 0;
@@ -647,18 +681,25 @@ function App() {
         subject.toLowerCase().includes(test.subject.toLowerCase())
       );
       
-      // Add bonus based on urgency
+      // For each test, calculate if this day should include preparation
+      const relevantTests = [];
       subjectTests.forEach(test => {
-        const daysUntil = test.daysUntil;
-        if (daysUntil <= 1) score += 50; // J-1
-        else if (daysUntil === 2) score += 40; // J-2
-        else if (daysUntil === 3) score += 30; // J-3
-        else if (daysUntil <= 5) score += 20; // J-4 to J-5
-        else score += 10; // J-6 to J-7
+        const daysUntilFromThisDay = calculateDaysFromDayToTest(day, test);
+        const prepDays = getPreparationDays(test.type);
         
-        // Additional bonus for DS vs Colle
-        if (test.type === 'DS' || test.type === 'Examen') score += 10;
-        else if (test.type === 'Colle') score += 5;
+        // Check if we're in the preparation window
+        if (daysUntilFromThisDay > 0 && daysUntilFromThisDay <= prepDays) {
+          const baseScore = baseScoreByType[test.type] || 30;
+          const urgencyMultiplier = getUrgencyMultiplier(daysUntilFromThisDay, test.type);
+          const testScore = baseScore * urgencyMultiplier;
+          
+          score += testScore;
+          relevantTests.push({
+            ...test,
+            daysUntilFromThisDay,
+            suggestedDuration: getSuggestedDuration(test.type, daysUntilFromThisDay)
+          });
+        }
       });
       
       // Find courses for this subject
@@ -678,17 +719,28 @@ function App() {
         score += Math.min(oldestReview * 2, 30);
       }
       
-      subjectScores[subject] = { score, tests: subjectTests };
+      subjectScores[subject] = { score, tests: relevantTests };
     });
+    
+    // Build week context for compatibility
+    const weekContext = { upcomingTests };
     
     // Select courses based on top subjects
     const suggestions = [];
     
-    const coursesWithPriority = courses.map(course => ({
-      ...course,
-      ...calculateReviewPriority(course, weekContext),
-      subjectScore: subjectScores[course.subject]?.score || 0
-    })).sort((a, b) => {
+    const coursesWithPriority = courses.map(course => {
+      const subjectData = subjectScores[course.subject];
+      const hasRelevantTest = subjectData?.tests?.length > 0;
+      const firstTest = hasRelevantTest ? subjectData.tests[0] : null;
+      
+      return {
+        ...course,
+        ...calculateReviewPriority(course, weekContext),
+        subjectScore: subjectData?.score || 0,
+        relevantTest: firstTest,
+        suggestedDuration: firstTest?.suggestedDuration || '30min - 45min'
+      };
+    }).sort((a, b) => {
       // Prioritize by subject score first, then by course priority
       if (Math.abs(a.subjectScore - b.subjectScore) > 10) {
         return b.subjectScore - a.subjectScore;
@@ -705,19 +757,39 @@ function App() {
       const subjectData = subjectScores[course.subject];
       
       if (subjectCount < 2 && (course.priority > 25 || subjectData?.score > 20)) {
-        const hasTest = subjectData?.tests?.length > 0;
-        const firstTest = hasTest ? subjectData.tests[0] : null;
+        const hasTest = course.relevantTest != null;
+        const test = course.relevantTest;
+        
+        // Determine urgency based on days until test
+        let urgency = 'low';
+        let reasonText = 'Révision recommandée';
+        
+        if (hasTest) {
+          const daysUntil = test.daysUntilFromThisDay;
+          
+          if (daysUntil <= 1) {
+            urgency = 'high';
+            reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jour${daysUntil > 1 ? 's' : ''} - Révision ${test.type === 'DS' || test.type === 'Examen' ? 'approfondie' : 'intensive'}`;
+          } else if (daysUntil <= 2) {
+            urgency = 'high';
+            reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jours`;
+          } else if (daysUntil <= 3) {
+            urgency = 'medium';
+            reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jours`;
+          } else {
+            urgency = 'low';
+            reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jours - Préparation progressive`;
+          }
+        } else if (course.priority > 80) {
+          urgency = 'medium';
+          reasonText = 'Révision urgente';
+        }
         
         suggestions.push({
           ...course,
-          reason: hasTest
-            ? `${firstTest.type} ${course.subject} dans ${firstTest.daysUntil} jour(s)`
-            : course.priority > 80 ? 'Révision urgente' : 'Révision recommandée',
-          urgency: hasTest && firstTest.daysUntil <= 2
-            ? 'high' 
-            : hasTest && firstTest.daysUntil <= 4
-            ? 'medium'
-            : 'low'
+          reason: reasonText,
+          urgency: urgency,
+          suggestedDuration: course.suggestedDuration
         });
       }
     }
@@ -3459,6 +3531,9 @@ function App() {
                                     </div>
                                     <h4 className="text-lg font-bold text-white mb-1">{course.chapter}</h4>
                                     <p className="text-sm text-indigo-300 mb-2">💡 {course.reason}</p>
+                                    {course.suggestedDuration && (
+                                      <p className="text-sm text-green-300 mb-2">⏱️ {course.suggestedDuration} recommandées</p>
+                                    )}
                                     <div className="flex items-center gap-4 text-sm text-slate-400">
                                       <span>🎯 Maîtrise: {course.mastery || 0}%</span>
                                       <span>🔄 {course.reviewCount || 0} révision(s)</span>
