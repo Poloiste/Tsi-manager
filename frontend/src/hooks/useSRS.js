@@ -222,8 +222,6 @@ export function useSRS(userId) {
 
       if (error) throw error;
 
-      const today = new Date().toISOString().split('T')[0];
-      
       // Count cards by status
       const newStats = {
         due: 0,
