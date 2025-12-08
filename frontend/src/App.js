@@ -3458,7 +3458,7 @@ function App() {
                     <div className="bg-gradient-to-r from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-2xl p-6">
                       <h3 className="text-2xl font-bold text-red-300 mb-4 flex items-center gap-2">
                         <AlertCircle className="w-6 h-6" />
-                        Évaluations à venir (14 jours)
+                        Évaluations à venir
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {getUpcomingTests(currentWeek, 14).map((test, idx) => (
