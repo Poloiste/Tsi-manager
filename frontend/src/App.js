@@ -24,6 +24,9 @@ import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
 import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType } from './utils/suggestionHelpers';
 import { useSRS } from './hooks/useSRS';
 import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } from './utils/srsAlgorithm';
+import { useTheme } from './hooks/useTheme';
+import { getThemeClasses } from './utils/themeColors';
+import { ThemeToggle } from './components/ThemeToggle';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -92,6 +95,10 @@ const getDayName = () => {
 // ==================== MAIN APP ====================
 function App() {
   const { user, loading, signOut } = useAuth();
+  
+  // Theme management
+  const { theme, toggleTheme, isDark } = useTheme();
+  const themeClasses = getThemeClasses(isDark ? 'dark' : 'light');
   
   // États pour Planning  ← DOIT ÊTRE ICI, À L'INTÉRIEUR DE function App()
   const [currentWeek, setCurrentWeek] = useState(() => getCurrentSchoolWeek());
@@ -2501,11 +2508,11 @@ function App() {
 
   return (
     <div 
-      className="min-h-screen bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900"
+      className={`min-h-screen transition-colors duration-300 ${isDark ? 'dark bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900' : 'light bg-gradient-to-br from-gray-50 via-blue-50 to-gray-100'}`}
       onClick={() => setShowSearchResults(false)}
     >
       {/* Header */}
-      <nav className="fixed top-0 left-0 right-0 bg-slate-950/80 backdrop-blur-xl border-b border-indigo-500/20 z-50">
+      <nav className={`fixed top-0 left-0 right-0 backdrop-blur-xl border-b z-50 ${themeClasses.bg.secondary}/80 ${themeClasses.border.subtle}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             {/* Logo - Always visible */}
@@ -2711,6 +2718,9 @@ function App() {
                   </>
                 )}
               </div>
+              
+              {/* Theme toggle button */}
+              <ThemeToggle theme={theme} onToggle={toggleTheme} />
               
               {/* Logout button - Hidden on small mobile */}
               <button
