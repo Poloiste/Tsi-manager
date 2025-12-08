@@ -122,8 +122,6 @@ export function useQuiz(userId) {
           if (prev === null) return null;
           if (prev <= 1) {
             clearInterval(timerRef.current);
-            // Auto-terminer le quiz
-            finishQuiz();
             return 0;
           }
           return prev - 1;
