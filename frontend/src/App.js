@@ -1330,6 +1330,11 @@ function App() {
       
       // Reload flashcards
       await loadFlashcards();
+
+      // GAMIFICATION: Incrémenter le compteur de cartes créées (seulement si pas importée)
+      if (!importedFrom) {
+        await incrementCardsCreated(1);
+      }
     } catch (error) {
       console.error('Error adding flashcard:', error);
       alert('Erreur lors de l\'ajout de la flashcard');
@@ -1470,6 +1475,20 @@ function App() {
         }
         return f;
       }));
+
+      // GAMIFICATION: Ajouter XP
+      const xpEarned = isCorrect ? 10 : 2;
+      await addXP(xpEarned);
+
+      // GAMIFICATION: Mettre à jour les stats quotidiennes
+      await updateDailyStats({
+        reviews_count: 1,
+        correct_count: isCorrect ? 1 : 0,
+        incorrect_count: !isCorrect ? 1 : 0,
+        xp_earned: xpEarned,
+        sessions_count: 0, // On compte la session à la fin
+        time_spent_minutes: 0
+      });
     } catch (error) {
       console.error('Error updating flashcard stats:', error);
     }
@@ -1487,7 +1506,23 @@ function App() {
       setShowFlashcardAnswer(false);
     } else {
       // Fin de la session
-      alert(`Session terminée !\n✅ Correct: ${flashcardStats.correct + (isCorrect ? 1 : 0)}\n❌ Incorrect: ${flashcardStats.incorrect + (!isCorrect ? 1 : 0)}`);
+      const finalCorrect = flashcardStats.correct + (isCorrect ? 1 : 0);
+      const finalIncorrect = flashcardStats.incorrect + (!isCorrect ? 1 : 0);
+      
+      // GAMIFICATION: Bonus de fin de session
+      await addXP(25); // Bonus pour compléter la session
+      
+      // GAMIFICATION: Compter cette session
+      await updateDailyStats({
+        reviews_count: 0,
+        correct_count: 0,
+        incorrect_count: 0,
+        xp_earned: 25,
+        sessions_count: 1,
+        time_spent_minutes: 0
+      });
+
+      alert(`Session terminée !\n✅ Correct: ${finalCorrect}\n❌ Incorrect: ${finalIncorrect}\n\n🎉 +25 XP bonus pour la session complète !`);
       setSelectedCourseForFlashcards(null);
       markAsReviewed(selectedCourseForFlashcards.id, 10);
     }
