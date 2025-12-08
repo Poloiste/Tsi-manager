@@ -769,7 +769,7 @@ function App() {
           
           if (daysUntil <= 1) {
             urgency = 'high';
-            reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jour - Révision ${test.type === 'DS' || test.type === 'Examen' ? 'approfondie' : 'intensive'}`;
+            reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jour${daysUntil > 1 ? 's' : ''} - Révision ${test.type === 'DS' || test.type === 'Examen' ? 'approfondie' : 'intensive'}`;
           } else if (daysUntil <= 2) {
             urgency = 'high';
             reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jours`;
