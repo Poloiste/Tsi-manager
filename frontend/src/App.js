@@ -3,12 +3,16 @@ import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
   FolderOpen, LogOut, Send, MessageCircle, Menu, Download, Copy, FileText,
-  HelpCircle, Search
+  HelpCircle, Search, Award, TrendingUp, Target, Flame
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
 import { supabase } from './supabaseClient';
 import Onboarding from './components/Onboarding';
+import { Badge } from './components/Badge';
+import { BadgeUnlockModal } from './components/BadgeUnlockModal';
+import { ActivityHeatmap } from './components/ActivityHeatmap';
+import { useGamification } from './hooks/useGamification';
 import { ONBOARDING_COMPLETED_KEY } from './constants';
 import { getCurrentSchoolWeek } from './utils/schoolWeek';
 import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './utils/dateUtils';
@@ -207,6 +211,20 @@ function App() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const messagesEndRef = useRef(null);
   const searchInputRef = useRef(null);
+  
+  // Hook de gamification
+  const {
+    badges,
+    unlockedBadges,
+    userProfile,
+    dailyStats,
+    newBadge,
+    isLoading: isLoadingGamification,
+    addXP,
+    updateDailyStats,
+    incrementCardsCreated,
+    setNewBadge
+  } = useGamification(user?.id);
   
   const [newCourse, setNewCourse] = useState({
     subject: '',
@@ -3675,12 +3693,125 @@ function App() {
 
           {/* TAB STATS */}
           {activeTab === 'stats' && (
-            <div className="w-full">
+            <div className="w-full space-y-8">
               <div className="mb-12 text-center">
-                <h2 className="text-5xl font-bold text-white mb-3">📊 Statistiques</h2>
-                <p className="text-indigo-300 text-lg">Vue d'ensemble de votre progression</p>
+                <h2 className="text-5xl font-bold text-white mb-3">📊 Statistiques & Progression</h2>
+                <p className="text-indigo-300 text-lg">Vue d'ensemble de votre parcours d'apprentissage</p>
               </div>
-              
+
+              {/* Section Profil Utilisateur */}
+              {userProfile && (
+                <div className="bg-gradient-to-br from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-3xl p-8">
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+                    {/* Avatar et nom */}
+                    <div className="flex items-center gap-4">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-4xl border-4 border-indigo-400">
+                        👤
+                      </div>
+                      <div>
+                        <h3 className="text-2xl font-bold text-white">
+                          {getUserDisplayName(user)}
+                        </h3>
+                        <p className="text-indigo-300">Étudiant TSI</p>
+                      </div>
+                    </div>
+
+                    {/* Stats globales */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                      {/* XP */}
+                      <div className="text-center">
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                          <Sparkles className="w-5 h-5 text-yellow-400" />
+                          <span className="text-3xl font-bold text-yellow-300">
+                            {userProfile.total_xp || 0}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-400">XP Total</p>
+                      </div>
+
+                      {/* Streak */}
+                      <div className="text-center">
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                          <Flame className="w-5 h-5 text-orange-400" />
+                          <span className="text-3xl font-bold text-orange-300">
+                            {userProfile.current_streak || 0}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-400">Jours Streak</p>
+                      </div>
+
+                      {/* Révisions */}
+                      <div className="text-center">
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                          <BookOpen className="w-5 h-5 text-blue-400" />
+                          <span className="text-3xl font-bold text-blue-300">
+                            {userProfile.total_reviews || 0}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-400">Révisions</p>
+                      </div>
+
+                      {/* Maîtrise */}
+                      <div className="text-center">
+                        <div className="flex items-center justify-center gap-2 mb-2">
+                          <Target className="w-5 h-5 text-green-400" />
+                          <span className="text-3xl font-bold text-green-300">
+                            {courses.length > 0 
+                              ? Math.round(courses.reduce((sum, c) => sum + c.mastery, 0) / courses.length) 
+                              : 0}%
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-400">Maîtrise Moy.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Section Badges */}
+              <div className="bg-slate-800/50 border border-slate-700/50 rounded-3xl p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-3xl font-bold text-white flex items-center gap-3">
+                    <Award className="w-8 h-8 text-yellow-400" />
+                    Badges
+                  </h3>
+                  <span className="px-4 py-2 bg-indigo-900/50 text-indigo-300 rounded-full text-sm font-semibold">
+                    {unlockedBadges.length}/{badges.length} débloqués
+                  </span>
+                </div>
+
+                {isLoadingGamification ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin mb-4"><Brain className="w-12 h-12 text-purple-400 mx-auto" /></div>
+                    <p className="text-slate-400">Chargement des badges...</p>
+                  </div>
+                ) : badges.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Award className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                    <p className="text-slate-400 text-lg">Aucun badge disponible pour le moment</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-7 gap-6">
+                    {badges.map(badge => {
+                      const userBadge = unlockedBadges.find(ub => ub.badge_id === badge.id);
+                      return (
+                        <Badge
+                          key={badge.id}
+                          badge={badge}
+                          unlocked={!!userBadge}
+                          size="md"
+                          unlockedAt={userBadge?.unlocked_at}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Section Heatmap d'activité */}
+              <ActivityHeatmap dailyStats={dailyStats} />
+
+              {/* Stats détaillées */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div className="p-6 bg-gradient-to-br from-blue-900/30 to-cyan-900/30 border border-blue-500/30 rounded-2xl">
                   <div className="flex items-center justify-between mb-2">
@@ -3694,7 +3825,7 @@ function App() {
                   <div className="flex items-center justify-between mb-2">
                     <Zap className="w-8 h-8 text-green-400" />
                     <div className="text-3xl font-bold text-green-300">
-                      {courses.reduce((sum, c) => sum + c.reviewCount, 0)}
+                      {userProfile?.total_reviews || 0}
                     </div>
                   </div>
                   <p className="text-green-200 font-semibold">Révisions effectuées</p>
@@ -4606,6 +4737,15 @@ function App() {
       {/* Onboarding Tutorial */}
       {showOnboarding && (
         <Onboarding onClose={() => setShowOnboarding(false)} />
+      )}
+
+      {/* Badge Unlock Modal */}
+      {newBadge && (
+        <BadgeUnlockModal
+          badge={newBadge}
+          xpEarned={newBadge.xp_reward}
+          onClose={() => setNewBadge(null)}
+        />
       )}
     </div>
   );
