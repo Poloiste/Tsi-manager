@@ -2811,8 +2811,8 @@ function App() {
           {activeTab === 'planning' && (
             <div className="w-full">
               <div className="mb-12 text-center">
-                <h2 className="text-5xl font-bold text-white mb-3">Planning TSI1</h2>
-                <p className="text-indigo-300 text-lg">Emploi du temps adaptatif avec planning du soir</p>
+                <h2 className={`text-5xl font-bold mb-3 ${themeClasses.text.primary}`}>Planning TSI1</h2>
+                <p className={`text-lg ${themeClasses.text.accent}`}>Emploi du temps adaptatif avec planning du soir</p>
               </div>
 
               {/* Sélecteur de semaine */}
@@ -2820,7 +2820,7 @@ function App() {
                 <button
                   onClick={() => setCurrentWeek(Math.max(1, currentWeek - 1))}
                   disabled={currentWeek === 1}
-                  className="p-3 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 disabled:opacity-30 transition-all"
+                  className={`p-3 rounded-lg disabled:opacity-30 transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover}`}
                 >
                   <ChevronLeft className="w-5 h-5" />
                 </button>
@@ -2833,7 +2833,7 @@ function App() {
                 <button
                   onClick={() => setCurrentWeek(Math.min(33, currentWeek + 1))}
                   disabled={currentWeek === 33}
-                  className="p-3 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 disabled:opacity-30 transition-all"
+                  className={`p-3 rounded-lg disabled:opacity-30 transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover}`}
                 >
                   <ChevronRight className="w-5 h-5" />
                 </button>
