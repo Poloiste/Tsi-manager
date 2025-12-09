@@ -282,6 +282,9 @@ export function usePublicDecks(userId) {
 
       if (flashcardsError) throw flashcardsError;
 
+      // Obtenir le nom de l'utilisateur
+      const { data: userData } = await supabase.auth.getUser();
+
       // Créer un nouveau cours dans la bibliothèque de l'utilisateur
       const { data: newCourse, error: courseError } = await supabase
         .from('shared_courses')

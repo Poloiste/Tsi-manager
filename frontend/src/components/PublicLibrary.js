@@ -196,20 +196,6 @@ export function PublicLibrary({ userId, courses, flashcards, onImportSuccess }) 
     }
   };
 
-  // Retirer un deck
-  const handleUnpublish = async (deckId) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir retirer ce deck de la publication ?')) {
-      return;
-    }
-    
-    try {
-      await publicDecksHook.unpublishDeck(deckId);
-      alert('✅ Deck retiré de la publication');
-    } catch (error) {
-      alert(`❌ Erreur: ${error.message}`);
-    }
-  };
-
   // Decks à afficher
   const displayedDecks = viewMode === 'discover' 
     ? publicDecksHook.publicDecks 
