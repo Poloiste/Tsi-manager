@@ -213,6 +213,10 @@ function App() {
   // État pour le tutoriel d'onboarding
   const [showOnboarding, setShowOnboarding] = useState(false);
   
+  // États pour les sous-sections des onglets fusionnés
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [discussionsView, setDiscussionsView] = useState('channels'); // 'channels' | 'groups'
+  
   // États pour la recherche globale
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
@@ -2740,9 +2744,7 @@ function App() {
                 { id: 'quiz', label: '📝 Quiz' },
                 { id: 'chat', label: '💬 Discussions' },
                 { id: 'stats', label: '📊 Stats' },
-                { id: 'community', label: '🌐 Communauté' },
-                { id: 'groups', label: '👥 Groupes' },
-                { id: 'suggestions', label: '🎯 Suggestions' }
+                { id: 'community', label: '🌐 Communauté' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -2772,9 +2774,7 @@ function App() {
                 { id: 'quiz', icon: '📝', label: 'Quiz' },
                 { id: 'chat', icon: '💬', label: 'Chat' },
                 { id: 'stats', icon: '📊', label: 'Stats' },
-                { id: 'community', icon: '🌐', label: 'Commu.' },
-                { id: 'groups', icon: '👥', label: 'Groupes' },
-                { id: 'suggestions', icon: '🎯', label: 'Sugg.' }
+                { id: 'community', icon: '🌐', label: 'Commu.' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -2981,9 +2981,7 @@ function App() {
                 { id: 'quiz', label: '📝 Quiz' },
                 { id: 'chat', label: '💬 Discussions' },
                 { id: 'stats', label: '📊 Stats' },
-                { id: 'community', label: '🌐 Communauté' },
-                { id: 'groups', label: '👥 Groupes' },
-                { id: 'suggestions', label: '🎯 Suggestions' }
+                { id: 'community', label: '🌐 Communauté' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -3047,8 +3045,35 @@ function App() {
                 <p className={`text-lg ${themeClasses.text.accent}`}>Emploi du temps adaptatif avec planning du soir</p>
               </div>
 
-              {/* Sélecteur de semaine */}
+              {/* Toggle between Planning and Suggestions */}
               <div className="flex items-center justify-center gap-4 mb-8">
+                <button
+                  onClick={() => setShowSuggestions(false)}
+                  className={`px-6 py-3 rounded-xl transition-all font-semibold ${
+                    !showSuggestions
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
+                  }`}
+                >
+                  📅 Planning
+                </button>
+                <button
+                  onClick={() => setShowSuggestions(true)}
+                  className={`px-6 py-3 rounded-xl transition-all font-semibold ${
+                    showSuggestions
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
+                  }`}
+                >
+                  🎯 Suggestions
+                </button>
+              </div>
+
+              {/* Planning View */}
+              {!showSuggestions && (
+                <>
+                  {/* Sélecteur de semaine */}
+                  <div className="flex items-center justify-center gap-4 mb-8">
                 <button
                   onClick={() => setCurrentWeek(Math.max(1, currentWeek - 1))}
                   disabled={currentWeek === 1}
@@ -3239,6 +3264,284 @@ function App() {
                   </div>
                 </div>
               )}
+                </>
+              )}
+
+              {/* Suggestions View - merged from old 'suggestions' tab */}
+              {showSuggestions && (
+                <div className="w-full">
+                  <div className="mb-8 text-center">
+                    <h3 className="text-3xl font-bold text-white mb-3">🎯 Suggestions Intelligentes</h3>
+                    <p className="text-indigo-300">Planning adaptatif basé sur vos cours et DS</p>
+                    
+                    {/* Settings Button */}
+                    <button
+                      onClick={() => setShowRevisionSettings(true)}
+                      className="mt-4 px-6 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all flex items-center gap-2 mx-auto"
+                    >
+                      ⚙️ Paramètres de révision
+                    </button>
+                  </div>
+
+                  {courses.length === 0 ? (
+                    <div className="text-center py-12">
+                      <BookOpen className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                      <p className="text-slate-400 text-lg">Ajoutez des cours pour obtenir des suggestions de révision</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-8">
+                      {/* Évaluations à venir */}
+                      {getUpcomingTests(currentWeek, 14).length > 0 && (
+                        <div className="bg-gradient-to-r from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-2xl p-6">
+                          <h3 className="text-2xl font-bold text-red-300 mb-4 flex items-center gap-2">
+                            <AlertCircle className="w-6 h-6" />
+                            Évaluations à venir
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {getUpcomingTests(currentWeek, 14).map((test, idx) => (
+                              <div key={idx} className="p-4 bg-slate-900/50 rounded-lg border border-red-500/30">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${getTypeColor(test.type)}`}>
+                                    {test.type}
+                                  </span>
+                                  <span className="text-red-300 font-bold">
+                                    {test.daysUntil === 0 ? "Aujourd'hui" : test.daysUntil === 1 ? "Demain" : `J-${test.daysUntil}`}
+                                  </span>
+                                </div>
+                                <h4 className="font-bold text-white mb-1">{test.subject}</h4>
+                                <div className="flex items-center gap-2 text-sm text-slate-400">
+                                  <span>{test.day}</span>
+                                  {test.date && (
+                                    <span className="text-blue-300">
+                                      • {new Date(test.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                                    </span>
+                                  )}
+                                  <span>• {test.time}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Suggestions par jour */}
+                      <div className="grid grid-cols-1 gap-6">
+                        {days.map(day => {
+                          const suggestionsBySubject = getSuggestedReviews(day, currentWeek);
+                          if (suggestionsBySubject.length === 0) return null;
+
+                          const totalChapters = suggestionsBySubject.reduce((sum, s) => sum + s.chapters.length, 0);
+
+                          return (
+                            <div key={day} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
+                              <div className="flex items-center justify-between mb-6">
+                                <h3 className="text-2xl font-bold text-white flex items-center gap-3">
+                                  <Calendar className="w-6 h-6 text-indigo-400" />
+                                  {day}
+                                </h3>
+                                <div className="flex items-center gap-3">
+                                  <span className="px-4 py-2 bg-indigo-900/50 text-indigo-300 rounded-full text-sm font-semibold">
+                                    {suggestionsBySubject.length} matière{suggestionsBySubject.length > 1 ? 's' : ''}
+                                  </span>
+                                  <span className="px-4 py-2 bg-purple-900/50 text-purple-300 rounded-full text-sm font-semibold">
+                                    {totalChapters} chapitre{totalChapters > 1 ? 's' : ''}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <div className="space-y-6">
+                                {suggestionsBySubject.map((subjectGroup, subjectIdx) => (
+                                  <div key={subjectIdx} className="bg-slate-900/30 border border-slate-700/30 rounded-xl p-5">
+                                    {/* Subject Header */}
+                                    <div className="mb-4">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-3">
+                                          <span className={`px-4 py-2 bg-gradient-to-r ${getSubjectColor(subjectGroup.subject)} rounded-lg text-sm font-bold text-white shadow-lg`}>
+                                            📚 {subjectGroup.subject}
+                                          </span>
+                                          {subjectGroup.relevantTests && subjectGroup.relevantTests.length > 0 && (
+                                            <span className="px-3 py-1 bg-red-500/20 text-red-300 rounded-lg text-xs font-semibold border border-red-500/30">
+                                              🎯 {subjectGroup.relevantTests[0].type} dans {subjectGroup.relevantTests[0].daysUntilFromThisDay}j
+                                            </span>
+                                          )}
+                                        </div>
+                                        <span className="text-xs text-slate-400">
+                                          {subjectGroup.chapters.length} chapitre{subjectGroup.chapters.length > 1 ? 's' : ''} à réviser
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Chapters List */}
+                                    <div className="space-y-3">
+                                      {subjectGroup.chapters.map((course, chapterIdx) => (
+                                        <div key={course.id} className={`p-4 rounded-lg border ${
+                                          course.urgency === 'high' ? 'border-red-500/50 bg-red-900/10' : 
+                                          course.urgency === 'medium' ? 'border-orange-500/50 bg-orange-900/10' : 
+                                          'border-slate-700/50 bg-slate-800/50'
+                                        }`}>
+                                          <div className="flex items-start justify-between mb-3">
+                                            <div className="flex-1">
+                                              <div className="flex items-center gap-3 mb-2">
+                                                <span className="px-3 py-1 bg-indigo-600/40 text-indigo-200 rounded text-xs font-bold border border-indigo-500/30">
+                                                  📖 Suggestion {chapterIdx + 1}
+                                                </span>
+                                                {course.urgency === 'high' && (
+                                                  <span className="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs font-semibold">
+                                                    🔥 URGENT
+                                                  </span>
+                                                )}
+                                                {course.urgency === 'medium' && (
+                                                  <span className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded text-xs font-semibold">
+                                                    ⚠️ BIENTÔT
+                                                  </span>
+                                                )}
+                                              </div>
+                                              <h4 className="text-xl font-bold text-white mb-2">{course.chapter}</h4>
+                                              <p className="text-sm text-indigo-300 mb-2">💡 {course.reason}</p>
+                                              {course.suggestedDuration && (
+                                                <p className="text-sm text-green-300 mb-2">⏱️ {course.suggestedDuration} recommandées</p>
+                                              )}
+                                              <div className="flex items-center gap-4 text-sm text-slate-400">
+                                                <span>🎯 Maîtrise: {course.mastery || 0}%</span>
+                                                <span>🔄 {course.reviewCount || 0} révision(s)</span>
+                                                {course.lastReviewed && (
+                                                  <span>📅 {new Date(course.lastReviewed).toLocaleDateString('fr-FR')}</span>
+                                                )}
+                                              </div>
+                                            </div>
+                                            <div className="flex flex-col gap-2">
+                                              <button
+                                                onClick={() => markAsReviewed(course.id, 15)}
+                                                className="px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm whitespace-nowrap"
+                                              >
+                                                ✔ Marquer révisé
+                                              </button>
+                                            </div>
+                                          </div>
+
+                                          {/* Barre de priorité */}
+                                          <div className="mt-3">
+                                            <div className="flex items-center justify-between mb-2">
+                                              <span className="text-xs text-slate-400">Priorité de révision</span>
+                                              <span className="text-xs font-bold text-white">{Math.round(course.priority)}%</span>
+                                            </div>
+                                            <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                              <div 
+                                                className={`h-full transition-all ${
+                                                  course.priority > 80 ? 'bg-gradient-to-r from-red-500 to-orange-500' :
+                                                  course.priority > 50 ? 'bg-gradient-to-r from-orange-500 to-yellow-500' :
+                                                  'bg-gradient-to-r from-green-500 to-emerald-500'
+                                                }`}
+                                                style={{ width: `${Math.min(100, course.priority)}%` }}
+                                              ></div>
+                                            </div>
+                                          </div>
+
+                                          {/* Liens OneDrive */}
+                                          {course.oneDriveLinks && course.oneDriveLinks.length > 0 && (
+                                            <div className="mt-3 p-3 bg-slate-800/50 rounded-lg">
+                                              <p className="text-xs text-slate-400 mb-2">🔎 Documents disponibles:</p>
+                                              <div className="flex flex-wrap gap-2">
+                                                {course.oneDriveLinks.map(link => (
+                                                  <a
+                                                    key={link.id}
+                                                    href={link.url}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="px-3 py-1 bg-blue-600/30 border border-blue-500/50 text-blue-300 rounded-lg hover:bg-blue-600/50 transition-all text-xs font-semibold flex items-center gap-1"
+                                                  >
+                                                    <File className="w-3 h-3" />
+                                                    {link.name}
+                                                  </a>
+                                                ))}
+                                              </div>
+                                            </div>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+
+                              {/* Temps de travail suggéré */}
+                              {eveningSchedule[day] && eveningSchedule[day].length > 0 && (
+                                <div className="mt-6 p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-lg">
+                                  <h4 className="text-sm font-bold text-indigo-300 mb-3">⏱️ Planning de travail du soir:</h4>
+                                  <div className="space-y-2">
+                                    {eveningSchedule[day].map((slot, idx) => {
+                                      const colors = getEveningSubjectColors(slot.subject);
+                                      return (
+                                        <div key={idx} className="flex items-center gap-2">
+                                          <span className={`px-2 py-1 ${colors.bg} ${colors.text} rounded text-xs font-semibold`}>
+                                            {slot.subject}
+                                          </span>
+                                          <span className="text-xs text-slate-400">
+                                            ({slot.duration})
+                                          </span>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      {/* Cours urgents à réviser */}
+                      {(() => {
+                        const upcomingTests = getUpcomingTests(currentWeek);
+                        const weekContext = { upcomingTests };
+                        const urgentCourses = courses
+                          .map(course => ({
+                            ...course,
+                            ...calculateReviewPriority(course, weekContext)
+                          }))
+                          .filter(c => c.priority > 80)
+                          .sort((a, b) => b.priority - a.priority);
+
+                        if (urgentCourses.length === 0) return null;
+
+                        return (
+                          <div className="bg-gradient-to-r from-red-900/30 to-pink-900/30 border border-red-500/30 rounded-2xl p-6">
+                            <h3 className="text-2xl font-bold text-red-300 mb-4 flex items-center gap-2">
+                              <AlertCircle className="w-6 h-6" />
+                              ⚠️ Révisions urgentes
+                            </h3>
+                            <p className="text-red-200 mb-4 text-sm">Ces cours nécessitent une révision immédiate</p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {urgentCourses.map(course => (
+                                <div key={course.id} className="p-4 bg-slate-900/50 rounded-lg border border-red-500/30">
+                                  <div className="flex items-center justify-between mb-2">
+                                    <span className={`px-3 py-1 bg-gradient-to-r ${getSubjectColor(course.subject)} rounded-full text-xs font-bold text-white`}>
+                                      {course.subject}
+                                    </span>
+                                    <span className="text-red-300 font-bold text-sm">{course.reason}</span>
+                                  </div>
+                                  <h4 className="font-bold text-white mb-2">{course.chapter}</h4>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs text-slate-400">
+                                      {course.daysSinceReview} jours depuis dernière révision
+                                    </span>
+                                    <button
+                                      onClick={() => markAsReviewed(course.id, 15)}
+                                      className="px-3 py-1 bg-green-600/30 border border-green-500/50 text-green-300 rounded text-xs hover:bg-green-600/50 transition-all font-semibold"
+                                    >
+                                      ✔ Réviser
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -3250,7 +3553,33 @@ function App() {
                 <p className="text-indigo-300 text-lg">Entraide entre étudiants TSI</p>
               </div>
 
-              <div className="max-w-6xl mx-auto">
+              {/* Toggle between Channels and Groups */}
+              <div className="flex items-center justify-center gap-4 mb-8">
+                <button
+                  onClick={() => setDiscussionsView('channels')}
+                  className={`px-6 py-3 rounded-xl transition-all font-semibold ${
+                    discussionsView === 'channels'
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
+                  }`}
+                >
+                  💬 Salons
+                </button>
+                <button
+                  onClick={() => setDiscussionsView('groups')}
+                  className={`px-6 py-3 rounded-xl transition-all font-semibold ${
+                    discussionsView === 'groups'
+                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
+                  }`}
+                >
+                  👥 Groupes
+                </button>
+              </div>
+
+              {/* Channels View */}
+              {discussionsView === 'channels' && (
+                <div className="max-w-6xl mx-auto">
                 {/* Sélecteur de salon */}
                 <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
                   {channels.map(channel => {
@@ -3420,7 +3749,113 @@ function App() {
                     <p className="text-slate-400 text-lg">Sélectionnez un salon pour commencer</p>
                   </div>
                 )}
-              </div>
+                </div>
+              )}
+
+              {/* Groups View - merged from old 'groups' tab */}
+              {discussionsView === 'groups' && (
+                <div className="w-full">
+                  {/* Boutons d'action principaux */}
+                  <div className="flex flex-wrap gap-4 justify-center mb-8">
+                    <button
+                      onClick={() => setShowCreateGroup(true)}
+                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-500 hover:to-purple-500 transition-all font-semibold shadow-lg shadow-indigo-500/25"
+                    >
+                      <Plus className="w-5 h-5" />
+                      Créer un groupe
+                    </button>
+                    <button
+                      onClick={() => setShowJoinByCode(true)}
+                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-500 hover:to-pink-500 transition-all font-semibold shadow-lg shadow-purple-500/25"
+                    >
+                      🔗 Rejoindre par code
+                    </button>
+                  </div>
+
+                  {/* Mes Groupes */}
+                  <div className="mb-12">
+                    <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                      📌 Mes Groupes
+                      {studyGroups.myGroups.length > 0 && (
+                        <span className="text-lg text-indigo-400">({studyGroups.myGroups.length})</span>
+                      )}
+                    </h3>
+                    
+                    {studyGroups.isLoading ? (
+                      <div className="text-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto"></div>
+                        <p className="text-slate-400 mt-4">Chargement...</p>
+                      </div>
+                    ) : studyGroups.myGroups.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {studyGroups.myGroups.map(group => (
+                          <GroupCard
+                            key={group.id}
+                            group={group}
+                            onAction={async () => {
+                              const details = await studyGroups.loadGroupDetails(group.id);
+                              const leaderboard = await studyGroups.loadGroupLeaderboard(group.id);
+                              setSelectedGroup(details);
+                              setGroupLeaderboard(leaderboard);
+                              setShowGroupDetail(true);
+                            }}
+                            actionLabel="Voir"
+                            isDark={isDark}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 bg-slate-800/50 rounded-2xl border border-slate-700">
+                        <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                        <p className="text-slate-400 text-lg mb-2">Vous n'êtes membre d'aucun groupe</p>
+                        <p className="text-slate-500 text-sm">Créez votre premier groupe ou rejoignez-en un !</p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Groupes Publics */}
+                  <div>
+                    <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                      🌐 Groupes Publics
+                      {studyGroups.availableGroups.length > 0 && (
+                        <span className="text-lg text-indigo-400">({studyGroups.availableGroups.length})</span>
+                      )}
+                    </h3>
+                    
+                    {studyGroups.isLoading ? (
+                      <div className="text-center py-12">
+                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto"></div>
+                        <p className="text-slate-400 mt-4">Chargement...</p>
+                      </div>
+                    ) : studyGroups.availableGroups.length > 0 ? (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {studyGroups.availableGroups.map(group => (
+                          <GroupCard
+                            key={group.id}
+                            group={group}
+                            onAction={async () => {
+                              try {
+                                await studyGroups.joinGroup(group.id);
+                                showSuccess('Groupe rejoint avec succès !');
+                              } catch (error) {
+                                showWarning(error.message || 'Erreur lors de la tentative de rejoindre le groupe');
+                              }
+                            }}
+                            actionLabel="Rejoindre"
+                            isDark={isDark}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 bg-slate-800/50 rounded-2xl border border-slate-700">
+                        <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                        <p className="text-slate-400 text-lg mb-2">Aucun groupe public disponible</p>
+                        <p className="text-slate-500 text-sm">Soyez le premier à créer un groupe public !</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -4150,22 +4585,50 @@ function App() {
           )}
 
           {/* TAB SUGGESTIONS */}
+          {/* REMOVED: Suggestions tab - now merged into Planning tab */}
           {activeTab === 'suggestions' && (
-            <div className="w-full">
-              <div className="mb-12 text-center">
-                <h2 className="text-5xl font-bold text-white mb-3">🎯 Suggestions Intelligentes</h2>
-                <p className="text-indigo-300 text-lg">Planning adaptatif basé sur vos cours et DS</p>
-                
-                {/* Settings Button */}
+            <div className="w-full text-center py-12">
+              <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-2xl p-8 max-w-2xl mx-auto">
+                <h2 className="text-3xl font-bold text-white mb-4">🎯 Suggestions déplacées</h2>
+                <p className="text-indigo-300 mb-6">
+                  Les suggestions sont maintenant intégrées dans l'onglet Planning !
+                </p>
                 <button
-                  onClick={() => setShowRevisionSettings(true)}
-                  className="mt-4 px-6 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all flex items-center gap-2 mx-auto"
+                  onClick={() => {
+                    setActiveTab('planning');
+                    setShowSuggestions(true);
+                  }}
+                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold"
                 >
-                  ⚙️ Paramètres de révision
+                  📅 Aller au Planning → 🎯 Suggestions
                 </button>
               </div>
+            </div>
+          )}
 
-              {courses.length === 0 ? (
+          {/* REMOVED: Groups tab - now merged into Discussions tab */}
+          {activeTab === 'groups' && (
+            <div className="w-full text-center py-12">
+              <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-2xl p-8 max-w-2xl mx-auto">
+                <h2 className="text-3xl font-bold text-white mb-4">👥 Groupes déplacés</h2>
+                <p className="text-indigo-300 mb-6">
+                  Les groupes d'étude sont maintenant intégrés dans l'onglet Discussions !
+                </p>
+                <button
+                  onClick={() => {
+                    setActiveTab('chat');
+                    setDiscussionsView('groups');
+                  }}
+                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold"
+                >
+                  💬 Aller aux Discussions → 👥 Groupes
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* TAB STATS (keeping rest as is) - removing old duplicate code below */}
+          {false && courses.length === 0 ? (
                 <div className="text-center py-12">
                   <BookOpen className="w-16 h-16 text-slate-600 mx-auto mb-4" />
                   <p className="text-slate-400 text-lg">Ajoutez des cours pour obtenir des suggestions de révision</p>
@@ -4173,7 +4636,7 @@ function App() {
               ) : (
                 <div className="space-y-8">
                   {/* Évaluations à venir */}
-                  {getUpcomingTests(currentWeek, 14).length > 0 && (
+                  {false && getUpcomingTests(currentWeek, 14).length > 0 && (
                     <div className="bg-gradient-to-r from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-2xl p-6">
                       <h3 className="text-2xl font-bold text-red-300 mb-4 flex items-center gap-2">
                         <AlertCircle className="w-6 h-6" />
@@ -4973,112 +5436,23 @@ function App() {
             </div>
           )}
 
-          {/* TAB GROUPS */}
+          {/* TAB GROUPS - Now redirects to Discussions > Groups */}
           {activeTab === 'groups' && (
-            <div className="w-full">
-              <div className="mb-12 text-center">
-                <h2 className="text-5xl font-bold text-white mb-3">👥 Groupes d'Étude</h2>
-                <p className="text-indigo-300 text-lg">Collaborez et progressez ensemble</p>
-              </div>
-
-              {/* Boutons d'action principaux */}
-              <div className="flex flex-wrap gap-4 justify-center mb-8">
+            <div className="w-full text-center py-12">
+              <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-2xl p-8 max-w-2xl mx-auto">
+                <h2 className="text-3xl font-bold text-white mb-4">👥 Groupes déplacés</h2>
+                <p className="text-indigo-300 mb-6">
+                  Les groupes d'étude sont maintenant intégrés dans l'onglet Discussions !
+                </p>
                 <button
-                  onClick={() => setShowCreateGroup(true)}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-500 hover:to-purple-500 transition-all font-semibold shadow-lg shadow-indigo-500/25"
+                  onClick={() => {
+                    setActiveTab('chat');
+                    setDiscussionsView('groups');
+                  }}
+                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold"
                 >
-                  <Plus className="w-5 h-5" />
-                  Créer un groupe
+                  💬 Aller aux Discussions → 👥 Groupes
                 </button>
-                <button
-                  onClick={() => setShowJoinByCode(true)}
-                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-500 hover:to-pink-500 transition-all font-semibold shadow-lg shadow-purple-500/25"
-                >
-                  🔗 Rejoindre par code
-                </button>
-              </div>
-
-              {/* Mes Groupes */}
-              <div className="mb-12">
-                <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                  📌 Mes Groupes
-                  {studyGroups.myGroups.length > 0 && (
-                    <span className="text-lg text-indigo-400">({studyGroups.myGroups.length})</span>
-                  )}
-                </h3>
-                
-                {studyGroups.isLoading ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto"></div>
-                    <p className="text-slate-400 mt-4">Chargement...</p>
-                  </div>
-                ) : studyGroups.myGroups.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {studyGroups.myGroups.map(group => (
-                      <GroupCard
-                        key={group.id}
-                        group={group}
-                        onAction={async () => {
-                          const details = await studyGroups.loadGroupDetails(group.id);
-                          const leaderboard = await studyGroups.loadGroupLeaderboard(group.id);
-                          setSelectedGroup(details);
-                          setGroupLeaderboard(leaderboard);
-                          setShowGroupDetail(true);
-                        }}
-                        actionLabel="Voir"
-                        isDark={isDark}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-slate-800/50 rounded-2xl border border-slate-700">
-                    <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                    <p className="text-slate-400 text-lg mb-2">Vous n'êtes membre d'aucun groupe</p>
-                    <p className="text-slate-500 text-sm">Créez votre premier groupe ou rejoignez-en un !</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Groupes Publics */}
-              <div>
-                <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                  🌐 Groupes Publics
-                  {studyGroups.availableGroups.length > 0 && (
-                    <span className="text-lg text-indigo-400">({studyGroups.availableGroups.length})</span>
-                  )}
-                </h3>
-                
-                {studyGroups.isLoading ? (
-                  <div className="text-center py-12">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto"></div>
-                    <p className="text-slate-400 mt-4">Chargement...</p>
-                  </div>
-                ) : studyGroups.availableGroups.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {studyGroups.availableGroups.map(group => (
-                      <GroupCard
-                        key={group.id}
-                        group={group}
-                        onAction={async () => {
-                          try {
-                            await studyGroups.joinGroup(group.id);
-                            showSuccess('Groupe rejoint avec succès !');
-                          } catch (error) {
-                            showWarning(error.message || 'Erreur lors de la tentative de rejoindre le groupe');
-                          }
-                        }}
-                        actionLabel="Rejoindre"
-                        isDark={isDark}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-12 bg-slate-800/50 rounded-2xl border border-slate-700">
-                    <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                    <p className="text-slate-400 text-lg mb-2">Aucun groupe public disponible</p>
-                    <p className="text-slate-500 text-sm">Soyez le premier à créer un groupe public !</p>
-                  </div>
-                )}
               </div>
             </div>
           )}
