@@ -3,7 +3,7 @@ import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
   FolderOpen, LogOut, Send, MessageCircle, Menu, Download, Copy, FileText,
-  HelpCircle, Search, Award, Target, Flame, Bell, Users
+  HelpCircle, Search, Award, Target, Flame, Bell, Users, Volume2, VolumeX, BellOff
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
@@ -36,6 +36,7 @@ import { GroupCard } from './components/GroupCard';
 import { GroupDetail } from './components/GroupDetail';
 import { CreateGroupModal } from './components/CreateGroupModal';
 import { JoinGroupModal } from './components/JoinGroupModal';
+import { useChatNotifications } from './hooks/useChatNotifications';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -284,6 +285,9 @@ function App() {
   
   // Hook de groupes d'étude
   const studyGroups = useStudyGroups(user?.id);
+  
+  // Hook de notifications de chat
+  const chatNotifications = useChatNotifications(user?.id, selectedChannel, channels);
   
   // États pour les groupes d'étude
   const [showCreateGroup, setShowCreateGroup] = useState(false);
@@ -1221,6 +1225,18 @@ function App() {
         setMessages(prev => {
           const exists = prev.some(msg => msg.id === payload.new.id);
           if (exists) return prev;
+          
+          // Nouveau message - gérer les notifications
+          const newMessage = payload.new;
+          
+          // Afficher toast pour le canal actuel (sauf si c'est notre message)
+          if (newMessage.user_id !== user.id) {
+            showInfo(`💬 ${newMessage.user_name}: ${newMessage.content.substring(0, 50)}${newMessage.content.length > 50 ? '...' : ''}`);
+          }
+          
+          // Gérer les notifications (son, navigateur, etc.)
+          chatNotifications.handleNewMessage(newMessage, true, selectedChannel.name);
+          
           return [...prev, payload.new];
         });
       })
@@ -1239,7 +1255,50 @@ function App() {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedChannel, user]);
+  }, [selectedChannel, user, chatNotifications, showInfo]);
+
+  // Temps réel - S'abonner à tous les messages pour les notifications dans autres canaux
+  useEffect(() => {
+    if (!user || !channels || channels.length === 0) return;
+    
+    const channel = supabase
+      .channel('all-messages-notifications')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'chat_messages'
+      }, (payload) => {
+        const newMessage = payload.new;
+        
+        // Ne traiter que les messages qui ne sont PAS dans le canal actuel
+        if (newMessage.channel_id !== selectedChannel?.id && newMessage.user_id !== user.id) {
+          // Trouver le nom du canal
+          const channel = channels.find(ch => ch.id === newMessage.channel_id);
+          const channelName = channel?.name || 'Inconnu';
+          
+          // Gérer les notifications pour les autres canaux
+          chatNotifications.handleNewMessage(newMessage, false, channelName);
+        }
+      })
+      .subscribe();
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, channels, selectedChannel?.id, chatNotifications]);
+
+  // Demander la permission de notification quand on accède au chat pour la première fois
+  useEffect(() => {
+    if (activeTab === 'chat' && user && !chatNotifications.permissionRequested) {
+      // Demander après un court délai pour ne pas être trop intrusif
+      const timer = setTimeout(() => {
+        chatNotifications.requestBrowserNotificationPermission();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, user, chatNotifications]);
 
   // Raccourcis clavier pour la recherche
   useEffect(() => {
@@ -2565,13 +2624,18 @@ function App() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2 rounded-full transition-all text-sm font-semibold ${
+                  className={`px-4 py-2 rounded-full transition-all text-sm font-semibold relative ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
                       : `${themeClasses.text.accent} hover:text-indigo-100`
                   }`}
                 >
                   {tab.label}
+                  {tab.id === 'chat' && chatNotifications.totalUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold animate-pulse">
+                      {chatNotifications.totalUnreadCount > 9 ? '9+' : chatNotifications.totalUnreadCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -2592,13 +2656,18 @@ function App() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-3 py-2 rounded-full transition-all text-xs font-semibold whitespace-nowrap ${
+                  className={`px-3 py-2 rounded-full transition-all text-xs font-semibold whitespace-nowrap relative ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
                       : `${themeClasses.text.accent} hover:text-indigo-100`
                   }`}
                 >
                   {tab.icon} {tab.label}
+                  {tab.id === 'chat' && chatNotifications.totalUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold animate-pulse">
+                      {chatNotifications.totalUnreadCount > 9 ? '9+' : chatNotifications.totalUnreadCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -2799,13 +2868,18 @@ function App() {
                     setActiveTab(tab.id);
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full px-4 py-3 rounded-lg transition-all text-left font-semibold ${
+                  className={`w-full px-4 py-3 rounded-lg transition-all text-left font-semibold relative flex items-center justify-between ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
                       : `${themeClasses.text.accent} ${themeClasses.hover} hover:text-indigo-100`
                   }`}
                 >
-                  {tab.label}
+                  <span>{tab.label}</span>
+                  {tab.id === 'chat' && chatNotifications.totalUnreadCount > 0 && (
+                    <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 font-bold animate-pulse">
+                      {chatNotifications.totalUnreadCount > 9 ? '9+' : chatNotifications.totalUnreadCount}
+                    </span>
+                  )}
                 </button>
               ))}
               
@@ -3056,33 +3130,78 @@ function App() {
               <div className="max-w-6xl mx-auto">
                 {/* Sélecteur de salon */}
                 <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-                  {channels.map(channel => (
-                    <button
-                      key={channel.id}
-                      onClick={() => setSelectedChannel(channel)}
-                      className={`px-4 py-2 rounded-lg whitespace-nowrap font-semibold transition-all ${
-                        selectedChannel?.id === channel.id
-                          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                          : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
-                      }`}
-                    >
-                      {channel.name}
-                    </button>
-                  ))}
+                  {channels.map(channel => {
+                    const unreadCount = chatNotifications.unreadMessages[channel.id] || 0;
+                    return (
+                      <button
+                        key={channel.id}
+                        onClick={() => setSelectedChannel(channel)}
+                        className={`px-4 py-2 rounded-lg whitespace-nowrap font-semibold transition-all relative ${
+                          selectedChannel?.id === channel.id
+                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                            : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
+                        }`}
+                      >
+                        {channel.name}
+                        {unreadCount > 0 && (
+                          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5 font-bold animate-pulse">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {selectedChannel ? (
                   <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl overflow-hidden">
                     {/* En-tête du salon */}
                     <div className="p-4 bg-slate-900/50 border-b border-slate-700/50">
-                      <div className="flex items-center gap-2">
-                        <MessageCircle className="w-5 h-5 text-indigo-400" />
-                        <h3 className="text-xl font-bold text-white">{selectedChannel.name}</h3>
-                        {selectedChannel.subject && (
-                          <span className="px-2 py-1 bg-indigo-900/50 text-indigo-300 rounded text-xs">
-                            {selectedChannel.type === 'subject' ? 'Matière' : selectedChannel.type}
-                          </span>
-                        )}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <MessageCircle className="w-5 h-5 text-indigo-400" />
+                          <h3 className="text-xl font-bold text-white">{selectedChannel.name}</h3>
+                          {selectedChannel.subject && (
+                            <span className="px-2 py-1 bg-indigo-900/50 text-indigo-300 rounded text-xs">
+                              {selectedChannel.type === 'subject' ? 'Matière' : selectedChannel.type}
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Notification controls */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={chatNotifications.toggleSound}
+                            className={`p-2 rounded-lg transition-all ${
+                              chatNotifications.soundEnabled
+                                ? 'bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600/50'
+                                : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                            }`}
+                            title={chatNotifications.soundEnabled ? 'Son activé' : 'Son désactivé'}
+                          >
+                            {chatNotifications.soundEnabled ? (
+                              <Volume2 className="w-4 h-4" />
+                            ) : (
+                              <VolumeX className="w-4 h-4" />
+                            )}
+                          </button>
+                          
+                          <button
+                            onClick={chatNotifications.toggleBrowserNotifications}
+                            className={`p-2 rounded-lg transition-all ${
+                              chatNotifications.browserNotificationsEnabled
+                                ? 'bg-purple-600/30 text-purple-300 hover:bg-purple-600/50'
+                                : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                            }`}
+                            title={chatNotifications.browserNotificationsEnabled ? 'Notifications navigateur activées' : 'Notifications navigateur désactivées'}
+                          >
+                            {chatNotifications.browserNotificationsEnabled ? (
+                              <Bell className="w-4 h-4" />
+                            ) : (
+                              <BellOff className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
