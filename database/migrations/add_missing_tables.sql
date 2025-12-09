@@ -102,6 +102,8 @@ CREATE TABLE IF NOT EXISTS public.shared_revisions (
 
 -- Public Decks (Community shared flashcard decks)
 -- Stores published flashcard decks for community sharing
+-- Note: CASCADE delete on course_id means deleting a course removes its public deck
+-- This is intentional - a public deck is a published view of a specific course
 CREATE TABLE IF NOT EXISTS public.public_decks (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   course_id UUID REFERENCES public.shared_courses(id) ON DELETE CASCADE NOT NULL,
@@ -110,7 +112,7 @@ CREATE TABLE IF NOT EXISTS public.public_decks (
   category TEXT NOT NULL, -- 'Mathématiques', 'Physique', 'Chimie', 'SI', 'Informatique', 'Anglais', 'Français', 'Autre'
   tags TEXT[] DEFAULT '{}',
   created_by UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
-  created_by_name TEXT DEFAULT 'Anonyme',
+  created_by_name TEXT DEFAULT 'Anonyme', -- Default matches existing shared_flashcards convention
   card_count INTEGER DEFAULT 0,
   download_count INTEGER DEFAULT 0,
   like_count INTEGER DEFAULT 0,
@@ -582,6 +584,8 @@ CREATE TRIGGER increment_deck_download_count_on_insert
   EXECUTE FUNCTION public.increment_deck_download_count();
 
 -- Function to set card count on deck creation/update
+-- Note: Both public_decks and shared_flashcards reference shared_courses via course_id
+-- This correctly counts all flashcards associated with the same course
 CREATE OR REPLACE FUNCTION public.update_deck_card_count()
 RETURNS TRIGGER AS $$
 BEGIN
