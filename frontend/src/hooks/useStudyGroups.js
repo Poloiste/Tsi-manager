@@ -1,0 +1,652 @@
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '../supabaseClient';
+
+/**
+ * Hook de gestion des groupes d'étude
+ * @param {string} userId - ID de l'utilisateur connecté
+ * @returns {Object} État et fonctions de gestion des groupes
+ */
+export function useStudyGroups(userId) {
+  // États
+  const [myGroups, setMyGroups] = useState([]);
+  const [availableGroups, setAvailableGroups] = useState([]);
+  const [currentGroup, setCurrentGroup] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Charger mes groupes (groupes dont je suis membre)
+  const loadMyGroups = useCallback(async () => {
+    if (!userId) return;
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('study_group_members')
+        .select(`
+          *,
+          study_groups:group_id (
+            id,
+            name,
+            description,
+            is_public,
+            max_members,
+            invite_code,
+            created_by,
+            created_at
+          )
+        `)
+        .eq('user_id', userId)
+        .order('joined_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Compter les membres pour chaque groupe
+      const groupsWithCounts = await Promise.all(
+        (data || []).map(async (membership) => {
+          const { count } = await supabase
+            .from('study_group_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('group_id', membership.study_groups.id);
+
+          return {
+            ...membership.study_groups,
+            memberCount: count || 0,
+            myRole: membership.role,
+            joinedAt: membership.joined_at
+          };
+        })
+      );
+
+      setMyGroups(groupsWithCounts);
+    } catch (error) {
+      console.error('Error loading my groups:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
+
+  // Charger les groupes publics disponibles
+  const loadAvailableGroups = useCallback(async () => {
+    if (!userId) return;
+
+    setIsLoading(true);
+    try {
+      // Récupérer les IDs des groupes dont je suis déjà membre
+      const { data: myMemberships } = await supabase
+        .from('study_group_members')
+        .select('group_id')
+        .eq('user_id', userId);
+
+      const myGroupIds = (myMemberships || []).map(m => m.group_id);
+
+      // Récupérer les groupes publics dont je ne suis pas membre
+      let query = supabase
+        .from('study_groups')
+        .select('*')
+        .eq('is_public', true)
+        .order('created_at', { ascending: false });
+
+      if (myGroupIds.length > 0) {
+        query = query.not('id', 'in', `(${myGroupIds.join(',')})`);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      // Compter les membres pour chaque groupe
+      const groupsWithCounts = await Promise.all(
+        (data || []).map(async (group) => {
+          const { count } = await supabase
+            .from('study_group_members')
+            .select('*', { count: 'exact', head: true })
+            .eq('group_id', group.id);
+
+          return {
+            ...group,
+            memberCount: count || 0
+          };
+        })
+      );
+
+      setAvailableGroups(groupsWithCounts);
+    } catch (error) {
+      console.error('Error loading available groups:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
+
+  // Créer un nouveau groupe
+  const createGroup = useCallback(async (data) => {
+    if (!userId) throw new Error('User not authenticated');
+
+    setIsLoading(true);
+    try {
+      const { data: newGroup, error } = await supabase
+        .from('study_groups')
+        .insert([{
+          name: data.name,
+          description: data.description || '',
+          is_public: data.isPublic !== undefined ? data.isPublic : true,
+          max_members: data.maxMembers || 20,
+          created_by: userId
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Recharger mes groupes
+      await loadMyGroups();
+
+      return newGroup;
+    } catch (error) {
+      console.error('Error creating group:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, loadMyGroups]);
+
+  // Rejoindre un groupe public
+  const joinGroup = useCallback(async (groupId) => {
+    if (!userId) throw new Error('User not authenticated');
+
+    setIsLoading(true);
+    try {
+      // Vérifier que le groupe est public et n'est pas plein
+      const { data: group, error: groupError } = await supabase
+        .from('study_groups')
+        .select('*, study_group_members(count)')
+        .eq('id', groupId)
+        .single();
+
+      if (groupError) throw groupError;
+      if (!group.is_public) throw new Error('Ce groupe est privé');
+
+      const { count } = await supabase
+        .from('study_group_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('group_id', groupId);
+
+      if (count >= group.max_members) {
+        throw new Error('Ce groupe est complet');
+      }
+
+      // Rejoindre le groupe
+      const { error: joinError } = await supabase
+        .from('study_group_members')
+        .insert([{
+          group_id: groupId,
+          user_id: userId,
+          role: 'member'
+        }]);
+
+      if (joinError) throw joinError;
+
+      // Enregistrer l'activité
+      await supabase
+        .from('study_group_activities')
+        .insert([{
+          group_id: groupId,
+          user_id: userId,
+          activity_type: 'join',
+          activity_data: {}
+        }]);
+
+      // Recharger les groupes
+      await loadMyGroups();
+      await loadAvailableGroups();
+    } catch (error) {
+      console.error('Error joining group:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, loadMyGroups, loadAvailableGroups]);
+
+  // Rejoindre par code d'invitation
+  const joinByCode = useCallback(async (code) => {
+    if (!userId) throw new Error('User not authenticated');
+
+    setIsLoading(true);
+    try {
+      // Trouver le groupe par code
+      const { data: group, error: groupError } = await supabase
+        .from('study_groups')
+        .select('*')
+        .eq('invite_code', code.toUpperCase())
+        .single();
+
+      if (groupError || !group) {
+        throw new Error('Code d\'invitation invalide');
+      }
+
+      // Vérifier l'expiration
+      if (group.invite_code_expires_at && new Date(group.invite_code_expires_at) < new Date()) {
+        throw new Error('Ce code d\'invitation a expiré');
+      }
+
+      // Vérifier que le groupe n'est pas plein
+      const { count } = await supabase
+        .from('study_group_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('group_id', group.id);
+
+      if (count >= group.max_members) {
+        throw new Error('Ce groupe est complet');
+      }
+
+      // Vérifier que l'utilisateur n'est pas déjà membre
+      const { data: existingMember } = await supabase
+        .from('study_group_members')
+        .select('*')
+        .eq('group_id', group.id)
+        .eq('user_id', userId)
+        .single();
+
+      if (existingMember) {
+        throw new Error('Vous êtes déjà membre de ce groupe');
+      }
+
+      // Rejoindre le groupe
+      const { error: joinError } = await supabase
+        .from('study_group_members')
+        .insert([{
+          group_id: group.id,
+          user_id: userId,
+          role: 'member'
+        }]);
+
+      if (joinError) throw joinError;
+
+      // Enregistrer l'activité
+      await supabase
+        .from('study_group_activities')
+        .insert([{
+          group_id: group.id,
+          user_id: userId,
+          activity_type: 'join',
+          activity_data: { via: 'invite_code' }
+        }]);
+
+      // Recharger les groupes
+      await loadMyGroups();
+      await loadAvailableGroups();
+
+      return group;
+    } catch (error) {
+      console.error('Error joining by code:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, loadMyGroups, loadAvailableGroups]);
+
+  // Quitter un groupe
+  const leaveGroup = useCallback(async (groupId) => {
+    if (!userId) throw new Error('User not authenticated');
+
+    setIsLoading(true);
+    try {
+      // Vérifier que l'utilisateur n'est pas le seul admin
+      const { data: admins } = await supabase
+        .from('study_group_members')
+        .select('*')
+        .eq('group_id', groupId)
+        .eq('role', 'admin');
+
+      const { data: myMembership } = await supabase
+        .from('study_group_members')
+        .select('*')
+        .eq('group_id', groupId)
+        .eq('user_id', userId)
+        .single();
+
+      if (myMembership.role === 'admin' && admins.length === 1) {
+        throw new Error('Vous êtes le seul admin. Nommez un autre admin avant de quitter.');
+      }
+
+      // Quitter le groupe
+      const { error } = await supabase
+        .from('study_group_members')
+        .delete()
+        .eq('group_id', groupId)
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      // Enregistrer l'activité
+      await supabase
+        .from('study_group_activities')
+        .insert([{
+          group_id: groupId,
+          user_id: userId,
+          activity_type: 'leave',
+          activity_data: {}
+        }]);
+
+      // Recharger les groupes
+      await loadMyGroups();
+      await loadAvailableGroups();
+    } catch (error) {
+      console.error('Error leaving group:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, loadMyGroups, loadAvailableGroups]);
+
+  // Supprimer un groupe (admin seulement)
+  const deleteGroup = useCallback(async (groupId) => {
+    if (!userId) throw new Error('User not authenticated');
+
+    setIsLoading(true);
+    try {
+      // Vérifier que l'utilisateur est admin
+      const { data: membership } = await supabase
+        .from('study_group_members')
+        .select('*')
+        .eq('group_id', groupId)
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .single();
+
+      if (!membership) {
+        throw new Error('Seuls les admins peuvent supprimer un groupe');
+      }
+
+      // Supprimer le groupe (cascade supprimera les membres, decks, activités)
+      const { error } = await supabase
+        .from('study_groups')
+        .delete()
+        .eq('id', groupId);
+
+      if (error) throw error;
+
+      // Recharger les groupes
+      await loadMyGroups();
+      await loadAvailableGroups();
+    } catch (error) {
+      console.error('Error deleting group:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, loadMyGroups, loadAvailableGroups]);
+
+  // Inviter un membre par email (optionnel - pas implémenté dans ce prototype)
+  const inviteMember = useCallback(async (groupId, email) => {
+    // Cette fonctionnalité nécessiterait l'envoi d'emails
+    // Pour l'instant, on peut simplement générer un code que l'admin peut partager
+    console.log('Invite member feature:', groupId, email);
+    throw new Error('Utilisez le code d\'invitation pour inviter des membres');
+  }, []);
+
+  // Générer un nouveau code d'invitation
+  const generateInviteCode = useCallback(async (groupId) => {
+    if (!userId) throw new Error('User not authenticated');
+
+    setIsLoading(true);
+    try {
+      // Vérifier que l'utilisateur est admin
+      const { data: membership } = await supabase
+        .from('study_group_members')
+        .select('*')
+        .eq('group_id', groupId)
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .single();
+
+      if (!membership) {
+        throw new Error('Seuls les admins peuvent générer un code');
+      }
+
+      // Générer un nouveau code (le trigger se chargera de la génération)
+      // On met à jour simplement en définissant le code à null pour forcer la régénération
+      const { data, error } = await supabase.rpc('generate_invite_code');
+      
+      if (error) {
+        // Fallback: générer le code côté client
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        let newCode = '';
+        for (let i = 0; i < 6; i++) {
+          newCode += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+
+        const { error: updateError } = await supabase
+          .from('study_groups')
+          .update({
+            invite_code: newCode,
+            invite_code_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+          })
+          .eq('id', groupId);
+
+        if (updateError) throw updateError;
+
+        return newCode;
+      }
+
+      await loadMyGroups();
+      return data;
+    } catch (error) {
+      console.error('Error generating invite code:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, loadMyGroups]);
+
+  // Charger les détails d'un groupe
+  const loadGroupDetails = useCallback(async (groupId) => {
+    if (!userId) return;
+
+    setIsLoading(true);
+    try {
+      // Charger le groupe
+      const { data: group, error: groupError } = await supabase
+        .from('study_groups')
+        .select('*')
+        .eq('id', groupId)
+        .single();
+
+      if (groupError) throw groupError;
+
+      // Charger les membres
+      const { data: members, error: membersError } = await supabase
+        .from('study_group_members')
+        .select('*')
+        .eq('group_id', groupId)
+        .order('joined_at', { ascending: true });
+
+      if (membersError) throw membersError;
+
+      // Charger les decks partagés
+      const { data: sharedDecks, error: decksError } = await supabase
+        .from('study_group_shared_decks')
+        .select(`
+          *,
+          shared_courses:course_id (
+            id,
+            subject,
+            chapter,
+            difficulty
+          )
+        `)
+        .eq('group_id', groupId)
+        .order('shared_at', { ascending: false });
+
+      if (decksError) throw decksError;
+
+      // Charger les activités récentes
+      const { data: activities, error: activitiesError } = await supabase
+        .from('study_group_activities')
+        .select('*')
+        .eq('group_id', groupId)
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (activitiesError) throw activitiesError;
+
+      const groupDetails = {
+        ...group,
+        members: members || [],
+        sharedDecks: sharedDecks || [],
+        activities: activities || []
+      };
+
+      setCurrentGroup(groupDetails);
+      return groupDetails;
+    } catch (error) {
+      console.error('Error loading group details:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
+
+  // Charger le leaderboard du groupe
+  const loadGroupLeaderboard = useCallback(async (groupId) => {
+    if (!userId) return;
+
+    setIsLoading(true);
+    try {
+      // Récupérer les membres du groupe
+      const { data: members, error: membersError } = await supabase
+        .from('study_group_members')
+        .select('user_id, role')
+        .eq('group_id', groupId);
+
+      if (membersError) throw membersError;
+
+      const userIds = members.map(m => m.user_id);
+
+      // Récupérer les profils de gamification
+      const { data: profiles, error: profilesError } = await supabase
+        .from('user_gamification')
+        .select('*')
+        .in('user_id', userIds);
+
+      if (profilesError) throw profilesError;
+
+      // Combiner les données
+      const leaderboard = (profiles || [])
+        .map(profile => {
+          const member = members.find(m => m.user_id === profile.user_id);
+          return {
+            ...profile,
+            role: member?.role || 'member'
+          };
+        })
+        .sort((a, b) => {
+          // Trier par XP total, puis par streak
+          if (b.total_xp !== a.total_xp) {
+            return b.total_xp - a.total_xp;
+          }
+          return b.current_streak - a.current_streak;
+        });
+
+      return leaderboard;
+    } catch (error) {
+      console.error('Error loading group leaderboard:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
+
+  // Partager des decks au groupe
+  const shareDecksToGroup = useCallback(async (groupId, deckIds) => {
+    if (!userId) throw new Error('User not authenticated');
+
+    setIsLoading(true);
+    try {
+      // Vérifier que l'utilisateur est membre du groupe
+      const { data: membership } = await supabase
+        .from('study_group_members')
+        .select('*')
+        .eq('group_id', groupId)
+        .eq('user_id', userId)
+        .single();
+
+      if (!membership) {
+        throw new Error('Vous devez être membre du groupe pour partager des decks');
+      }
+
+      // Partager les decks
+      const sharePromises = deckIds.map(async (deckId) => {
+        // Vérifier si le deck n'est pas déjà partagé
+        const { data: existing } = await supabase
+          .from('study_group_shared_decks')
+          .select('*')
+          .eq('group_id', groupId)
+          .eq('course_id', deckId)
+          .single();
+
+        if (!existing) {
+          await supabase
+            .from('study_group_shared_decks')
+            .insert([{
+              group_id: groupId,
+              course_id: deckId,
+              shared_by: userId
+            }]);
+
+          // Enregistrer l'activité
+          await supabase
+            .from('study_group_activities')
+            .insert([{
+              group_id: groupId,
+              user_id: userId,
+              activity_type: 'share_deck',
+              activity_data: { course_id: deckId }
+            }]);
+        }
+      });
+
+      await Promise.all(sharePromises);
+
+      // Recharger les détails du groupe si c'est le groupe actuel
+      if (currentGroup?.id === groupId) {
+        await loadGroupDetails(groupId);
+      }
+    } catch (error) {
+      console.error('Error sharing decks:', error);
+      throw error;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId, currentGroup, loadGroupDetails]);
+
+  // Charger les données au montage
+  useEffect(() => {
+    if (userId) {
+      loadMyGroups();
+      loadAvailableGroups();
+    }
+  }, [userId, loadMyGroups, loadAvailableGroups]);
+
+  return {
+    // États
+    myGroups,
+    availableGroups,
+    currentGroup,
+    isLoading,
+
+    // Fonctions
+    loadMyGroups,
+    loadAvailableGroups,
+    createGroup,
+    joinGroup,
+    joinByCode,
+    leaveGroup,
+    deleteGroup,
+    inviteMember,
+    generateInviteCode,
+    loadGroupDetails,
+    loadGroupLeaderboard,
+    shareDecksToGroup
+  };
+}
