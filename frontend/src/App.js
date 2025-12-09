@@ -1990,9 +1990,15 @@ function App() {
     }
 
     // Échapper les guillemets et entourer les valeurs de guillemets
+    // Normalize special characters to ensure proper encoding
     const escapeCSV = (str) => {
       if (!str) return '""';
-      return '"' + String(str).replace(/"/g, '""') + '"';
+      // Convert to string and normalize Unicode characters
+      let normalized = String(str).normalize('NFC');
+      // Escape double quotes by doubling them
+      normalized = normalized.replace(/"/g, '""');
+      // Always wrap in quotes to preserve special characters
+      return '"' + normalized + '"';
     };
 
     // Créer le contenu CSV avec en-têtes
@@ -2006,9 +2012,10 @@ function App() {
       csvContent += `${escapeCSV(f.question)},${escapeCSV(f.answer)},${escapeCSV(subject)},${escapeCSV(chapter)}\n`;
     });
 
-    // Créer et télécharger le fichier avec encodage UTF-8
-    const BOM = '\uFEFF'; // UTF-8 BOM pour Excel
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8' });
+    // Créer et télécharger le fichier avec encodage UTF-8 BOM
+    // UTF-8 BOM ensures proper encoding in Excel and other tools
+    const BOM = '\uFEFF';
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -2035,7 +2042,16 @@ function App() {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const content = e.target.result;
+        let content = e.target.result;
+        
+        // Remove UTF-8 BOM if present
+        if (content.charCodeAt(0) === 0xFEFF) {
+          content = content.substring(1);
+        }
+        
+        // Normalize Unicode characters to ensure consistency
+        content = content.normalize('NFC');
+        
         const lines = content.split('\n').filter(line => line.trim());
         
         if (lines.length === 0) {
@@ -2072,7 +2088,7 @@ function App() {
 
         const separator = detectSeparator(lines[0]);
         
-        // Parser CSV avec gestion des guillemets
+        // Parser CSV avec gestion des guillemets et normalisation des caractères
         const parseCSVLine = (line) => {
           const result = [];
           let current = '';
@@ -2084,12 +2100,15 @@ function App() {
             
             if (char === '"') {
               if (inQuotes && nextChar === '"') {
+                // Escaped quote
                 current += '"';
                 i++; // Skip next quote
               } else {
+                // Toggle quote state
                 inQuotes = !inQuotes;
               }
             } else if (char === separator && !inQuotes) {
+              // Field separator found outside quotes
               result.push(current.trim());
               current = '';
             } else {
@@ -2097,7 +2116,9 @@ function App() {
             }
           }
           result.push(current.trim());
-          return result;
+          
+          // Normalize each field to ensure consistent character encoding
+          return result.map(field => field.normalize('NFC'));
         };
 
         // Détecter si la première ligne est un en-tête
@@ -2159,6 +2180,7 @@ function App() {
       }
     };
 
+    // Try to read as UTF-8 first
     reader.readAsText(file, 'UTF-8');
   };
 
