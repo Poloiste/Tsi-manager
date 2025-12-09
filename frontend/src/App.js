@@ -24,9 +24,11 @@ import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
 import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType } from './utils/suggestionHelpers';
 import { useSRS } from './hooks/useSRS';
 import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } from './utils/srsAlgorithm';
+import { useQuiz } from './hooks/useQuiz';
 import { useTheme } from './hooks/useTheme';
 import { getThemeClasses } from './utils/themeColors';
 import { ThemeToggle } from './components/ThemeToggle';
+// eslint-disable-next-line no-unused-vars
 import { PublicLibrary } from './components/PublicLibrary';
 import { QuizSetup } from './components/QuizSetup';
 import { QuizSession } from './components/QuizSession';
@@ -306,6 +308,7 @@ function App() {
   const SCROLL_DELAY_MS = 100;
   const DEFAULT_USERNAME = 'Anonyme';
   const MAX_MESSAGES_PER_FETCH = 100;
+  const REALTIME_FALLBACK_DELAY_MS = 1000; // Délai avant suppression locale si Realtime échoue
 
   // États pour gérer l'ajout de liens OneDrive
   const [newOneDriveLink, setNewOneDriveLink] = useState('');
@@ -1231,9 +1234,20 @@ function App() {
         filter: `channel_id=eq.${selectedChannel.id}`
       }, (payload) => {
         // Retirer le message supprimé du state
-        setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
+        // payload.old contient l'ID du message supprimé
+        const deletedId = payload.old?.id;
+        if (deletedId) {
+          setMessages(prev => prev.filter(msg => msg.id !== deletedId));
+          console.log('Message deleted via Realtime:', deletedId);
+        }
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Subscribed to channel:', selectedChannel.id);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('Error subscribing to channel:', selectedChannel.id);
+        }
+      });
     
     return () => {
       supabase.removeChannel(channel);
@@ -2402,17 +2416,71 @@ function App() {
     if (!window.confirm('Supprimer ce message ?')) return;
     
     try {
+      // Vérifier que l'utilisateur est bien connecté
+      if (!user) {
+        showWarning('Vous devez être connecté pour supprimer un message');
+        return;
+      }
+      
+      // Vérifier que le message existe dans l'état local
+      const messageToDelete = messages.find(msg => msg.id === messageId);
+      if (!messageToDelete) {
+        showWarning('Message introuvable');
+        return;
+      }
+      
+      // Vérifier que l'utilisateur est bien le propriétaire du message
+      if (messageToDelete.user_id !== user.id) {
+        showWarning('Vous ne pouvez supprimer que vos propres messages');
+        return;
+      }
+      
+      console.log('Attempting to delete message:', messageId);
+      
       const { error } = await supabase
         .from('chat_messages')
         .delete()
-        .eq('id', messageId);
+        .eq('id', messageId)
+        .eq('user_id', user.id); // Extra security check
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase delete error:', error);
+        throw error;
+      }
+      
+      console.log('Message deleted successfully:', messageId);
+      showSuccess('Message supprimé avec succès');
       
       // La suppression du state sera gérée par la subscription realtime
+      // Mais on peut aussi supprimer localement en cas de problème de realtime
+      setTimeout(() => {
+        setMessages(prev => {
+          const stillExists = prev.some(msg => msg.id === messageId);
+          if (stillExists) {
+            console.log('Realtime deletion not received, removing locally');
+            return prev.filter(msg => msg.id !== messageId);
+          }
+          return prev;
+        });
+      }, REALTIME_FALLBACK_DELAY_MS);
+      
     } catch (error) {
       console.error('Erreur suppression message:', error);
-      alert('Erreur lors de la suppression du message');
+      
+      // Messages d'erreur plus spécifiques basés sur les codes d'erreur Supabase/PostgreSQL
+      // PGRST116: Row not found (404)
+      // PGRST301: JWT/Auth error (401)
+      if (error.code === 'PGRST116' || error.status === 404) {
+        showWarning('Message déjà supprimé ou introuvable');
+      } else if (error.code === 'PGRST301' || error.status === 401 || error.message?.toLowerCase().includes('auth')) {
+        showWarning('Erreur d\'authentification. Veuillez vous reconnecter.');
+      } else if (error.code === '42501' || error.message?.toLowerCase().includes('permission') || error.message?.toLowerCase().includes('rls')) {
+        showWarning('Vous n\'avez pas la permission de supprimer ce message');
+      } else if (error.message?.toLowerCase().includes('network') || error.message?.toLowerCase().includes('fetch')) {
+        showWarning('Erreur réseau. Vérifiez votre connexion internet.');
+      } else {
+        showWarning('Erreur lors de la suppression du message. Veuillez réessayer.');
+      }
     }
   };
 
