@@ -2036,15 +2036,14 @@ function App() {
       return;
     }
 
+    // Helper to remove UTF-8 BOM (Byte Order Mark) if present
+    const removeBOM = (text) => text.charCodeAt(0) === 0xFEFF ? text.substring(1) : text;
+
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        // Remove UTF-8 BOM if present and normalize Unicode characters
-        const rawContent = e.target.result;
-        const content = (rawContent.charCodeAt(0) === 0xFEFF 
-          ? rawContent.substring(1) 
-          : rawContent
-        ).normalize('NFC');
+        // Remove BOM and normalize Unicode to ensure consistent character encoding
+        const content = removeBOM(e.target.result).normalize('NFC');
         
         const lines = content.split('\n').filter(line => line.trim());
         
@@ -2096,7 +2095,7 @@ function App() {
             if (char === '"') {
               if (inQuotes && nextChar === '"') {
                 current += '"';
-                i++;
+                i++; // Skip the escaped quote (RFC 4180)
               } else {
                 inQuotes = !inQuotes;
               }
@@ -2109,7 +2108,7 @@ function App() {
           }
           result.push(current.trim());
           
-          return result.map(field => field.normalize('NFC'));
+          return result;
         };
 
         // Détecter si la première ligne est un en-tête
