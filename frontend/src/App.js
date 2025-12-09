@@ -3051,7 +3051,7 @@ function App() {
                   <button
                     onClick={() => setCurrentWeek(Math.max(1, currentWeek - 1))}
                     disabled={currentWeek === 1}
-                    className={`p-3 sm:p-3 rounded-lg disabled:opacity-30 transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover} min-w-[44px] min-h-[44px] flex items-center justify-center`}
+                    className={`p-3 rounded-lg disabled:opacity-30 transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover} min-w-[44px] min-h-[44px] flex items-center justify-center`}
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
@@ -3064,7 +3064,7 @@ function App() {
                   <button
                     onClick={() => setCurrentWeek(Math.min(33, currentWeek + 1))}
                     disabled={currentWeek === 33}
-                    className={`p-3 sm:p-3 rounded-lg disabled:opacity-30 transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover} min-w-[44px] min-h-[44px] flex items-center justify-center`}
+                    className={`p-3 rounded-lg disabled:opacity-30 transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover} min-w-[44px] min-h-[44px] flex items-center justify-center`}
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
