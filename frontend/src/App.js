@@ -3242,8 +3242,6 @@ function App() {
                   </div>
                 </div>
               )}
-                </>
-              )}
 
               {/* Suggestions View - merged from old 'suggestions' tab */}
               {showSuggestions && (

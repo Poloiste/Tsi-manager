@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "@supabase/supabase-js": "^2.86.2",
+    "@supabase/supabase-js": "^2.87.1",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
@@ -35,5 +35,10 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "overrides": {
+    "nth-check": "^2.1.1",
+    "postcss": "^8.4.31",
+    "webpack-dev-server": "^5.2.1"
   }
 }
