@@ -27,7 +27,7 @@ import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } fr
 import { useTheme } from './hooks/useTheme';
 import { getThemeClasses } from './utils/themeColors';
 import { ThemeToggle } from './components/ThemeToggle';
-import { PublicLibrary } from './components/PublicLibrary';
+import { useQuiz } from './hooks/useQuiz';
 import { QuizSetup } from './components/QuizSetup';
 import { QuizSession } from './components/QuizSession';
 import { QuizResults } from './components/QuizResults';
@@ -809,9 +809,7 @@ function App() {
     // Build week context for compatibility
     const weekContext = { upcomingTests };
     
-    // Select courses based on top subjects
-    const suggestions = [];
-    
+    // Calculate priority for all courses with enriched data
     const coursesWithPriority = courses.map(course => {
       const subjectData = subjectScores[course.subject];
       const hasRelevantTest = subjectData?.tests?.length > 0;
@@ -824,61 +822,108 @@ function App() {
         relevantTest: firstTest,
         suggestedDuration: firstTest?.suggestedDuration || '30min - 45min'
       };
-    }).sort((a, b) => {
-      // Prioritize by subject score first, then by course priority
-      if (Math.abs(a.subjectScore - b.subjectScore) > 10) {
-        return b.subjectScore - a.subjectScore;
-      }
-      return b.priority - a.priority;
     });
 
-    // Add courses ensuring some diversity
-    for (const course of coursesWithPriority) {
-      if (suggestions.length >= totalSlots) break;
+    // Group courses by subject
+    const coursesBySubject = {};
+    coursesWithPriority.forEach(course => {
+      if (!coursesBySubject[course.subject]) {
+        coursesBySubject[course.subject] = [];
+      }
+      coursesBySubject[course.subject].push(course);
+    });
+
+    // Sort subjects by their score (highest priority first)
+    const sortedSubjects = Object.keys(coursesBySubject).sort((a, b) => {
+      const scoreA = subjectScores[a]?.score || 0;
+      const scoreB = subjectScores[b]?.score || 0;
+      return scoreB - scoreA;
+    });
+
+    // Build suggestions organized by subject with 1-2 chapters per subject
+    const suggestionsBySubject = [];
+    let totalChaptersSelected = 0;
+
+    for (const subject of sortedSubjects) {
+      if (totalChaptersSelected >= totalSlots) break;
       
-      // Ensure we don't have too many from the same subject (max 2)
-      const subjectCount = suggestions.filter(s => s.subject === course.subject).length;
-      const subjectData = subjectScores[course.subject];
+      const subjectData = subjectScores[subject];
+      const subjectCourses = coursesBySubject[subject];
       
-      if (subjectCount < 2 && (course.priority > 25 || subjectData?.score > 20)) {
-        const hasTest = course.relevantTest != null;
-        const test = course.relevantTest;
+      // Sort chapters by urgency and priority within this subject
+      const sortedChapters = subjectCourses.sort((a, b) => {
+        // First by urgency
+        const urgencyOrder = { high: 3, medium: 2, low: 1 };
+        const urgencyA = a.relevantTest ? (
+          a.relevantTest.daysUntilFromThisDay <= 2 ? 'high' : 
+          a.relevantTest.daysUntilFromThisDay <= 3 ? 'medium' : 'low'
+        ) : (a.priority > 80 ? 'medium' : 'low');
+        const urgencyB = b.relevantTest ? (
+          b.relevantTest.daysUntilFromThisDay <= 2 ? 'high' : 
+          b.relevantTest.daysUntilFromThisDay <= 3 ? 'medium' : 'low'
+        ) : (b.priority > 80 ? 'medium' : 'low');
         
-        // Determine urgency based on days until test
-        let urgency = 'low';
-        let reasonText = 'Révision recommandée';
-        
-        if (hasTest) {
-          const daysUntil = test.daysUntilFromThisDay;
-          
-          if (daysUntil <= 1) {
-            urgency = 'high';
-            reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jour${daysUntil > 1 ? 's' : ''} - Révision ${test.type === 'DS' || test.type === 'Examen' ? 'approfondie' : 'intensive'}`;
-          } else if (daysUntil <= 2) {
-            urgency = 'high';
-            reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jours`;
-          } else if (daysUntil <= 3) {
-            urgency = 'medium';
-            reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jours`;
-          } else {
-            urgency = 'low';
-            reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jours - Préparation progressive`;
-          }
-        } else if (course.priority > 80) {
-          urgency = 'medium';
-          reasonText = 'Révision urgente';
+        if (urgencyOrder[urgencyA] !== urgencyOrder[urgencyB]) {
+          return urgencyOrder[urgencyB] - urgencyOrder[urgencyA];
         }
         
-        suggestions.push({
-          ...course,
-          reason: reasonText,
-          urgency: urgency,
-          suggestedDuration: course.suggestedDuration
+        // Then by priority score
+        return b.priority - a.priority;
+      });
+
+      // Select top 1-2 chapters for this subject
+      const chaptersToInclude = sortedChapters.slice(0, Math.min(2, totalSlots - totalChaptersSelected));
+      
+      if (chaptersToInclude.length > 0 && (subjectData?.score > 20 || chaptersToInclude[0].priority > 25)) {
+        // Enrich chapters with urgency and reason
+        const enrichedChapters = chaptersToInclude.map(course => {
+          const hasTest = course.relevantTest != null;
+          const test = course.relevantTest;
+          
+          // Determine urgency based on days until test
+          let urgency = 'low';
+          let reasonText = 'Révision recommandée';
+          
+          if (hasTest) {
+            const daysUntil = test.daysUntilFromThisDay;
+            
+            if (daysUntil <= 1) {
+              urgency = 'high';
+              reasonText = `🎯 ${test.type} dans ${daysUntil} jour${daysUntil > 1 ? 's' : ''} - Révision ${test.type === 'DS' || test.type === 'Examen' ? 'approfondie' : 'intensive'}`;
+            } else if (daysUntil <= 2) {
+              urgency = 'high';
+              reasonText = `🎯 ${test.type} dans ${daysUntil} jours`;
+            } else if (daysUntil <= 3) {
+              urgency = 'medium';
+              reasonText = `🎯 ${test.type} dans ${daysUntil} jours`;
+            } else {
+              urgency = 'low';
+              reasonText = `🎯 ${test.type} dans ${daysUntil} jours - Préparation progressive`;
+            }
+          } else if (course.priority > 80) {
+            urgency = 'medium';
+            reasonText = 'Révision urgente';
+          }
+          
+          return {
+            ...course,
+            reason: reasonText,
+            urgency: urgency
+          };
         });
+
+        suggestionsBySubject.push({
+          subject: subject,
+          subjectScore: subjectData?.score || 0,
+          relevantTests: subjectData?.tests || [],
+          chapters: enrichedChapters
+        });
+
+        totalChaptersSelected += enrichedChapters.length;
       }
     }
 
-    return suggestions;
+    return suggestionsBySubject;
   };
 
   // eslint-disable-next-line no-unused-vars
@@ -3967,8 +4012,10 @@ function App() {
                   {/* Suggestions par jour */}
                   <div className="grid grid-cols-1 gap-6">
                     {days.map(day => {
-                      const suggestions = getSuggestedReviews(day, currentWeek);
-                      if (suggestions.length === 0) return null;
+                      const suggestionsBySubject = getSuggestedReviews(day, currentWeek);
+                      if (suggestionsBySubject.length === 0) return null;
+
+                      const totalChapters = suggestionsBySubject.reduce((sum, s) => sum + s.chapters.length, 0);
 
                       return (
                         <div key={day} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
@@ -3977,96 +4024,127 @@ function App() {
                               <Calendar className="w-6 h-6 text-indigo-400" />
                               {day}
                             </h3>
-                            <span className="px-4 py-2 bg-indigo-900/50 text-indigo-300 rounded-full text-sm font-semibold">
-                              {suggestions.length} révision(s) suggérée(s)
-                            </span>
+                            <div className="flex items-center gap-3">
+                              <span className="px-4 py-2 bg-indigo-900/50 text-indigo-300 rounded-full text-sm font-semibold">
+                                {suggestionsBySubject.length} matière{suggestionsBySubject.length > 1 ? 's' : ''}
+                              </span>
+                              <span className="px-4 py-2 bg-purple-900/50 text-purple-300 rounded-full text-sm font-semibold">
+                                {totalChapters} chapitre{totalChapters > 1 ? 's' : ''}
+                              </span>
+                            </div>
                           </div>
 
-                          <div className="space-y-4">
-                            {suggestions.map(course => (
-                              <div key={course.id} className={`p-4 bg-slate-900/50 rounded-xl border ${
-                                course.urgency === 'high' ? 'border-red-500/50 bg-red-900/10' : 
-                                course.urgency === 'medium' ? 'border-orange-500/50 bg-orange-900/10' : 
-                                'border-slate-700/50'
-                              }`}>
-                                <div className="flex items-start justify-between mb-3">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-2">
-                                      <span className={`px-3 py-1 bg-gradient-to-r ${getSubjectColor(course.subject)} rounded-full text-xs font-bold text-white`}>
-                                        {course.subject}
-                                      </span>
-                                      {course.urgency === 'high' && (
-                                        <span className="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs font-semibold">
-                                          🔥 URGENT
-                                        </span>
-                                      )}
-                                      {course.urgency === 'medium' && (
-                                        <span className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded text-xs font-semibold">
-                                          ⚠️ BIENTÔT
-                                        </span>
-                                      )}
-                                    </div>
-                                    <h4 className="text-lg font-bold text-white mb-1">{course.chapter}</h4>
-                                    <p className="text-sm text-indigo-300 mb-2">💡 {course.reason}</p>
-                                    {course.suggestedDuration && (
-                                      <p className="text-sm text-green-300 mb-2">⏱️ {course.suggestedDuration} recommandées</p>
-                                    )}
-                                    <div className="flex items-center gap-4 text-sm text-slate-400">
-                                      <span>🎯 Maîtrise: {course.mastery || 0}%</span>
-                                      <span>🔄 {course.reviewCount || 0} révision(s)</span>
-                                      {course.lastReviewed && (
-                                        <span>📅 {new Date(course.lastReviewed).toLocaleDateString('fr-FR')}</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="flex flex-col gap-2">
-                                    <button
-                                      onClick={() => markAsReviewed(course.id, 15)}
-                                      className="px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm whitespace-nowrap"
-                                    >
-                                      ✔ Marquer révisé
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* Barre de priorité */}
-                                <div className="mt-3">
+                          <div className="space-y-6">
+                            {suggestionsBySubject.map((subjectGroup, subjectIdx) => (
+                              <div key={subjectIdx} className="bg-slate-900/30 border border-slate-700/30 rounded-xl p-5">
+                                {/* Subject Header */}
+                                <div className="mb-4">
                                   <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs text-slate-400">Priorité de révision</span>
-                                    <span className="text-xs font-bold text-white">{Math.round(course.priority)}%</span>
-                                  </div>
-                                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                                    <div 
-                                      className={`h-full transition-all ${
-                                        course.priority > 80 ? 'bg-gradient-to-r from-red-500 to-orange-500' :
-                                        course.priority > 50 ? 'bg-gradient-to-r from-orange-500 to-yellow-500' :
-                                        'bg-gradient-to-r from-green-500 to-emerald-500'
-                                      }`}
-                                      style={{ width: `${Math.min(100, course.priority)}%` }}
-                                    ></div>
+                                    <div className="flex items-center gap-3">
+                                      <span className={`px-4 py-2 bg-gradient-to-r ${getSubjectColor(subjectGroup.subject)} rounded-lg text-sm font-bold text-white shadow-lg`}>
+                                        📚 {subjectGroup.subject}
+                                      </span>
+                                      {subjectGroup.relevantTests && subjectGroup.relevantTests.length > 0 && (
+                                        <span className="px-3 py-1 bg-red-500/20 text-red-300 rounded-lg text-xs font-semibold border border-red-500/30">
+                                          🎯 {subjectGroup.relevantTests[0].type} dans {subjectGroup.relevantTests[0].daysUntilFromThisDay}j
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-xs text-slate-400">
+                                      {subjectGroup.chapters.length} chapitre{subjectGroup.chapters.length > 1 ? 's' : ''} à réviser
+                                    </span>
                                   </div>
                                 </div>
 
-                                {/* Liens OneDrive */}
-                                {course.oneDriveLinks && course.oneDriveLinks.length > 0 && (
-                                  <div className="mt-3 p-3 bg-slate-800/50 rounded-lg">
-                                    <p className="text-xs text-slate-400 mb-2">🔎 Documents disponibles:</p>
-                                    <div className="flex flex-wrap gap-2">
-                                      {course.oneDriveLinks.map(link => (
-                                        <a
-                                          key={link.id}
-                                          href={link.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="px-3 py-1 bg-blue-600/30 border border-blue-500/50 text-blue-300 rounded-lg hover:bg-blue-600/50 transition-all text-xs font-semibold flex items-center gap-1"
-                                        >
-                                          <File className="w-3 h-3" />
-                                          {link.name}
-                                        </a>
-                                      ))}
+                                {/* Chapters List */}
+                                <div className="space-y-3">
+                                  {subjectGroup.chapters.map((course, chapterIdx) => (
+                                    <div key={course.id} className={`p-4 rounded-lg border ${
+                                      course.urgency === 'high' ? 'border-red-500/50 bg-red-900/10' : 
+                                      course.urgency === 'medium' ? 'border-orange-500/50 bg-orange-900/10' : 
+                                      'border-slate-700/50 bg-slate-800/50'
+                                    }`}>
+                                      <div className="flex items-start justify-between mb-3">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-3 mb-2">
+                                            <span className="px-3 py-1 bg-indigo-600/40 text-indigo-200 rounded text-xs font-bold border border-indigo-500/30">
+                                              Chapitre {chapterIdx + 1}
+                                            </span>
+                                            {course.urgency === 'high' && (
+                                              <span className="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs font-semibold">
+                                                🔥 URGENT
+                                              </span>
+                                            )}
+                                            {course.urgency === 'medium' && (
+                                              <span className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded text-xs font-semibold">
+                                                ⚠️ BIENTÔT
+                                              </span>
+                                            )}
+                                          </div>
+                                          <h4 className="text-xl font-bold text-white mb-2">{course.chapter}</h4>
+                                          <p className="text-sm text-indigo-300 mb-2">💡 {course.reason}</p>
+                                          {course.suggestedDuration && (
+                                            <p className="text-sm text-green-300 mb-2">⏱️ {course.suggestedDuration} recommandées</p>
+                                          )}
+                                          <div className="flex items-center gap-4 text-sm text-slate-400">
+                                            <span>🎯 Maîtrise: {course.mastery || 0}%</span>
+                                            <span>🔄 {course.reviewCount || 0} révision(s)</span>
+                                            {course.lastReviewed && (
+                                              <span>📅 {new Date(course.lastReviewed).toLocaleDateString('fr-FR')}</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                          <button
+                                            onClick={() => markAsReviewed(course.id, 15)}
+                                            className="px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm whitespace-nowrap"
+                                          >
+                                            ✔ Marquer révisé
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {/* Barre de priorité */}
+                                      <div className="mt-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <span className="text-xs text-slate-400">Priorité de révision</span>
+                                          <span className="text-xs font-bold text-white">{Math.round(course.priority)}%</span>
+                                        </div>
+                                        <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                          <div 
+                                            className={`h-full transition-all ${
+                                              course.priority > 80 ? 'bg-gradient-to-r from-red-500 to-orange-500' :
+                                              course.priority > 50 ? 'bg-gradient-to-r from-orange-500 to-yellow-500' :
+                                              'bg-gradient-to-r from-green-500 to-emerald-500'
+                                            }`}
+                                            style={{ width: `${Math.min(100, course.priority)}%` }}
+                                          ></div>
+                                        </div>
+                                      </div>
+
+                                      {/* Liens OneDrive */}
+                                      {course.oneDriveLinks && course.oneDriveLinks.length > 0 && (
+                                        <div className="mt-3 p-3 bg-slate-800/50 rounded-lg">
+                                          <p className="text-xs text-slate-400 mb-2">🔎 Documents disponibles:</p>
+                                          <div className="flex flex-wrap gap-2">
+                                            {course.oneDriveLinks.map(link => (
+                                              <a
+                                                key={link.id}
+                                                href={link.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="px-3 py-1 bg-blue-600/30 border border-blue-500/50 text-blue-300 rounded-lg hover:bg-blue-600/50 transition-all text-xs font-semibold flex items-center gap-1"
+                                              >
+                                                <File className="w-3 h-3" />
+                                                {link.name}
+                                              </a>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
-                                  </div>
-                                )}
+                                  ))}
+                                </div>
                               </div>
                             ))}
                           </div>
