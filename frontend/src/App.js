@@ -24,9 +24,11 @@ import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
 import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType } from './utils/suggestionHelpers';
 import { useSRS } from './hooks/useSRS';
 import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } from './utils/srsAlgorithm';
+import { useQuiz } from './hooks/useQuiz';
 import { useTheme } from './hooks/useTheme';
 import { getThemeClasses } from './utils/themeColors';
 import { ThemeToggle } from './components/ThemeToggle';
+// eslint-disable-next-line no-unused-vars
 import { PublicLibrary } from './components/PublicLibrary';
 import { QuizSetup } from './components/QuizSetup';
 import { QuizSession } from './components/QuizSession';
