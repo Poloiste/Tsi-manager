@@ -27,7 +27,7 @@ import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } fr
 import { useTheme } from './hooks/useTheme';
 import { getThemeClasses } from './utils/themeColors';
 import { ThemeToggle } from './components/ThemeToggle';
-import { PublicLibrary } from './components/PublicLibrary';
+import { useQuiz } from './hooks/useQuiz';
 import { QuizSetup } from './components/QuizSetup';
 import { QuizSession } from './components/QuizSession';
 import { QuizResults } from './components/QuizResults';
@@ -2556,7 +2556,6 @@ function App() {
                 { id: 'chat', label: '💬 Discussions' },
                 { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
-                { id: 'community', label: '🌐 Communauté' },
                 { id: 'quiz', label: '📝 Quiz' },
                 { id: 'groups', label: '👥 Groupes' },
                 { id: 'suggestions', label: '🎯 Suggestions' },
@@ -2583,7 +2582,6 @@ function App() {
                 { id: 'chat', icon: '💬', label: 'Chat' },
                 { id: 'flashcards', icon: '🎴', label: 'Révision' },
                 { id: 'courses', icon: '📚', label: 'Cours' },
-                { id: 'community', icon: '🌐', label: 'Commu.' },
                 { id: 'quiz', icon: '📝', label: 'Quiz' },
                 { id: 'groups', icon: '👥', label: 'Groupes' },
                 { id: 'suggestions', icon: '🎯', label: 'Sugg.' },
@@ -2787,7 +2785,6 @@ function App() {
                 { id: 'chat', label: '💬 Discussions' },
                 { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
-                { id: 'community', label: '🌐 Communauté' },
                 { id: 'quiz', label: '📝 Quiz' },
                 { id: 'groups', label: '👥 Groupes' },
                 { id: 'suggestions', label: '🎯 Suggestions' },
