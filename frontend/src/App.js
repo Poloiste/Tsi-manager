@@ -2868,7 +2868,7 @@ function App() {
                                 }}
                                 className="w-full text-left p-2 hover:bg-slate-800 rounded-lg transition-all"
                               >
-                                <p className="text-white text-sm truncate">{fc.question}</p>
+                                <MathText className="text-white text-sm truncate">{fc.question}</MathText>
                               </button>
                             ))}
                           </div>
@@ -5409,11 +5409,11 @@ function App() {
                     <div className="p-4 bg-gradient-to-br from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-lg">
                       <div className="mb-3">
                         <div className="text-xs text-indigo-300 mb-1">Question:</div>
-                        <div className="text-white">{newFlashcard.question || '(vide)'}</div>
+                        <MathText className="text-white">{newFlashcard.question || '(vide)'}</MathText>
                       </div>
                       <div>
                         <div className="text-xs text-purple-300 mb-1">Réponse:</div>
-                        <div className="text-white whitespace-pre-wrap">{newFlashcard.answer || '(vide)'}</div>
+                        <MathText className="text-white whitespace-pre-wrap">{newFlashcard.answer || '(vide)'}</MathText>
                       </div>
                     </div>
                   )}
@@ -5498,11 +5498,11 @@ function App() {
                     <div className="p-4 bg-gradient-to-br from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-lg">
                       <div className="mb-3">
                         <div className="text-xs text-indigo-300 mb-1">Question:</div>
-                        <div className="text-white">{newFlashcard.question}</div>
+                        <MathText className="text-white">{newFlashcard.question}</MathText>
                       </div>
                       <div>
                         <div className="text-xs text-purple-300 mb-1">Réponse:</div>
-                        <div className="text-white whitespace-pre-wrap">{newFlashcard.answer}</div>
+                        <MathText className="text-white whitespace-pre-wrap">{newFlashcard.answer}</MathText>
                       </div>
                     </div>
                   )}
