@@ -3,6 +3,14 @@
 -- =========================================
 -- Run this script after applying all migrations to verify the schema is complete
 -- This script only reads data and does not modify anything
+--
+-- MAINTENANCE NOTES:
+-- When adding new migrations, update these hardcoded values:
+-- - Line ~16: Expected table count (currently 33)
+-- - Line ~105: Expected index count (currently 50+)
+-- - Line ~237: Expected chat_channels count (currently 8)
+-- - Line ~245: Expected badges count (currently 14)
+-- Also update the table list in Section 2 and Section 4
 
 -- ==========================================
 -- SECTION 1: TABLE COUNT
@@ -225,7 +233,10 @@ FROM verification_summary;
 -- SECTION 12: SAMPLE DATA CHECK (OPTIONAL)
 -- ==========================================
 -- Check if default data exists
+-- NOTE: These counts should be updated if default data is modified in migrations
 
+-- Expected: 8 default chat channels (see schema.sql INSERT statement)
+-- Général, Maths, Physique, Méca, Elec, Anglais, Français, Informatique
 SELECT 
   '12. DEFAULT DATA' as check_name,
   'chat_channels' as table_name,
@@ -233,6 +244,8 @@ SELECT
   CASE WHEN COUNT(*) >= 8 THEN '✅ PASS' ELSE '⚠️ RUN schema.sql' END as status
 FROM chat_channels;
 
+-- Expected: 14 default badges (see add_gamification_tables.sql INSERT statement)
+-- 4 streak badges + 4 mastery badges + 2 creation badges + 4 session badges
 SELECT 
   '12. DEFAULT DATA' as check_name,
   'badges' as table_name,
