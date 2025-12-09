@@ -24,6 +24,7 @@ import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
 import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType } from './utils/suggestionHelpers';
 import { useSRS } from './hooks/useSRS';
 import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } from './utils/srsAlgorithm';
+import { useQuiz } from './hooks/useQuiz';
 import { useTheme } from './hooks/useTheme';
 import { getThemeClasses } from './utils/themeColors';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -2553,14 +2554,14 @@ function App() {
             <div className={`hidden lg:flex items-center gap-1 border rounded-full p-1 ${themeClasses.bg.tertiary} ${themeClasses.border.subtle}`}>
               {[
                 { id: 'planning', label: '📅 Planning' },
-                { id: 'chat', label: '💬 Discussions' },
-                { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
-                { id: 'community', label: '🌐 Communauté' },
+                { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'quiz', label: '📝 Quiz' },
+                { id: 'chat', label: '💬 Discussions' },
+                { id: 'stats', label: '📊 Stats' },
+                { id: 'community', label: '🌐 Communauté' },
                 { id: 'groups', label: '👥 Groupes' },
-                { id: 'suggestions', label: '🎯 Suggestions' },
-                { id: 'stats', label: '📊 Stats' }
+                { id: 'suggestions', label: '🎯 Suggestions' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -2580,14 +2581,14 @@ function App() {
             <div className={`hidden md:flex lg:hidden items-center gap-1 border rounded-full p-1 overflow-x-auto max-w-md scrollbar-hide ${themeClasses.bg.tertiary} ${themeClasses.border.subtle}`}>
               {[
                 { id: 'planning', icon: '📅', label: 'Planning' },
-                { id: 'chat', icon: '💬', label: 'Chat' },
-                { id: 'flashcards', icon: '🎴', label: 'Révision' },
                 { id: 'courses', icon: '📚', label: 'Cours' },
-                { id: 'community', icon: '🌐', label: 'Commu.' },
+                { id: 'flashcards', icon: '🎴', label: 'Révision' },
                 { id: 'quiz', icon: '📝', label: 'Quiz' },
+                { id: 'chat', icon: '💬', label: 'Chat' },
+                { id: 'stats', icon: '📊', label: 'Stats' },
+                { id: 'community', icon: '🌐', label: 'Commu.' },
                 { id: 'groups', icon: '👥', label: 'Groupes' },
-                { id: 'suggestions', icon: '🎯', label: 'Sugg.' },
-                { id: 'stats', icon: '📊', label: 'Stats' }
+                { id: 'suggestions', icon: '🎯', label: 'Sugg.' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -2784,14 +2785,14 @@ function App() {
             <div className="px-4 py-3 space-y-2">
               {[
                 { id: 'planning', label: '📅 Planning' },
-                { id: 'chat', label: '💬 Discussions' },
-                { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
-                { id: 'community', label: '🌐 Communauté' },
+                { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'quiz', label: '📝 Quiz' },
+                { id: 'chat', label: '💬 Discussions' },
+                { id: 'stats', label: '📊 Stats' },
+                { id: 'community', label: '🌐 Communauté' },
                 { id: 'groups', label: '👥 Groupes' },
-                { id: 'suggestions', label: '🎯 Suggestions' },
-                { id: 'stats', label: '📊 Stats' }
+                { id: 'suggestions', label: '🎯 Suggestions' }
               ].map(tab => (
                 <button
                   key={tab.id}
