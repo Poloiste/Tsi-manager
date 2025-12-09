@@ -1,77 +1,42 @@
 import { useState, useEffect } from 'react';
 
-/**
- * Hook for managing application theme (dark/light/system)
- * Handles theme detection, persistence, and DOM updates
- */
 export function useTheme() {
-  // Initialize theme from localStorage or system preference
-  const [theme, setThemeState] = useState(() => {
+  const [theme, setThemeState] = useState('dark');
+  
+  useEffect(() => {
     const saved = localStorage.getItem('theme');
-    if (saved && (saved === 'dark' || saved === 'light' || saved === 'system')) {
-      return saved;
+    if (saved) {
+      setThemeState(saved);
+      applyTheme(saved);
+    } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+      setThemeState('light');
+      applyTheme('light');
     }
-    return 'dark'; // Default to dark
-  });
+  }, []);
 
-  // Computed property to determine if dark mode is active
+  const applyTheme = (newTheme) => {
+    const root = document.documentElement;
+    root.classList.remove('dark', 'light');
+    if (newTheme === 'system') {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      root.classList.add(systemTheme);
+    } else {
+      root.classList.add(newTheme);
+    }
+  };
+
+  const setTheme = (newTheme) => {
+    setThemeState(newTheme);
+    localStorage.setItem('theme', newTheme);
+    applyTheme(newTheme);
+  };
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+  };
+
   const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
 
-  // Apply theme to document and save to localStorage
-  useEffect(() => {
-    const applyTheme = () => {
-      const isDarkMode = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-      
-      // Apply theme class to document element
-      if (isDarkMode) {
-        document.documentElement.classList.add('dark');
-        document.documentElement.classList.remove('light');
-      } else {
-        document.documentElement.classList.add('light');
-        document.documentElement.classList.remove('dark');
-      }
-      
-      // Save to localStorage
-      localStorage.setItem('theme', theme);
-    };
-
-    applyTheme();
-
-    // Listen for system theme changes when in system mode
-    if (theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = () => {
-        applyTheme();
-      };
-      
-      // Modern browsers
-      if (mediaQuery.addEventListener) {
-        mediaQuery.addEventListener('change', handleChange);
-        return () => mediaQuery.removeEventListener('change', handleChange);
-      } else {
-        // Fallback for older browsers
-        mediaQuery.addListener(handleChange);
-        return () => mediaQuery.removeListener(handleChange);
-      }
-    }
-  }, [theme]);
-
-  // Toggle between dark and light (skip system for simple toggle)
-  const toggleTheme = () => {
-    setThemeState(prev => prev === 'dark' ? 'light' : 'dark');
-  };
-
-  // Set specific theme
-  const setTheme = (newTheme) => {
-    if (newTheme === 'dark' || newTheme === 'light' || newTheme === 'system') {
-      setThemeState(newTheme);
-    }
-  };
-
-  return {
-    theme,
-    setTheme,
-    toggleTheme,
-    isDark
-  };
+  return { theme, setTheme, toggleTheme, isDark };
 }
