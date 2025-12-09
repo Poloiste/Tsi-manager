@@ -2740,7 +2740,6 @@ function App() {
                 { id: 'quiz', label: '📝 Quiz' },
                 { id: 'chat', label: '💬 Discussions' },
                 { id: 'stats', label: '📊 Stats' },
-                { id: 'community', label: '🌐 Communauté' },
                 { id: 'groups', label: '👥 Groupes' },
                 { id: 'suggestions', label: '🎯 Suggestions' }
               ].map(tab => (
@@ -2772,7 +2771,6 @@ function App() {
                 { id: 'quiz', icon: '📝', label: 'Quiz' },
                 { id: 'chat', icon: '💬', label: 'Chat' },
                 { id: 'stats', icon: '📊', label: 'Stats' },
-                { id: 'community', icon: '🌐', label: 'Commu.' },
                 { id: 'groups', icon: '👥', label: 'Groupes' },
                 { id: 'suggestions', icon: '🎯', label: 'Sugg.' }
               ].map(tab => (
@@ -2981,7 +2979,6 @@ function App() {
                 { id: 'quiz', label: '📝 Quiz' },
                 { id: 'chat', label: '💬 Discussions' },
                 { id: 'stats', label: '📊 Stats' },
-                { id: 'community', label: '🌐 Communauté' },
                 { id: 'groups', label: '👥 Groupes' },
                 { id: 'suggestions', label: '🎯 Suggestions' }
               ].map(tab => (
