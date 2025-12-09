@@ -90,7 +90,7 @@ const MathText = ({ children, className = "" }) => {
     }
   }, [children]);
   
-  return <span ref={ref} className={className}>{children}</span>;
+  return <span ref={ref} className={className ? `math-text ${className}` : 'math-text'}>{children}</span>;
 };
 
 // ==================== UTILITY FUNCTIONS ====================
@@ -2742,7 +2742,8 @@ function App() {
                 { id: 'quiz', label: '📝 Quiz' },
                 { id: 'chat', label: '💬 Discussions' },
                 { id: 'stats', label: '📊 Stats' },
-                { id: 'community', label: '🌐 Communauté' }
+                { id: 'groups', label: '👥 Groupes' },
+                { id: 'suggestions', label: '🎯 Suggestions' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -2772,7 +2773,8 @@ function App() {
                 { id: 'quiz', icon: '📝', label: 'Quiz' },
                 { id: 'chat', icon: '💬', label: 'Chat' },
                 { id: 'stats', icon: '📊', label: 'Stats' },
-                { id: 'community', icon: '🌐', label: 'Commu.' }
+                { id: 'groups', icon: '👥', label: 'Groupes' },
+                { id: 'suggestions', icon: '🎯', label: 'Sugg.' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -2866,7 +2868,7 @@ function App() {
                                 }}
                                 className="w-full text-left p-2 hover:bg-slate-800 rounded-lg transition-all"
                               >
-                                <p className="text-white text-sm truncate">{fc.question}</p>
+                                <MathText className="text-white text-sm truncate">{fc.question}</MathText>
                               </button>
                             ))}
                           </div>
@@ -2979,7 +2981,8 @@ function App() {
                 { id: 'quiz', label: '📝 Quiz' },
                 { id: 'chat', label: '💬 Discussions' },
                 { id: 'stats', label: '📊 Stats' },
-                { id: 'community', label: '🌐 Communauté' }
+                { id: 'groups', label: '👥 Groupes' },
+                { id: 'suggestions', label: '🎯 Suggestions' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -3043,78 +3046,55 @@ function App() {
                 <p className={`text-lg ${themeClasses.text.accent}`}>Emploi du temps adaptatif avec planning du soir</p>
               </div>
 
-              {/* Toggle between Planning and Suggestions */}
-              <div className="flex items-center justify-center gap-4 mb-8">
-                <button
-                  onClick={() => setShowSuggestions(false)}
-                  className={`px-6 py-3 rounded-xl transition-all font-semibold ${
-                    !showSuggestions
-                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
-                  }`}
-                >
-                  📅 Planning
-                </button>
-                <button
-                  onClick={() => setShowSuggestions(true)}
-                  className={`px-6 py-3 rounded-xl transition-all font-semibold ${
-                    showSuggestions
-                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
-                  }`}
-                >
-                  🎯 Suggestions
-                </button>
-              </div>
+              {/* Sélecteur de semaine */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-8">
+                <div className="flex items-center gap-2 sm:gap-4">
+                  <button
+                    onClick={() => setCurrentWeek(Math.max(1, currentWeek - 1))}
+                    disabled={currentWeek === 1}
+                    className={`p-3 rounded-lg disabled:opacity-30 transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover} min-w-[44px] min-h-[44px] flex items-center justify-center`}
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  
+                  <div className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-center">
+                    <div className="text-xl sm:text-2xl font-bold">{weekCalendar[currentWeek]?.label || `S${currentWeek}`}</div>
+                    <div className="text-xs sm:text-sm opacity-90">{weekCalendar[currentWeek]?.dates || ''}</div>
+                  </div>
 
-              {/* Planning View */}
-              {!showSuggestions && (
-                <>
-                  {/* Sélecteur de semaine */}
-                  <div className="flex items-center justify-center gap-4 mb-8">
-                <button
-                  onClick={() => setCurrentWeek(Math.max(1, currentWeek - 1))}
-                  disabled={currentWeek === 1}
-                  className={`p-3 rounded-lg disabled:opacity-30 transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover}`}
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-                
-                <div className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-center">
-                  <div className="text-2xl font-bold">{weekCalendar[currentWeek]?.label || `S${currentWeek}`}</div>
-                  <div className="text-sm opacity-90">{weekCalendar[currentWeek]?.dates || ''}</div>
+                  <button
+                    onClick={() => setCurrentWeek(Math.min(33, currentWeek + 1))}
+                    disabled={currentWeek === 33}
+                    className={`p-3 rounded-lg disabled:opacity-30 transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover} min-w-[44px] min-h-[44px] flex items-center justify-center`}
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
                 </div>
 
-                <button
-                  onClick={() => setCurrentWeek(Math.min(33, currentWeek + 1))}
-                  disabled={currentWeek === 33}
-                  className={`p-3 rounded-lg disabled:opacity-30 transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover}`}
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
+                <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
+                  <button
+                    onClick={() => {
+                      setCurrentWeek(getCurrentSchoolWeek());
+                      setSelectedDay(getDayName());
+                    }}
+                    className="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center gap-2 transition-all min-h-[44px]"
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span className="text-sm sm:text-base">Aujourd'hui</span>
+                  </button>
 
-                <button
-                  onClick={() => {
-                    setCurrentWeek(getCurrentSchoolWeek());
-                    setSelectedDay(getDayName());
-                  }}
-                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center gap-2 transition-all"
-                >
-                  <Calendar className="w-4 h-4" />
-                  Aujourd'hui
-                </button>
-
-                <button
-                  onClick={() => setShowAddEvent(true)}
-                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold flex items-center gap-2"
-                >
-                  <Plus className="w-5 h-5" />
-                  Ajouter
-                </button>
+                  <button
+                    onClick={() => setShowAddEvent(true)}
+                    className="flex-1 sm:flex-none px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold flex items-center justify-center gap-2 min-h-[44px]"
+                  >
+                    <Plus className="w-5 h-5" />
+                    <span className="text-sm sm:text-base">Ajouter</span>
+                  </button>
+                </div>
               </div>
 
               {/* Week Overview */}
-              <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 mb-8">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4 mb-8">
                 {days.map(day => {
                   const schedule = getDaySchedule(currentWeek, day);
                   const hasCustomEvents = customEvents.some(e => e.week === currentWeek && e.day === day);
@@ -3124,7 +3104,7 @@ function App() {
                     <div
                       key={day}
                       onClick={() => setSelectedDay(day)}
-                      className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                      className={`p-3 sm:p-4 rounded-xl border-2 transition-all cursor-pointer min-h-[80px] sm:min-h-[auto] ${
                         selectedDay === day
                           ? 'bg-indigo-600/30 border-indigo-500'
                           : hasCustomEvents
@@ -3132,8 +3112,8 @@ function App() {
                           : 'bg-slate-800/50 border-slate-700/50 hover:border-indigo-500/50'
                       } ${isToday ? 'ring-2 ring-green-500' : ''}`}
                     >
-                      <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-bold text-white flex items-center gap-1">
+                      <div className="flex items-center justify-between mb-2 sm:mb-3">
+                        <h3 className="font-bold text-sm sm:text-base text-white flex items-center gap-1">
                           {day}
                           {isToday && <span className="text-green-400">●</span>}
                         </h3>
@@ -3151,34 +3131,34 @@ function App() {
 
               {/* Detailed Schedule */}
               {selectedDay && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                   {/* Journée */}
-                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
-                    <div className="flex items-center justify-between mb-6">
-                      <h2 className="text-2xl font-bold text-white flex items-center gap-2">
-                        <Clock className="w-6 h-6 text-indigo-400" />
-                        Journée - {selectedDay}
+                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4 sm:p-6">
+                    <div className="flex items-center justify-between mb-4 sm:mb-6">
+                      <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+                        <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400" />
+                        <span className="truncate">Journée - {selectedDay}</span>
                       </h2>
                       <button
                         onClick={() => setSelectedDay(null)}
-                        className="text-slate-400 hover:text-white transition-colors"
+                        className="text-slate-400 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                       >
                         <X className="w-5 h-5" />
                       </button>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-2 sm:space-y-3">
                       {getDaySchedule(currentWeek, selectedDay).map((item, idx) => {
                         const isCustom = item.id !== undefined;
                         
                         return (
                           <div
                             key={idx}
-                            className={`p-4 rounded-lg border-2 ${getTypeColor(item.type)} relative`}
+                            className={`p-3 sm:p-4 rounded-lg border-2 ${getTypeColor(item.type)} relative`}
                           >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-2">
                                   <span className="text-xs font-bold uppercase tracking-wider opacity-80">
                                     {item.type}
                                   </span>
@@ -3188,16 +3168,16 @@ function App() {
                                     </span>
                                   )}
                                   {item.date && (
-                                    <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded">
+                                    <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded whitespace-nowrap">
                                       📅 {new Date(item.date).toLocaleDateString('fr-FR')}
                                     </span>
                                   )}
                                 </div>
-                                <h3 className="font-bold text-lg mb-1">{item.subject}</h3>
-                                <div className="flex items-center gap-4 text-sm opacity-80">
-                                  <span>🕐 {item.time}</span>
-                                  {item.room && <span>📍 {item.room}</span>}
-                                  {item.duration && <span>â±ï¸ {item.duration}</span>}
+                                <h3 className="font-bold text-base sm:text-lg mb-1 truncate">{item.subject}</h3>
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm opacity-80">
+                                  <span className="whitespace-nowrap">🕐 {item.time}</span>
+                                  {item.room && <span className="whitespace-nowrap">📍 {item.room}</span>}
+                                  {item.duration && <span className="whitespace-nowrap">â±ï¸ {item.duration}</span>}
                                 </div>
                               </div>
                               {isCustom && (
@@ -3208,7 +3188,7 @@ function App() {
                                       deleteCustomEvent(item.id);
                                     }
                                   }}
-                                  className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg transition-all"
+                                  className="p-2 text-red-400 min-w-[44px] min-h-[44px] flex items-center justify-center flex-shrink-0 hover:bg-red-900/30 rounded-lg transition-all"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </button>
@@ -3221,34 +3201,34 @@ function App() {
                   </div>
 
                   {/* Soirée */}
-                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
-                    <h2 className="text-2xl font-bold text-white flex items-center gap-2 mb-6">
-                      <BookOpen className="w-6 h-6 text-purple-400" />
+                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4 sm:p-6">
+                    <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2 mb-4 sm:mb-6">
+                      <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
                       Travail du soir
                     </h2>
 
-                    <div className="space-y-4">
+                    <div className="space-y-3 sm:space-y-4">
                       {eveningSchedule[selectedDay] ? (
                         eveningSchedule[selectedDay].map((item, idx) => {
                           const colors = getEveningSubjectColors(item.subject);
                           return (
                             <div
                               key={idx}
-                              className={`p-4 ${colors.bg} border border-slate-700/50 rounded-lg`}
+                              className={`p-3 sm:p-4 ${colors.bg} border border-slate-700/50 rounded-lg`}
                             >
-                              <div className="flex items-center justify-between mb-3">
-                                <h3 className={`font-bold text-lg ${colors.text}`}>
+                              <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
+                                <h3 className={`font-bold text-base sm:text-lg ${colors.text} truncate`}>
                                   {item.subject}
                                 </h3>
-                                <span className="text-sm text-slate-400 font-semibold">
+                                <span className="text-xs sm:text-sm text-slate-400 font-semibold whitespace-nowrap">
                                   {item.duration}
                                 </span>
                               </div>
-                              <ul className="space-y-2">
+                              <ul className="space-y-1.5 sm:space-y-2">
                                 {item.tasks.map((task, taskIdx) => (
-                                  <li key={taskIdx} className="flex items-start gap-2 text-sm text-slate-300">
-                                    <span className="text-indigo-400 mt-1">•</span>
-                                    <span>{task}</span>
+                                  <li key={taskIdx} className="flex items-start gap-2 text-xs sm:text-sm text-slate-300">
+                                    <span className="text-indigo-400 mt-0.5 sm:mt-1 flex-shrink-0">•</span>
+                                    <span className="break-words">{task}</span>
                                   </li>
                                 ))}
                               </ul>
@@ -3256,7 +3236,7 @@ function App() {
                           );
                         })
                       ) : (
-                        <p className="text-center text-slate-400 py-8">Pas de planning</p>
+                        <p className="text-center text-slate-400 py-6 sm:py-8">Pas de planning</p>
                       )}
                     </div>
                   </div>
@@ -5521,11 +5501,11 @@ function App() {
                     <div className="p-4 bg-gradient-to-br from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-lg">
                       <div className="mb-3">
                         <div className="text-xs text-indigo-300 mb-1">Question:</div>
-                        <div className="text-white">{newFlashcard.question || '(vide)'}</div>
+                        <MathText className="text-white">{newFlashcard.question || '(vide)'}</MathText>
                       </div>
                       <div>
                         <div className="text-xs text-purple-300 mb-1">Réponse:</div>
-                        <div className="text-white whitespace-pre-wrap">{newFlashcard.answer || '(vide)'}</div>
+                        <MathText className="text-white whitespace-pre-wrap">{newFlashcard.answer || '(vide)'}</MathText>
                       </div>
                     </div>
                   )}
@@ -5610,11 +5590,11 @@ function App() {
                     <div className="p-4 bg-gradient-to-br from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-lg">
                       <div className="mb-3">
                         <div className="text-xs text-indigo-300 mb-1">Question:</div>
-                        <div className="text-white">{newFlashcard.question}</div>
+                        <MathText className="text-white">{newFlashcard.question}</MathText>
                       </div>
                       <div>
                         <div className="text-xs text-purple-300 mb-1">Réponse:</div>
-                        <div className="text-white whitespace-pre-wrap">{newFlashcard.answer}</div>
+                        <MathText className="text-white whitespace-pre-wrap">{newFlashcard.answer}</MathText>
                       </div>
                     </div>
                   )}
