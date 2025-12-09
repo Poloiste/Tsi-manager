@@ -45,8 +45,8 @@ export function JoinGroupModal({ onClose, onJoin, isDark = true }) {
   };
 
   const handleCodeChange = (e) => {
-    // Garder seulement les caractères alphanumériques et limiter à 6
-    const value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    // Garder seulement les caractères alphanumériques valides (excluant 0, 1, I, O) et limiter à 6
+    const value = e.target.value.toUpperCase().replace(/[^A-HJ-NP-Z2-9]/g, '').slice(0, 6);
     setCode(value);
     setError(null);
   };

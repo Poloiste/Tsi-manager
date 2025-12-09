@@ -19,6 +19,7 @@ export function useStudyGroups(userId) {
 
     setIsLoading(true);
     try {
+      // Récupérer mes groupes avec le nombre de membres en une seule requête
       const { data, error } = await supabase
         .from('study_group_members')
         .select(`
@@ -39,22 +40,33 @@ export function useStudyGroups(userId) {
 
       if (error) throw error;
 
-      // Compter les membres pour chaque groupe
-      const groupsWithCounts = await Promise.all(
-        (data || []).map(async (membership) => {
-          const { count } = await supabase
-            .from('study_group_members')
-            .select('*', { count: 'exact', head: true })
-            .eq('group_id', membership.study_groups.id);
+      // Récupérer les comptes de membres pour tous les groupes en une seule requête
+      const groupIds = (data || []).map(m => m.study_groups.id);
+      
+      if (groupIds.length === 0) {
+        setMyGroups([]);
+        return;
+      }
 
-          return {
-            ...membership.study_groups,
-            memberCount: count || 0,
-            myRole: membership.role,
-            joinedAt: membership.joined_at
-          };
-        })
-      );
+      const { data: memberCounts, error: countError } = await supabase
+        .from('study_group_members')
+        .select('group_id')
+        .in('group_id', groupIds);
+
+      if (countError) throw countError;
+
+      // Compter les membres par groupe
+      const countsMap = {};
+      (memberCounts || []).forEach(m => {
+        countsMap[m.group_id] = (countsMap[m.group_id] || 0) + 1;
+      });
+
+      const groupsWithCounts = (data || []).map((membership) => ({
+        ...membership.study_groups,
+        memberCount: countsMap[membership.study_groups.id] || 0,
+        myRole: membership.role,
+        joinedAt: membership.joined_at
+      }));
 
       setMyGroups(groupsWithCounts);
     } catch (error) {
@@ -94,20 +106,31 @@ export function useStudyGroups(userId) {
 
       if (error) throw error;
 
-      // Compter les membres pour chaque groupe
-      const groupsWithCounts = await Promise.all(
-        (data || []).map(async (group) => {
-          const { count } = await supabase
-            .from('study_group_members')
-            .select('*', { count: 'exact', head: true })
-            .eq('group_id', group.id);
+      if (!data || data.length === 0) {
+        setAvailableGroups([]);
+        return;
+      }
 
-          return {
-            ...group,
-            memberCount: count || 0
-          };
-        })
-      );
+      // Récupérer les comptes de membres pour tous les groupes en une seule requête
+      const groupIds = data.map(g => g.id);
+      
+      const { data: memberCounts, error: countError } = await supabase
+        .from('study_group_members')
+        .select('group_id')
+        .in('group_id', groupIds);
+
+      if (countError) throw countError;
+
+      // Compter les membres par groupe
+      const countsMap = {};
+      (memberCounts || []).forEach(m => {
+        countsMap[m.group_id] = (countsMap[m.group_id] || 0) + 1;
+      });
+
+      const groupsWithCounts = data.map((group) => ({
+        ...group,
+        memberCount: countsMap[group.id] || 0
+      }));
 
       setAvailableGroups(groupsWithCounts);
     } catch (error) {
@@ -404,33 +427,26 @@ export function useStudyGroups(userId) {
         throw new Error('Seuls les admins peuvent générer un code');
       }
 
-      // Générer un nouveau code (le trigger se chargera de la génération)
-      // On met à jour simplement en définissant le code à null pour forcer la régénération
-      const { data, error } = await supabase.rpc('generate_invite_code');
-      
-      if (error) {
-        // Fallback: générer le code côté client
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let newCode = '';
-        for (let i = 0; i < 6; i++) {
-          newCode += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-
-        const { error: updateError } = await supabase
-          .from('study_groups')
-          .update({
-            invite_code: newCode,
-            invite_code_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
-          })
-          .eq('id', groupId);
-
-        if (updateError) throw updateError;
-
-        return newCode;
+      // Générer un nouveau code côté client
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let newCode = '';
+      for (let i = 0; i < 6; i++) {
+        newCode += chars.charAt(Math.floor(Math.random() * chars.length));
       }
 
+      // Mettre à jour le groupe avec le nouveau code
+      const { error: updateError } = await supabase
+        .from('study_groups')
+        .update({
+          invite_code: newCode,
+          invite_code_expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+        })
+        .eq('id', groupId);
+
+      if (updateError) throw updateError;
+
       await loadMyGroups();
-      return data;
+      return newCode;
     } catch (error) {
       console.error('Error generating invite code:', error);
       throw error;
@@ -575,38 +591,46 @@ export function useStudyGroups(userId) {
         throw new Error('Vous devez être membre du groupe pour partager des decks');
       }
 
-      // Partager les decks
-      const sharePromises = deckIds.map(async (deckId) => {
-        // Vérifier si le deck n'est pas déjà partagé
-        const { data: existing } = await supabase
-          .from('study_group_shared_decks')
-          .select('*')
-          .eq('group_id', groupId)
-          .eq('course_id', deckId)
-          .single();
+      // Vérifier quels decks sont déjà partagés en une seule requête
+      const { data: existingShares } = await supabase
+        .from('study_group_shared_decks')
+        .select('course_id')
+        .eq('group_id', groupId)
+        .in('course_id', deckIds);
 
-        if (!existing) {
-          await supabase
-            .from('study_group_shared_decks')
-            .insert([{
-              group_id: groupId,
-              course_id: deckId,
-              shared_by: userId
-            }]);
+      const existingDeckIds = new Set((existingShares || []).map(s => s.course_id));
+      const newDeckIds = deckIds.filter(id => !existingDeckIds.has(id));
 
-          // Enregistrer l'activité
-          await supabase
-            .from('study_group_activities')
-            .insert([{
-              group_id: groupId,
-              user_id: userId,
-              activity_type: 'share_deck',
-              activity_data: { course_id: deckId }
-            }]);
-        }
-      });
+      if (newDeckIds.length === 0) {
+        // Tous les decks sont déjà partagés
+        return;
+      }
 
-      await Promise.all(sharePromises);
+      // Préparer les données pour l'insertion en batch
+      const sharesToInsert = newDeckIds.map(deckId => ({
+        group_id: groupId,
+        course_id: deckId,
+        shared_by: userId
+      }));
+
+      // Insérer tous les partages en une seule requête
+      const { error: shareError } = await supabase
+        .from('study_group_shared_decks')
+        .insert(sharesToInsert);
+
+      if (shareError) throw shareError;
+
+      // Enregistrer les activités en batch
+      const activitiesToInsert = newDeckIds.map(deckId => ({
+        group_id: groupId,
+        user_id: userId,
+        activity_type: 'share_deck',
+        activity_data: { course_id: deckId }
+      }));
+
+      await supabase
+        .from('study_group_activities')
+        .insert(activitiesToInsert);
 
       // Recharger les détails du groupe si c'est le groupe actuel
       if (currentGroup?.id === groupId) {
