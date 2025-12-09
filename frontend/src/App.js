@@ -27,10 +27,11 @@ import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } fr
 import { useTheme } from './hooks/useTheme';
 import { getThemeClasses } from './utils/themeColors';
 import { ThemeToggle } from './components/ThemeToggle';
-import { useQuiz } from './hooks/useQuiz';
+import { PublicLibrary } from './components/PublicLibrary';
 import { QuizSetup } from './components/QuizSetup';
 import { QuizSession } from './components/QuizSession';
 import { QuizResults } from './components/QuizResults';
+import { useQuiz } from './hooks/useQuiz';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -2541,6 +2542,7 @@ function App() {
                 { id: 'chat', label: '💬 Discussions' },
                 { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
+                { id: 'community', label: '🌐 Communauté' },
                 { id: 'quiz', label: '📝 Quiz' },
                 { id: 'suggestions', label: '🎯 Suggestions' },
                 { id: 'stats', label: '📊 Stats' }
@@ -2566,6 +2568,7 @@ function App() {
                 { id: 'chat', icon: '💬', label: 'Chat' },
                 { id: 'flashcards', icon: '🎴', label: 'Révision' },
                 { id: 'courses', icon: '📚', label: 'Cours' },
+                { id: 'community', icon: '🌐', label: 'Commu.' },
                 { id: 'quiz', icon: '📝', label: 'Quiz' },
                 { id: 'suggestions', icon: '🎯', label: 'Sugg.' },
                 { id: 'stats', icon: '📊', label: 'Stats' }
@@ -2768,6 +2771,7 @@ function App() {
                 { id: 'chat', label: '💬 Discussions' },
                 { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
+                { id: 'community', label: '🌐 Communauté' },
                 { id: 'quiz', label: '📝 Quiz' },
                 { id: 'suggestions', label: '🎯 Suggestions' },
                 { id: 'stats', label: '📊 Stats' }
@@ -4675,6 +4679,20 @@ function App() {
                 />
               )}
             </div>
+          )}
+
+          {/* TAB COMMUNAUTÉ */}
+          {activeTab === 'community' && (
+            <PublicLibrary
+              userId={user?.id}
+              courses={courses}
+              flashcards={flashcards}
+              onImportSuccess={async () => {
+                // Recharger les cours et flashcards après import
+                await loadCourses();
+                await loadFlashcards();
+              }}
+            />
           )}
         </div>
       </div>
