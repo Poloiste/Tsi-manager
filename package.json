@@ -6,8 +6,5 @@
     "install:frontend": "cd frontend && npm install",
     "build": "cd frontend && npm run build",
     "start": "cd frontend && npm start"
-  },
-  "workspaces": [
-    "frontend"
-  ]
+  }
 }

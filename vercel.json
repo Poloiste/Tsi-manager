@@ -2,7 +2,7 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "frontend/build",
-  "installCommand": "npm install && npm run install:frontend",
+  "installCommand": "npm run install:frontend",
   "devCommand": "npm start",
   "framework": null,
   "build": {
