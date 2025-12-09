@@ -1231,9 +1231,20 @@ function App() {
         filter: `channel_id=eq.${selectedChannel.id}`
       }, (payload) => {
         // Retirer le message supprimé du state
-        setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
+        // payload.old contient l'ID du message supprimé
+        const deletedId = payload.old?.id;
+        if (deletedId) {
+          setMessages(prev => prev.filter(msg => msg.id !== deletedId));
+          console.log('Message deleted via Realtime:', deletedId);
+        }
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Subscribed to channel:', selectedChannel.id);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('Error subscribing to channel:', selectedChannel.id);
+        }
+      });
     
     return () => {
       supabase.removeChannel(channel);
@@ -2402,17 +2413,67 @@ function App() {
     if (!window.confirm('Supprimer ce message ?')) return;
     
     try {
+      // Vérifier que l'utilisateur est bien connecté
+      if (!user) {
+        showWarning('Vous devez être connecté pour supprimer un message');
+        return;
+      }
+      
+      // Vérifier que le message existe dans l'état local
+      const messageToDelete = messages.find(msg => msg.id === messageId);
+      if (!messageToDelete) {
+        showWarning('Message introuvable');
+        return;
+      }
+      
+      // Vérifier que l'utilisateur est bien le propriétaire du message
+      if (messageToDelete.user_id !== user.id) {
+        showWarning('Vous ne pouvez supprimer que vos propres messages');
+        return;
+      }
+      
+      console.log('Attempting to delete message:', messageId);
+      
       const { error } = await supabase
         .from('chat_messages')
         .delete()
-        .eq('id', messageId);
+        .eq('id', messageId)
+        .eq('user_id', user.id); // Extra security check
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase delete error:', error);
+        throw error;
+      }
+      
+      console.log('Message deleted successfully:', messageId);
+      showSuccess('Message supprimé avec succès');
       
       // La suppression du state sera gérée par la subscription realtime
+      // Mais on peut aussi supprimer localement en cas de problème de realtime
+      setTimeout(() => {
+        setMessages(prev => {
+          const stillExists = prev.some(msg => msg.id === messageId);
+          if (stillExists) {
+            console.log('Realtime deletion not received, removing locally');
+            return prev.filter(msg => msg.id !== messageId);
+          }
+          return prev;
+        });
+      }, 1000); // Attendre 1s pour laisser le realtime faire son travail
+      
     } catch (error) {
       console.error('Erreur suppression message:', error);
-      alert('Erreur lors de la suppression du message');
+      
+      // Messages d'erreur plus spécifiques
+      if (error.code === 'PGRST116') {
+        showWarning('Message déjà supprimé ou introuvable');
+      } else if (error.message?.includes('permission')) {
+        showWarning('Vous n\'avez pas la permission de supprimer ce message');
+      } else if (error.message?.includes('RLS')) {
+        showWarning('Erreur de sécurité: vous ne pouvez supprimer que vos propres messages');
+      } else {
+        showWarning('Erreur lors de la suppression du message. Veuillez réessayer.');
+      }
     }
   };
 
