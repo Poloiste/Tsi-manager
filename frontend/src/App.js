@@ -1993,11 +1993,8 @@ function App() {
     // Normalize special characters to ensure proper encoding
     const escapeCSV = (str) => {
       if (!str) return '""';
-      // Convert to string and normalize Unicode characters
-      let normalized = String(str).normalize('NFC');
-      // Escape double quotes by doubling them
-      normalized = normalized.replace(/"/g, '""');
-      // Always wrap in quotes to preserve special characters
+      // Convert to string, normalize Unicode (NFC), escape quotes, and wrap in quotes
+      const normalized = String(str).normalize('NFC').replace(/"/g, '""');
       return '"' + normalized + '"';
     };
 
@@ -2015,7 +2012,7 @@ function App() {
     // Créer et télécharger le fichier avec encodage UTF-8 BOM
     // UTF-8 BOM ensures proper encoding in Excel and other tools
     const BOM = '\uFEFF';
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -2042,15 +2039,12 @@ function App() {
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        let content = e.target.result;
-        
-        // Remove UTF-8 BOM if present
-        if (content.charCodeAt(0) === 0xFEFF) {
-          content = content.substring(1);
-        }
-        
-        // Normalize Unicode characters to ensure consistency
-        content = content.normalize('NFC');
+        // Remove UTF-8 BOM if present and normalize Unicode characters
+        const rawContent = e.target.result;
+        const content = (rawContent.charCodeAt(0) === 0xFEFF 
+          ? rawContent.substring(1) 
+          : rawContent
+        ).normalize('NFC');
         
         const lines = content.split('\n').filter(line => line.trim());
         
@@ -2088,7 +2082,8 @@ function App() {
 
         const separator = detectSeparator(lines[0]);
         
-        // Parser CSV avec gestion des guillemets et normalisation des caractères
+        // Parse CSV with proper quote handling and Unicode normalization
+        // Follows RFC 4180: fields may be quoted, quotes within fields are escaped by doubling
         const parseCSVLine = (line) => {
           const result = [];
           let current = '';
@@ -2100,15 +2095,12 @@ function App() {
             
             if (char === '"') {
               if (inQuotes && nextChar === '"') {
-                // Escaped quote
                 current += '"';
-                i++; // Skip next quote
+                i++;
               } else {
-                // Toggle quote state
                 inQuotes = !inQuotes;
               }
             } else if (char === separator && !inQuotes) {
-              // Field separator found outside quotes
               result.push(current.trim());
               current = '';
             } else {
@@ -2117,7 +2109,6 @@ function App() {
           }
           result.push(current.trim());
           
-          // Normalize each field to ensure consistent character encoding
           return result.map(field => field.normalize('NFC'));
         };
 
