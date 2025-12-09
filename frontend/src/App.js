@@ -25,11 +25,9 @@ import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseSco
 import { useSRS } from './hooks/useSRS';
 import { useQuiz } from './hooks/useQuiz';
 import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } from './utils/srsAlgorithm';
-import { useQuiz } from './hooks/useQuiz';
 import { useTheme } from './hooks/useTheme';
 import { getThemeClasses } from './utils/themeColors';
 import { ThemeToggle } from './components/ThemeToggle';
-import { useQuiz } from './hooks/useQuiz';
 import { QuizSetup } from './components/QuizSetup';
 import { QuizSession } from './components/QuizSession';
 import { QuizResults } from './components/QuizResults';
