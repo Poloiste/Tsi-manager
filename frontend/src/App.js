@@ -2107,7 +2107,6 @@ function App() {
             }
           }
           result.push(current.trim());
-          
           return result;
         };
 
