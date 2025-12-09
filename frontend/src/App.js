@@ -90,7 +90,7 @@ const MathText = ({ children, className = "" }) => {
     }
   }, [children]);
   
-  return <span ref={ref} className={className}>{children}</span>;
+  return <span ref={ref} className={`math-text ${className}`}>{children}</span>;
 };
 
 // ==================== UTILITY FUNCTIONS ====================

@@ -16,6 +16,10 @@ body {
 /* Ensure proper rendering of mathematical symbols and special characters */
 body, input, textarea, select, button {
   font-feature-settings: 'liga' 1, 'calt' 1;
+}
+
+/* Apply optimizeLegibility selectively for better symbol rendering in math content only */
+.math-text {
   text-rendering: optimizeLegibility;
 }
 
