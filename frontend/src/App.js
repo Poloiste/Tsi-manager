@@ -308,6 +308,7 @@ function App() {
   const SCROLL_DELAY_MS = 100;
   const DEFAULT_USERNAME = 'Anonyme';
   const MAX_MESSAGES_PER_FETCH = 100;
+  const REALTIME_FALLBACK_DELAY_MS = 1000; // Délai avant suppression locale si Realtime échoue
 
   // États pour gérer l'ajout de liens OneDrive
   const [newOneDriveLink, setNewOneDriveLink] = useState('');
@@ -2461,18 +2462,22 @@ function App() {
           }
           return prev;
         });
-      }, 1000); // Attendre 1s pour laisser le realtime faire son travail
+      }, REALTIME_FALLBACK_DELAY_MS);
       
     } catch (error) {
       console.error('Erreur suppression message:', error);
       
-      // Messages d'erreur plus spécifiques
-      if (error.code === 'PGRST116') {
+      // Messages d'erreur plus spécifiques basés sur les codes d'erreur Supabase/PostgreSQL
+      // PGRST116: Row not found (404)
+      // PGRST301: JWT/Auth error (401)
+      if (error.code === 'PGRST116' || error.status === 404) {
         showWarning('Message déjà supprimé ou introuvable');
-      } else if (error.message?.includes('permission')) {
+      } else if (error.code === 'PGRST301' || error.status === 401 || error.message?.toLowerCase().includes('auth')) {
+        showWarning('Erreur d\'authentification. Veuillez vous reconnecter.');
+      } else if (error.code === '42501' || error.message?.toLowerCase().includes('permission') || error.message?.toLowerCase().includes('rls')) {
         showWarning('Vous n\'avez pas la permission de supprimer ce message');
-      } else if (error.message?.includes('RLS')) {
-        showWarning('Erreur de sécurité: vous ne pouvez supprimer que vos propres messages');
+      } else if (error.message?.toLowerCase().includes('network') || error.message?.toLowerCase().includes('fetch')) {
+        showWarning('Erreur réseau. Vérifiez votre connexion internet.');
       } else {
         showWarning('Erreur lors de la suppression du message. Veuillez réessayer.');
       }
