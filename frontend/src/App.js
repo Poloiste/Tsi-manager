@@ -3,7 +3,7 @@ import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
   FolderOpen, LogOut, Send, MessageCircle, Menu, Download, Copy, FileText,
-  HelpCircle, Search, Award, Target, Flame, Bell, Users
+  HelpCircle, Search, Award, Target, Flame, Bell, Users, Volume2, VolumeX, BellOff
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
@@ -23,7 +23,9 @@ import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './uti
 import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
 import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType } from './utils/suggestionHelpers';
 import { useSRS } from './hooks/useSRS';
+import { useQuiz } from './hooks/useQuiz';
 import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } from './utils/srsAlgorithm';
+import { useQuiz } from './hooks/useQuiz';
 import { useTheme } from './hooks/useTheme';
 import { getThemeClasses } from './utils/themeColors';
 import { ThemeToggle } from './components/ThemeToggle';
@@ -36,6 +38,7 @@ import { GroupCard } from './components/GroupCard';
 import { GroupDetail } from './components/GroupDetail';
 import { CreateGroupModal } from './components/CreateGroupModal';
 import { JoinGroupModal } from './components/JoinGroupModal';
+import { useChatNotifications } from './hooks/useChatNotifications';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -285,6 +288,9 @@ function App() {
   // Hook de groupes d'étude
   const studyGroups = useStudyGroups(user?.id);
   
+  // Hook de notifications de chat
+  const chatNotifications = useChatNotifications(user?.id, selectedChannel, channels);
+  
   // États pour les groupes d'étude
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [showJoinByCode, setShowJoinByCode] = useState(false);
@@ -306,6 +312,7 @@ function App() {
   const SCROLL_DELAY_MS = 100;
   const DEFAULT_USERNAME = 'Anonyme';
   const MAX_MESSAGES_PER_FETCH = 100;
+  const REALTIME_FALLBACK_DELAY_MS = 1000; // Délai avant suppression locale si Realtime échoue
 
   // États pour gérer l'ajout de liens OneDrive
   const [newOneDriveLink, setNewOneDriveLink] = useState('');
@@ -809,9 +816,7 @@ function App() {
     // Build week context for compatibility
     const weekContext = { upcomingTests };
     
-    // Select courses based on top subjects
-    const suggestions = [];
-    
+    // Calculate priority for all courses with enriched data
     const coursesWithPriority = courses.map(course => {
       const subjectData = subjectScores[course.subject];
       const hasRelevantTest = subjectData?.tests?.length > 0;
@@ -824,61 +829,108 @@ function App() {
         relevantTest: firstTest,
         suggestedDuration: firstTest?.suggestedDuration || '30min - 45min'
       };
-    }).sort((a, b) => {
-      // Prioritize by subject score first, then by course priority
-      if (Math.abs(a.subjectScore - b.subjectScore) > 10) {
-        return b.subjectScore - a.subjectScore;
-      }
-      return b.priority - a.priority;
     });
 
-    // Add courses ensuring some diversity
-    for (const course of coursesWithPriority) {
-      if (suggestions.length >= totalSlots) break;
+    // Group courses by subject
+    const coursesBySubject = {};
+    coursesWithPriority.forEach(course => {
+      if (!coursesBySubject[course.subject]) {
+        coursesBySubject[course.subject] = [];
+      }
+      coursesBySubject[course.subject].push(course);
+    });
+
+    // Sort subjects by their score (highest priority first)
+    const sortedSubjects = Object.keys(coursesBySubject).sort((a, b) => {
+      const scoreA = subjectScores[a]?.score || 0;
+      const scoreB = subjectScores[b]?.score || 0;
+      return scoreB - scoreA;
+    });
+
+    // Build suggestions organized by subject with 1-2 chapters per subject
+    const suggestionsBySubject = [];
+    let totalChaptersSelected = 0;
+
+    for (const subject of sortedSubjects) {
+      if (totalChaptersSelected >= totalSlots) break;
       
-      // Ensure we don't have too many from the same subject (max 2)
-      const subjectCount = suggestions.filter(s => s.subject === course.subject).length;
-      const subjectData = subjectScores[course.subject];
+      const subjectData = subjectScores[subject];
+      const subjectCourses = coursesBySubject[subject];
       
-      if (subjectCount < 2 && (course.priority > 25 || subjectData?.score > 20)) {
-        const hasTest = course.relevantTest != null;
-        const test = course.relevantTest;
+      // Sort chapters by urgency and priority within this subject (create copy to avoid mutation)
+      const sortedChapters = [...subjectCourses].sort((a, b) => {
+        // First by urgency
+        const urgencyOrder = { high: 3, medium: 2, low: 1 };
+        const urgencyA = a.relevantTest ? (
+          a.relevantTest.daysUntilFromThisDay <= 2 ? 'high' : 
+          a.relevantTest.daysUntilFromThisDay <= 3 ? 'medium' : 'low'
+        ) : (a.priority > 80 ? 'medium' : 'low');
+        const urgencyB = b.relevantTest ? (
+          b.relevantTest.daysUntilFromThisDay <= 2 ? 'high' : 
+          b.relevantTest.daysUntilFromThisDay <= 3 ? 'medium' : 'low'
+        ) : (b.priority > 80 ? 'medium' : 'low');
         
-        // Determine urgency based on days until test
-        let urgency = 'low';
-        let reasonText = 'Révision recommandée';
-        
-        if (hasTest) {
-          const daysUntil = test.daysUntilFromThisDay;
-          
-          if (daysUntil <= 1) {
-            urgency = 'high';
-            reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jour${daysUntil > 1 ? 's' : ''} - Révision ${test.type === 'DS' || test.type === 'Examen' ? 'approfondie' : 'intensive'}`;
-          } else if (daysUntil <= 2) {
-            urgency = 'high';
-            reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jours`;
-          } else if (daysUntil <= 3) {
-            urgency = 'medium';
-            reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jours`;
-          } else {
-            urgency = 'low';
-            reasonText = `🎯 ${test.type} ${course.subject} dans ${daysUntil} jours - Préparation progressive`;
-          }
-        } else if (course.priority > 80) {
-          urgency = 'medium';
-          reasonText = 'Révision urgente';
+        if (urgencyOrder[urgencyA] !== urgencyOrder[urgencyB]) {
+          return urgencyOrder[urgencyB] - urgencyOrder[urgencyA];
         }
         
-        suggestions.push({
-          ...course,
-          reason: reasonText,
-          urgency: urgency,
-          suggestedDuration: course.suggestedDuration
+        // Then by priority score
+        return b.priority - a.priority;
+      });
+
+      // Select top 1-2 chapters for this subject
+      const chaptersToInclude = sortedChapters.slice(0, Math.min(2, totalSlots - totalChaptersSelected));
+      
+      if (chaptersToInclude.length > 0 && (subjectData?.score > 20 || chaptersToInclude[0].priority > 25)) {
+        // Enrich chapters with urgency and reason
+        const enrichedChapters = chaptersToInclude.map(course => {
+          const hasTest = course.relevantTest != null;
+          const test = course.relevantTest;
+          
+          // Determine urgency based on days until test
+          let urgency = 'low';
+          let reasonText = 'Révision recommandée';
+          
+          if (hasTest) {
+            const daysUntil = test.daysUntilFromThisDay;
+            
+            if (daysUntil <= 1) {
+              urgency = 'high';
+              reasonText = `🎯 ${test.type} dans ${daysUntil} jour${daysUntil > 1 ? 's' : ''} - Révision ${test.type === 'DS' || test.type === 'Examen' ? 'approfondie' : 'intensive'}`;
+            } else if (daysUntil <= 2) {
+              urgency = 'high';
+              reasonText = `🎯 ${test.type} dans ${daysUntil} jours`;
+            } else if (daysUntil <= 3) {
+              urgency = 'medium';
+              reasonText = `🎯 ${test.type} dans ${daysUntil} jours`;
+            } else {
+              urgency = 'low';
+              reasonText = `🎯 ${test.type} dans ${daysUntil} jours - Préparation progressive`;
+            }
+          } else if (course.priority > 80) {
+            urgency = 'medium';
+            reasonText = 'Révision urgente';
+          }
+          
+          return {
+            ...course,
+            reason: reasonText,
+            urgency: urgency
+          };
         });
+
+        suggestionsBySubject.push({
+          subject: subject,
+          subjectScore: subjectData?.score || 0,
+          relevantTests: subjectData?.tests || [],
+          chapters: enrichedChapters
+        });
+
+        totalChaptersSelected += enrichedChapters.length;
       }
     }
 
-    return suggestions;
+    return suggestionsBySubject;
   };
 
   // eslint-disable-next-line no-unused-vars
@@ -1221,6 +1273,18 @@ function App() {
         setMessages(prev => {
           const exists = prev.some(msg => msg.id === payload.new.id);
           if (exists) return prev;
+          
+          // Nouveau message - gérer les notifications
+          const newMessage = payload.new;
+          
+          // Afficher toast pour le canal actuel (sauf si c'est notre message)
+          if (newMessage.user_id !== user.id) {
+            showInfo(`💬 ${newMessage.user_name}: ${newMessage.content.substring(0, 50)}${newMessage.content.length > 50 ? '...' : ''}`);
+          }
+          
+          // Gérer les notifications (son, navigateur, etc.)
+          chatNotifications.handleNewMessage(newMessage, true, selectedChannel.name);
+          
           return [...prev, payload.new];
         });
       })
@@ -1231,7 +1295,49 @@ function App() {
         filter: `channel_id=eq.${selectedChannel.id}`
       }, (payload) => {
         // Retirer le message supprimé du state
-        setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
+        // payload.old contient l'ID du message supprimé
+        const deletedId = payload.old?.id;
+        if (deletedId) {
+          setMessages(prev => prev.filter(msg => msg.id !== deletedId));
+          console.log('Message deleted via Realtime:', deletedId);
+        }
+      })
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Subscribed to channel:', selectedChannel.id);
+        } else if (status === 'CHANNEL_ERROR') {
+          console.error('Error subscribing to channel:', selectedChannel.id);
+        }
+      });
+    
+    return () => {
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedChannel, user, chatNotifications, showInfo]);
+
+  // Temps réel - S'abonner à tous les messages pour les notifications dans autres canaux
+  useEffect(() => {
+    if (!user || !channels || channels.length === 0) return;
+    
+    const channel = supabase
+      .channel('all-messages-notifications')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'chat_messages'
+      }, (payload) => {
+        const newMessage = payload.new;
+        
+        // Ne traiter que les messages qui ne sont PAS dans le canal actuel
+        if (newMessage.channel_id !== selectedChannel?.id && newMessage.user_id !== user.id) {
+          // Trouver le nom du canal
+          const channel = channels.find(ch => ch.id === newMessage.channel_id);
+          const channelName = channel?.name || 'Inconnu';
+          
+          // Gérer les notifications pour les autres canaux
+          chatNotifications.handleNewMessage(newMessage, false, channelName);
+        }
       })
       .subscribe();
     
@@ -1239,7 +1345,19 @@ function App() {
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedChannel, user]);
+  }, [user, channels, selectedChannel?.id, chatNotifications]);
+
+  // Demander la permission de notification quand on accède au chat pour la première fois
+  useEffect(() => {
+    if (activeTab === 'chat' && user && !chatNotifications.permissionRequested) {
+      // Demander après un court délai pour ne pas être trop intrusif
+      const timer = setTimeout(() => {
+        chatNotifications.requestBrowserNotificationPermission();
+      }, 1000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, user, chatNotifications]);
 
   // Raccourcis clavier pour la recherche
   useEffect(() => {
@@ -1990,9 +2108,12 @@ function App() {
     }
 
     // Échapper les guillemets et entourer les valeurs de guillemets
+    // Normalize special characters to ensure proper encoding
     const escapeCSV = (str) => {
       if (!str) return '""';
-      return '"' + String(str).replace(/"/g, '""') + '"';
+      // Convert to string, normalize Unicode (NFC), escape quotes, and wrap in quotes
+      const normalized = String(str).normalize('NFC').replace(/"/g, '""');
+      return '"' + normalized + '"';
     };
 
     // Créer le contenu CSV avec en-têtes
@@ -2006,8 +2127,9 @@ function App() {
       csvContent += `${escapeCSV(f.question)},${escapeCSV(f.answer)},${escapeCSV(subject)},${escapeCSV(chapter)}\n`;
     });
 
-    // Créer et télécharger le fichier avec encodage UTF-8
-    const BOM = '\uFEFF'; // UTF-8 BOM pour Excel
+    // Créer et télécharger le fichier avec encodage UTF-8 BOM
+    // UTF-8 BOM ensures proper encoding in Excel and other tools
+    const BOM = '\uFEFF';
     const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -2032,10 +2154,14 @@ function App() {
       return;
     }
 
+    // Helper to remove UTF-8 BOM (Byte Order Mark) if present
+    const removeBOM = (text) => text.charCodeAt(0) === 0xFEFF ? text.substring(1) : text;
+
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const content = e.target.result;
+        // Remove BOM and normalize Unicode to ensure consistent character encoding
+        const content = removeBOM(e.target.result).normalize('NFC');
         const lines = content.split('\n').filter(line => line.trim());
         
         if (lines.length === 0) {
@@ -2072,7 +2198,8 @@ function App() {
 
         const separator = detectSeparator(lines[0]);
         
-        // Parser CSV avec gestion des guillemets
+        // Parse CSV with proper quote handling
+        // Follows RFC 4180: fields may be quoted, quotes within fields are escaped by doubling
         const parseCSVLine = (line) => {
           const result = [];
           let current = '';
@@ -2085,7 +2212,7 @@ function App() {
             if (char === '"') {
               if (inQuotes && nextChar === '"') {
                 current += '"';
-                i++; // Skip next quote
+                i++; // Skip the escaped quote (RFC 4180)
               } else {
                 inQuotes = !inQuotes;
               }
@@ -2159,6 +2286,7 @@ function App() {
       }
     };
 
+    // Try to read as UTF-8 first
     reader.readAsText(file, 'UTF-8');
   };
 
@@ -2402,17 +2530,71 @@ function App() {
     if (!window.confirm('Supprimer ce message ?')) return;
     
     try {
+      // Vérifier que l'utilisateur est bien connecté
+      if (!user) {
+        showWarning('Vous devez être connecté pour supprimer un message');
+        return;
+      }
+      
+      // Vérifier que le message existe dans l'état local
+      const messageToDelete = messages.find(msg => msg.id === messageId);
+      if (!messageToDelete) {
+        showWarning('Message introuvable');
+        return;
+      }
+      
+      // Vérifier que l'utilisateur est bien le propriétaire du message
+      if (messageToDelete.user_id !== user.id) {
+        showWarning('Vous ne pouvez supprimer que vos propres messages');
+        return;
+      }
+      
+      console.log('Attempting to delete message:', messageId);
+      
       const { error } = await supabase
         .from('chat_messages')
         .delete()
-        .eq('id', messageId);
+        .eq('id', messageId)
+        .eq('user_id', user.id); // Extra security check
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase delete error:', error);
+        throw error;
+      }
+      
+      console.log('Message deleted successfully:', messageId);
+      showSuccess('Message supprimé avec succès');
       
       // La suppression du state sera gérée par la subscription realtime
+      // Mais on peut aussi supprimer localement en cas de problème de realtime
+      setTimeout(() => {
+        setMessages(prev => {
+          const stillExists = prev.some(msg => msg.id === messageId);
+          if (stillExists) {
+            console.log('Realtime deletion not received, removing locally');
+            return prev.filter(msg => msg.id !== messageId);
+          }
+          return prev;
+        });
+      }, REALTIME_FALLBACK_DELAY_MS);
+      
     } catch (error) {
       console.error('Erreur suppression message:', error);
-      alert('Erreur lors de la suppression du message');
+      
+      // Messages d'erreur plus spécifiques basés sur les codes d'erreur Supabase/PostgreSQL
+      // PGRST116: Row not found (404)
+      // PGRST301: JWT/Auth error (401)
+      if (error.code === 'PGRST116' || error.status === 404) {
+        showWarning('Message déjà supprimé ou introuvable');
+      } else if (error.code === 'PGRST301' || error.status === 401 || error.message?.toLowerCase().includes('auth')) {
+        showWarning('Erreur d\'authentification. Veuillez vous reconnecter.');
+      } else if (error.code === '42501' || error.message?.toLowerCase().includes('permission') || error.message?.toLowerCase().includes('rls')) {
+        showWarning('Vous n\'avez pas la permission de supprimer ce message');
+      } else if (error.message?.toLowerCase().includes('network') || error.message?.toLowerCase().includes('fetch')) {
+        showWarning('Erreur réseau. Vérifiez votre connexion internet.');
+      } else {
+        showWarning('Erreur lors de la suppression du message. Veuillez réessayer.');
+      }
     }
   };
 
@@ -2553,24 +2735,30 @@ function App() {
             <div className={`hidden lg:flex items-center gap-1 border rounded-full p-1 ${themeClasses.bg.tertiary} ${themeClasses.border.subtle}`}>
               {[
                 { id: 'planning', label: '📅 Planning' },
-                { id: 'chat', label: '💬 Discussions' },
-                { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
+                { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'quiz', label: '📝 Quiz' },
+                { id: 'chat', label: '💬 Discussions' },
+                { id: 'stats', label: '📊 Stats' },
+                { id: 'community', label: '🌐 Communauté' },
                 { id: 'groups', label: '👥 Groupes' },
-                { id: 'suggestions', label: '🎯 Suggestions' },
-                { id: 'stats', label: '📊 Stats' }
+                { id: 'suggestions', label: '🎯 Suggestions' }
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-4 py-2 rounded-full transition-all text-sm font-semibold ${
+                  className={`px-4 py-2 rounded-full transition-all text-sm font-semibold relative ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
                       : `${themeClasses.text.accent} hover:text-indigo-100`
                   }`}
                 >
                   {tab.label}
+                  {tab.id === 'chat' && chatNotifications.totalUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold animate-pulse">
+                      {chatNotifications.totalUnreadCount > 9 ? '9+' : chatNotifications.totalUnreadCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -2579,24 +2767,30 @@ function App() {
             <div className={`hidden md:flex lg:hidden items-center gap-1 border rounded-full p-1 overflow-x-auto max-w-md scrollbar-hide ${themeClasses.bg.tertiary} ${themeClasses.border.subtle}`}>
               {[
                 { id: 'planning', icon: '📅', label: 'Planning' },
-                { id: 'chat', icon: '💬', label: 'Chat' },
-                { id: 'flashcards', icon: '🎴', label: 'Révision' },
                 { id: 'courses', icon: '📚', label: 'Cours' },
+                { id: 'flashcards', icon: '🎴', label: 'Révision' },
                 { id: 'quiz', icon: '📝', label: 'Quiz' },
+                { id: 'chat', icon: '💬', label: 'Chat' },
+                { id: 'stats', icon: '📊', label: 'Stats' },
+                { id: 'community', icon: '🌐', label: 'Commu.' },
                 { id: 'groups', icon: '👥', label: 'Groupes' },
-                { id: 'suggestions', icon: '🎯', label: 'Sugg.' },
-                { id: 'stats', icon: '📊', label: 'Stats' }
+                { id: 'suggestions', icon: '🎯', label: 'Sugg.' }
               ].map(tab => (
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`px-3 py-2 rounded-full transition-all text-xs font-semibold whitespace-nowrap ${
+                  className={`px-3 py-2 rounded-full transition-all text-xs font-semibold whitespace-nowrap relative ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
                       : `${themeClasses.text.accent} hover:text-indigo-100`
                   }`}
                 >
                   {tab.icon} {tab.label}
+                  {tab.id === 'chat' && chatNotifications.totalUnreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold animate-pulse">
+                      {chatNotifications.totalUnreadCount > 9 ? '9+' : chatNotifications.totalUnreadCount}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -2782,13 +2976,14 @@ function App() {
             <div className="px-4 py-3 space-y-2">
               {[
                 { id: 'planning', label: '📅 Planning' },
-                { id: 'chat', label: '💬 Discussions' },
-                { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
+                { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'quiz', label: '📝 Quiz' },
+                { id: 'chat', label: '💬 Discussions' },
+                { id: 'stats', label: '📊 Stats' },
+                { id: 'community', label: '🌐 Communauté' },
                 { id: 'groups', label: '👥 Groupes' },
-                { id: 'suggestions', label: '🎯 Suggestions' },
-                { id: 'stats', label: '📊 Stats' }
+                { id: 'suggestions', label: '🎯 Suggestions' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -2796,13 +2991,18 @@ function App() {
                     setActiveTab(tab.id);
                     setIsMobileMenuOpen(false);
                   }}
-                  className={`w-full px-4 py-3 rounded-lg transition-all text-left font-semibold ${
+                  className={`w-full px-4 py-3 rounded-lg transition-all text-left font-semibold relative flex items-center justify-between ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
                       : `${themeClasses.text.accent} ${themeClasses.hover} hover:text-indigo-100`
                   }`}
                 >
-                  {tab.label}
+                  <span>{tab.label}</span>
+                  {tab.id === 'chat' && chatNotifications.totalUnreadCount > 0 && (
+                    <span className="bg-red-500 text-white text-xs rounded-full px-2 py-1 font-bold animate-pulse">
+                      {chatNotifications.totalUnreadCount > 9 ? '9+' : chatNotifications.totalUnreadCount}
+                    </span>
+                  )}
                 </button>
               ))}
               
@@ -3053,33 +3253,78 @@ function App() {
               <div className="max-w-6xl mx-auto">
                 {/* Sélecteur de salon */}
                 <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-                  {channels.map(channel => (
-                    <button
-                      key={channel.id}
-                      onClick={() => setSelectedChannel(channel)}
-                      className={`px-4 py-2 rounded-lg whitespace-nowrap font-semibold transition-all ${
-                        selectedChannel?.id === channel.id
-                          ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                          : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
-                      }`}
-                    >
-                      {channel.name}
-                    </button>
-                  ))}
+                  {channels.map(channel => {
+                    const unreadCount = chatNotifications.unreadMessages[channel.id] || 0;
+                    return (
+                      <button
+                        key={channel.id}
+                        onClick={() => setSelectedChannel(channel)}
+                        className={`px-4 py-2 rounded-lg whitespace-nowrap font-semibold transition-all relative ${
+                          selectedChannel?.id === channel.id
+                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
+                            : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
+                        }`}
+                      >
+                        {channel.name}
+                        {unreadCount > 0 && (
+                          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5 font-bold animate-pulse">
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 {selectedChannel ? (
                   <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl overflow-hidden">
                     {/* En-tête du salon */}
                     <div className="p-4 bg-slate-900/50 border-b border-slate-700/50">
-                      <div className="flex items-center gap-2">
-                        <MessageCircle className="w-5 h-5 text-indigo-400" />
-                        <h3 className="text-xl font-bold text-white">{selectedChannel.name}</h3>
-                        {selectedChannel.subject && (
-                          <span className="px-2 py-1 bg-indigo-900/50 text-indigo-300 rounded text-xs">
-                            {selectedChannel.type === 'subject' ? 'Matière' : selectedChannel.type}
-                          </span>
-                        )}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <MessageCircle className="w-5 h-5 text-indigo-400" />
+                          <h3 className="text-xl font-bold text-white">{selectedChannel.name}</h3>
+                          {selectedChannel.subject && (
+                            <span className="px-2 py-1 bg-indigo-900/50 text-indigo-300 rounded text-xs">
+                              {selectedChannel.type === 'subject' ? 'Matière' : selectedChannel.type}
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Notification controls */}
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={chatNotifications.toggleSound}
+                            className={`p-2 rounded-lg transition-all ${
+                              chatNotifications.soundEnabled
+                                ? 'bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600/50'
+                                : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                            }`}
+                            title={chatNotifications.soundEnabled ? 'Son activé' : 'Son désactivé'}
+                          >
+                            {chatNotifications.soundEnabled ? (
+                              <Volume2 className="w-4 h-4" />
+                            ) : (
+                              <VolumeX className="w-4 h-4" />
+                            )}
+                          </button>
+                          
+                          <button
+                            onClick={chatNotifications.toggleBrowserNotifications}
+                            className={`p-2 rounded-lg transition-all ${
+                              chatNotifications.browserNotificationsEnabled
+                                ? 'bg-purple-600/30 text-purple-300 hover:bg-purple-600/50'
+                                : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
+                            }`}
+                            title={chatNotifications.browserNotificationsEnabled ? 'Notifications navigateur activées' : 'Notifications navigateur désactivées'}
+                          >
+                            {chatNotifications.browserNotificationsEnabled ? (
+                              <Bell className="w-4 h-4" />
+                            ) : (
+                              <BellOff className="w-4 h-4" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -3964,8 +4209,10 @@ function App() {
                   {/* Suggestions par jour */}
                   <div className="grid grid-cols-1 gap-6">
                     {days.map(day => {
-                      const suggestions = getSuggestedReviews(day, currentWeek);
-                      if (suggestions.length === 0) return null;
+                      const suggestionsBySubject = getSuggestedReviews(day, currentWeek);
+                      if (suggestionsBySubject.length === 0) return null;
+
+                      const totalChapters = suggestionsBySubject.reduce((sum, s) => sum + s.chapters.length, 0);
 
                       return (
                         <div key={day} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
@@ -3974,96 +4221,127 @@ function App() {
                               <Calendar className="w-6 h-6 text-indigo-400" />
                               {day}
                             </h3>
-                            <span className="px-4 py-2 bg-indigo-900/50 text-indigo-300 rounded-full text-sm font-semibold">
-                              {suggestions.length} révision(s) suggérée(s)
-                            </span>
+                            <div className="flex items-center gap-3">
+                              <span className="px-4 py-2 bg-indigo-900/50 text-indigo-300 rounded-full text-sm font-semibold">
+                                {suggestionsBySubject.length} matière{suggestionsBySubject.length > 1 ? 's' : ''}
+                              </span>
+                              <span className="px-4 py-2 bg-purple-900/50 text-purple-300 rounded-full text-sm font-semibold">
+                                {totalChapters} chapitre{totalChapters > 1 ? 's' : ''}
+                              </span>
+                            </div>
                           </div>
 
-                          <div className="space-y-4">
-                            {suggestions.map(course => (
-                              <div key={course.id} className={`p-4 bg-slate-900/50 rounded-xl border ${
-                                course.urgency === 'high' ? 'border-red-500/50 bg-red-900/10' : 
-                                course.urgency === 'medium' ? 'border-orange-500/50 bg-orange-900/10' : 
-                                'border-slate-700/50'
-                              }`}>
-                                <div className="flex items-start justify-between mb-3">
-                                  <div className="flex-1">
-                                    <div className="flex items-center gap-3 mb-2">
-                                      <span className={`px-3 py-1 bg-gradient-to-r ${getSubjectColor(course.subject)} rounded-full text-xs font-bold text-white`}>
-                                        {course.subject}
-                                      </span>
-                                      {course.urgency === 'high' && (
-                                        <span className="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs font-semibold">
-                                          🔥 URGENT
-                                        </span>
-                                      )}
-                                      {course.urgency === 'medium' && (
-                                        <span className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded text-xs font-semibold">
-                                          ⚠️ BIENTÔT
-                                        </span>
-                                      )}
-                                    </div>
-                                    <h4 className="text-lg font-bold text-white mb-1">{course.chapter}</h4>
-                                    <p className="text-sm text-indigo-300 mb-2">💡 {course.reason}</p>
-                                    {course.suggestedDuration && (
-                                      <p className="text-sm text-green-300 mb-2">⏱️ {course.suggestedDuration} recommandées</p>
-                                    )}
-                                    <div className="flex items-center gap-4 text-sm text-slate-400">
-                                      <span>🎯 Maîtrise: {course.mastery || 0}%</span>
-                                      <span>🔄 {course.reviewCount || 0} révision(s)</span>
-                                      {course.lastReviewed && (
-                                        <span>📅 {new Date(course.lastReviewed).toLocaleDateString('fr-FR')}</span>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <div className="flex flex-col gap-2">
-                                    <button
-                                      onClick={() => markAsReviewed(course.id, 15)}
-                                      className="px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm whitespace-nowrap"
-                                    >
-                                      ✔ Marquer révisé
-                                    </button>
-                                  </div>
-                                </div>
-
-                                {/* Barre de priorité */}
-                                <div className="mt-3">
+                          <div className="space-y-6">
+                            {suggestionsBySubject.map((subjectGroup, subjectIdx) => (
+                              <div key={subjectIdx} className="bg-slate-900/30 border border-slate-700/30 rounded-xl p-5">
+                                {/* Subject Header */}
+                                <div className="mb-4">
                                   <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs text-slate-400">Priorité de révision</span>
-                                    <span className="text-xs font-bold text-white">{Math.round(course.priority)}%</span>
-                                  </div>
-                                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                                    <div 
-                                      className={`h-full transition-all ${
-                                        course.priority > 80 ? 'bg-gradient-to-r from-red-500 to-orange-500' :
-                                        course.priority > 50 ? 'bg-gradient-to-r from-orange-500 to-yellow-500' :
-                                        'bg-gradient-to-r from-green-500 to-emerald-500'
-                                      }`}
-                                      style={{ width: `${Math.min(100, course.priority)}%` }}
-                                    ></div>
+                                    <div className="flex items-center gap-3">
+                                      <span className={`px-4 py-2 bg-gradient-to-r ${getSubjectColor(subjectGroup.subject)} rounded-lg text-sm font-bold text-white shadow-lg`}>
+                                        📚 {subjectGroup.subject}
+                                      </span>
+                                      {subjectGroup.relevantTests && subjectGroup.relevantTests.length > 0 && (
+                                        <span className="px-3 py-1 bg-red-500/20 text-red-300 rounded-lg text-xs font-semibold border border-red-500/30">
+                                          🎯 {subjectGroup.relevantTests[0].type} dans {subjectGroup.relevantTests[0].daysUntilFromThisDay}j
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-xs text-slate-400">
+                                      {subjectGroup.chapters.length} chapitre{subjectGroup.chapters.length > 1 ? 's' : ''} à réviser
+                                    </span>
                                   </div>
                                 </div>
 
-                                {/* Liens OneDrive */}
-                                {course.oneDriveLinks && course.oneDriveLinks.length > 0 && (
-                                  <div className="mt-3 p-3 bg-slate-800/50 rounded-lg">
-                                    <p className="text-xs text-slate-400 mb-2">🔎 Documents disponibles:</p>
-                                    <div className="flex flex-wrap gap-2">
-                                      {course.oneDriveLinks.map(link => (
-                                        <a
-                                          key={link.id}
-                                          href={link.url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="px-3 py-1 bg-blue-600/30 border border-blue-500/50 text-blue-300 rounded-lg hover:bg-blue-600/50 transition-all text-xs font-semibold flex items-center gap-1"
-                                        >
-                                          <File className="w-3 h-3" />
-                                          {link.name}
-                                        </a>
-                                      ))}
+                                {/* Chapters List */}
+                                <div className="space-y-3">
+                                  {subjectGroup.chapters.map((course, chapterIdx) => (
+                                    <div key={course.id} className={`p-4 rounded-lg border ${
+                                      course.urgency === 'high' ? 'border-red-500/50 bg-red-900/10' : 
+                                      course.urgency === 'medium' ? 'border-orange-500/50 bg-orange-900/10' : 
+                                      'border-slate-700/50 bg-slate-800/50'
+                                    }`}>
+                                      <div className="flex items-start justify-between mb-3">
+                                        <div className="flex-1">
+                                          <div className="flex items-center gap-3 mb-2">
+                                            <span className="px-3 py-1 bg-indigo-600/40 text-indigo-200 rounded text-xs font-bold border border-indigo-500/30">
+                                              📖 Suggestion {chapterIdx + 1}
+                                            </span>
+                                            {course.urgency === 'high' && (
+                                              <span className="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs font-semibold">
+                                                🔥 URGENT
+                                              </span>
+                                            )}
+                                            {course.urgency === 'medium' && (
+                                              <span className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded text-xs font-semibold">
+                                                ⚠️ BIENTÔT
+                                              </span>
+                                            )}
+                                          </div>
+                                          <h4 className="text-xl font-bold text-white mb-2">{course.chapter}</h4>
+                                          <p className="text-sm text-indigo-300 mb-2">💡 {course.reason}</p>
+                                          {course.suggestedDuration && (
+                                            <p className="text-sm text-green-300 mb-2">⏱️ {course.suggestedDuration} recommandées</p>
+                                          )}
+                                          <div className="flex items-center gap-4 text-sm text-slate-400">
+                                            <span>🎯 Maîtrise: {course.mastery || 0}%</span>
+                                            <span>🔄 {course.reviewCount || 0} révision(s)</span>
+                                            {course.lastReviewed && (
+                                              <span>📅 {new Date(course.lastReviewed).toLocaleDateString('fr-FR')}</span>
+                                            )}
+                                          </div>
+                                        </div>
+                                        <div className="flex flex-col gap-2">
+                                          <button
+                                            onClick={() => markAsReviewed(course.id, 15)}
+                                            className="px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm whitespace-nowrap"
+                                          >
+                                            ✔ Marquer révisé
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {/* Barre de priorité */}
+                                      <div className="mt-3">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <span className="text-xs text-slate-400">Priorité de révision</span>
+                                          <span className="text-xs font-bold text-white">{Math.round(course.priority)}%</span>
+                                        </div>
+                                        <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                          <div 
+                                            className={`h-full transition-all ${
+                                              course.priority > 80 ? 'bg-gradient-to-r from-red-500 to-orange-500' :
+                                              course.priority > 50 ? 'bg-gradient-to-r from-orange-500 to-yellow-500' :
+                                              'bg-gradient-to-r from-green-500 to-emerald-500'
+                                            }`}
+                                            style={{ width: `${Math.min(100, course.priority)}%` }}
+                                          ></div>
+                                        </div>
+                                      </div>
+
+                                      {/* Liens OneDrive */}
+                                      {course.oneDriveLinks && course.oneDriveLinks.length > 0 && (
+                                        <div className="mt-3 p-3 bg-slate-800/50 rounded-lg">
+                                          <p className="text-xs text-slate-400 mb-2">🔎 Documents disponibles:</p>
+                                          <div className="flex flex-wrap gap-2">
+                                            {course.oneDriveLinks.map(link => (
+                                              <a
+                                                key={link.id}
+                                                href={link.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="px-3 py-1 bg-blue-600/30 border border-blue-500/50 text-blue-300 rounded-lg hover:bg-blue-600/50 transition-all text-xs font-semibold flex items-center gap-1"
+                                              >
+                                                <File className="w-3 h-3" />
+                                                {link.name}
+                                              </a>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
                                     </div>
-                                  </div>
-                                )}
+                                  ))}
+                                </div>
                               </div>
                             ))}
                           </div>
