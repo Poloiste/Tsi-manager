@@ -850,8 +850,8 @@ function App() {
       const subjectData = subjectScores[subject];
       const subjectCourses = coursesBySubject[subject];
       
-      // Sort chapters by urgency and priority within this subject
-      const sortedChapters = subjectCourses.sort((a, b) => {
+      // Sort chapters by urgency and priority within this subject (create copy to avoid mutation)
+      const sortedChapters = [...subjectCourses].sort((a, b) => {
         // First by urgency
         const urgencyOrder = { high: 3, medium: 2, low: 1 };
         const urgencyA = a.relevantTest ? (
@@ -4068,7 +4068,7 @@ function App() {
                                         <div className="flex-1">
                                           <div className="flex items-center gap-3 mb-2">
                                             <span className="px-3 py-1 bg-indigo-600/40 text-indigo-200 rounded text-xs font-bold border border-indigo-500/30">
-                                              Chapitre {chapterIdx + 1}
+                                              📖 Suggestion {chapterIdx + 1}
                                             </span>
                                             {course.urgency === 'high' && (
                                               <span className="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs font-semibold">
