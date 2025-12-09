@@ -217,19 +217,24 @@ CREATE POLICY "Users see only their flashcard stats" ON public.user_flashcard_st
 -- ==========================================
 
 -- Chat Channels
+-- Allow all authenticated users to read channels
 DROP POLICY IF EXISTS "Anyone can read channels" ON public.chat_channels;
 CREATE POLICY "Anyone can read channels" ON public.chat_channels
   FOR SELECT USING (true);
 
 -- Chat Messages
+-- Allow all authenticated users to read messages
 DROP POLICY IF EXISTS "Anyone can read messages" ON public.chat_messages;
 CREATE POLICY "Anyone can read messages" ON public.chat_messages
   FOR SELECT USING (true);
 
+-- Allow authenticated users to send messages
 DROP POLICY IF EXISTS "Authenticated users can send messages" ON public.chat_messages;
 CREATE POLICY "Authenticated users can send messages" ON public.chat_messages
   FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
+-- Allow users to delete only their own messages
+-- This ensures users can only delete messages where user_id matches their auth.uid()
 DROP POLICY IF EXISTS "Users can delete their own messages" ON public.chat_messages;
 CREATE POLICY "Users can delete their own messages" ON public.chat_messages
   FOR DELETE USING (auth.uid() = user_id);
