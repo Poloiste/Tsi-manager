@@ -3,7 +3,7 @@ import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
   FolderOpen, LogOut, Send, MessageCircle, Menu, Download, Copy, FileText,
-  HelpCircle, Search, Award, Target, Flame, Bell
+  HelpCircle, Search, Award, Target, Flame, Bell, Users
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
@@ -31,6 +31,11 @@ import { useQuiz } from './hooks/useQuiz';
 import { QuizSetup } from './components/QuizSetup';
 import { QuizSession } from './components/QuizSession';
 import { QuizResults } from './components/QuizResults';
+import { useStudyGroups } from './hooks/useStudyGroups';
+import { GroupCard } from './components/GroupCard';
+import { GroupDetail } from './components/GroupDetail';
+import { CreateGroupModal } from './components/CreateGroupModal';
+import { JoinGroupModal } from './components/JoinGroupModal';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -276,6 +281,16 @@ function App() {
   // États pour les notifications
   const [showNotifications, setShowNotifications] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
+  
+  // Hook de groupes d'étude
+  const studyGroups = useStudyGroups(user?.id);
+  
+  // États pour les groupes d'étude
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showJoinByCode, setShowJoinByCode] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [showGroupDetail, setShowGroupDetail] = useState(false);
+  const [groupLeaderboard, setGroupLeaderboard] = useState([]);
   
   const [newCourse, setNewCourse] = useState({
     subject: '',
@@ -2542,6 +2557,7 @@ function App() {
                 { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
                 { id: 'quiz', label: '📝 Quiz' },
+                { id: 'groups', label: '👥 Groupes' },
                 { id: 'suggestions', label: '🎯 Suggestions' },
                 { id: 'stats', label: '📊 Stats' }
               ].map(tab => (
@@ -2567,6 +2583,7 @@ function App() {
                 { id: 'flashcards', icon: '🎴', label: 'Révision' },
                 { id: 'courses', icon: '📚', label: 'Cours' },
                 { id: 'quiz', icon: '📝', label: 'Quiz' },
+                { id: 'groups', icon: '👥', label: 'Groupes' },
                 { id: 'suggestions', icon: '🎯', label: 'Sugg.' },
                 { id: 'stats', icon: '📊', label: 'Stats' }
               ].map(tab => (
@@ -2769,6 +2786,7 @@ function App() {
                 { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'courses', label: '📚 Cours' },
                 { id: 'quiz', label: '📝 Quiz' },
+                { id: 'groups', label: '👥 Groupes' },
                 { id: 'suggestions', label: '🎯 Suggestions' },
                 { id: 'stats', label: '📊 Stats' }
               ].map(tab => (
@@ -4676,6 +4694,116 @@ function App() {
               )}
             </div>
           )}
+
+          {/* TAB GROUPS */}
+          {activeTab === 'groups' && (
+            <div className="w-full">
+              <div className="mb-12 text-center">
+                <h2 className="text-5xl font-bold text-white mb-3">👥 Groupes d'Étude</h2>
+                <p className="text-indigo-300 text-lg">Collaborez et progressez ensemble</p>
+              </div>
+
+              {/* Boutons d'action principaux */}
+              <div className="flex flex-wrap gap-4 justify-center mb-8">
+                <button
+                  onClick={() => setShowCreateGroup(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-500 hover:to-purple-500 transition-all font-semibold shadow-lg shadow-indigo-500/25"
+                >
+                  <Plus className="w-5 h-5" />
+                  Créer un groupe
+                </button>
+                <button
+                  onClick={() => setShowJoinByCode(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-500 hover:to-pink-500 transition-all font-semibold shadow-lg shadow-purple-500/25"
+                >
+                  🔗 Rejoindre par code
+                </button>
+              </div>
+
+              {/* Mes Groupes */}
+              <div className="mb-12">
+                <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                  📌 Mes Groupes
+                  {studyGroups.myGroups.length > 0 && (
+                    <span className="text-lg text-indigo-400">({studyGroups.myGroups.length})</span>
+                  )}
+                </h3>
+                
+                {studyGroups.isLoading ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto"></div>
+                    <p className="text-slate-400 mt-4">Chargement...</p>
+                  </div>
+                ) : studyGroups.myGroups.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {studyGroups.myGroups.map(group => (
+                      <GroupCard
+                        key={group.id}
+                        group={group}
+                        onAction={async () => {
+                          const details = await studyGroups.loadGroupDetails(group.id);
+                          const leaderboard = await studyGroups.loadGroupLeaderboard(group.id);
+                          setSelectedGroup(details);
+                          setGroupLeaderboard(leaderboard);
+                          setShowGroupDetail(true);
+                        }}
+                        actionLabel="Voir"
+                        isDark={isDark}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-slate-800/50 rounded-2xl border border-slate-700">
+                    <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                    <p className="text-slate-400 text-lg mb-2">Vous n'êtes membre d'aucun groupe</p>
+                    <p className="text-slate-500 text-sm">Créez votre premier groupe ou rejoignez-en un !</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Groupes Publics */}
+              <div>
+                <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+                  🌐 Groupes Publics
+                  {studyGroups.availableGroups.length > 0 && (
+                    <span className="text-lg text-indigo-400">({studyGroups.availableGroups.length})</span>
+                  )}
+                </h3>
+                
+                {studyGroups.isLoading ? (
+                  <div className="text-center py-12">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto"></div>
+                    <p className="text-slate-400 mt-4">Chargement...</p>
+                  </div>
+                ) : studyGroups.availableGroups.length > 0 ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {studyGroups.availableGroups.map(group => (
+                      <GroupCard
+                        key={group.id}
+                        group={group}
+                        onAction={async () => {
+                          try {
+                            await studyGroups.joinGroup(group.id);
+                            showSuccess('Groupe rejoint avec succès !');
+                          } catch (error) {
+                            showWarning(error.message || 'Erreur lors de la tentative de rejoindre le groupe');
+                          }
+                        }}
+                        actionLabel="Rejoindre"
+                        isDark={isDark}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-12 bg-slate-800/50 rounded-2xl border border-slate-700">
+                    <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                    <p className="text-slate-400 text-lg mb-2">Aucun groupe public disponible</p>
+                    <p className="text-slate-500 text-sm">Soyez le premier à créer un groupe public !</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -5579,6 +5707,95 @@ function App() {
           onClose={() => setShowNotificationSettings(false)}
           onRequestPermission={requestNotificationPermission}
           permission={notificationPermission}
+        />
+      )}
+
+      {/* Study Groups Modals */}
+      {showCreateGroup && (
+        <CreateGroupModal
+          onClose={() => setShowCreateGroup(false)}
+          onCreate={async (data) => {
+            try {
+              const newGroup = await studyGroups.createGroup(data);
+              showSuccess(`Groupe "${newGroup.name}" créé avec succès !`);
+              setShowCreateGroup(false);
+            } catch (error) {
+              showWarning(error.message || 'Erreur lors de la création du groupe');
+              throw error;
+            }
+          }}
+          isDark={isDark}
+        />
+      )}
+
+      {showJoinByCode && (
+        <JoinGroupModal
+          onClose={() => setShowJoinByCode(false)}
+          onJoin={async (code) => {
+            try {
+              const group = await studyGroups.joinByCode(code);
+              showSuccess(`Vous avez rejoint le groupe "${group.name}" !`);
+            } catch (error) {
+              throw error;
+            }
+          }}
+          isDark={isDark}
+        />
+      )}
+
+      {showGroupDetail && selectedGroup && (
+        <GroupDetail
+          group={selectedGroup}
+          onClose={() => {
+            setShowGroupDetail(false);
+            setSelectedGroup(null);
+            setGroupLeaderboard([]);
+          }}
+          onLeave={async (groupId) => {
+            try {
+              await studyGroups.leaveGroup(groupId);
+              showSuccess('Vous avez quitté le groupe');
+              setShowGroupDetail(false);
+              setSelectedGroup(null);
+            } catch (error) {
+              showWarning(error.message || 'Erreur lors de la sortie du groupe');
+            }
+          }}
+          onDelete={async (groupId) => {
+            try {
+              await studyGroups.deleteGroup(groupId);
+              showSuccess('Groupe supprimé avec succès');
+            } catch (error) {
+              showWarning(error.message || 'Erreur lors de la suppression du groupe');
+            }
+          }}
+          onGenerateCode={async (groupId) => {
+            try {
+              const newCode = await studyGroups.generateInviteCode(groupId);
+              showSuccess(`Nouveau code généré : ${newCode}`);
+              // Recharger les détails du groupe
+              const details = await studyGroups.loadGroupDetails(groupId);
+              setSelectedGroup(details);
+            } catch (error) {
+              showWarning(error.message || 'Erreur lors de la génération du code');
+            }
+          }}
+          onShareDecks={async (groupId, deckIds) => {
+            try {
+              await studyGroups.shareDecksToGroup(groupId, deckIds);
+              showSuccess(`${deckIds.length} deck(s) partagé(s) avec le groupe`);
+              // Recharger les détails du groupe
+              const details = await studyGroups.loadGroupDetails(groupId);
+              setSelectedGroup(details);
+            } catch (error) {
+              showWarning(error.message || 'Erreur lors du partage des decks');
+            }
+          }}
+          leaderboard={groupLeaderboard}
+          availableDecks={courses}
+          isDark={isDark}
+          currentUserId={user?.id}
+          isAdmin={selectedGroup?.members?.find(m => m.user_id === user?.id)?.role === 'admin'}
         />
       )}
 
