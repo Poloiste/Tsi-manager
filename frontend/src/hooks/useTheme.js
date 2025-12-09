@@ -3,17 +3,7 @@ import { useState, useEffect } from 'react';
 export function useTheme() {
   const [theme, setThemeState] = useState('dark');
   
-  useEffect(() => {
-    const saved = localStorage.getItem('theme');
-    if (saved) {
-      setThemeState(saved);
-      applyTheme(saved);
-    } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
-      setThemeState('light');
-      applyTheme('light');
-    }
-  }, []);
-
+  // Apply theme to document root
   const applyTheme = (newTheme) => {
     const root = document.documentElement;
     root.classList.remove('dark', 'light');
@@ -24,6 +14,19 @@ export function useTheme() {
       root.classList.add(newTheme);
     }
   };
+  
+  useEffect(() => {
+    const saved = localStorage.getItem('theme');
+    // Validate saved theme value
+    const validThemes = ['dark', 'light', 'system'];
+    if (saved && validThemes.includes(saved)) {
+      setThemeState(saved);
+      applyTheme(saved);
+    } else if (window.matchMedia('(prefers-color-scheme: light)').matches) {
+      setThemeState('light');
+      applyTheme('light');
+    }
+  }, []);
 
   const setTheme = (newTheme) => {
     setThemeState(newTheme);
