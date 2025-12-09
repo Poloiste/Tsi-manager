@@ -2044,7 +2044,6 @@ function App() {
       try {
         // Remove BOM and normalize Unicode to ensure consistent character encoding
         const content = removeBOM(e.target.result).normalize('NFC');
-        
         const lines = content.split('\n').filter(line => line.trim());
         
         if (lines.length === 0) {
@@ -2081,7 +2080,7 @@ function App() {
 
         const separator = detectSeparator(lines[0]);
         
-        // Parse CSV with proper quote handling and Unicode normalization
+        // Parse CSV with proper quote handling
         // Follows RFC 4180: fields may be quoted, quotes within fields are escaped by doubling
         const parseCSVLine = (line) => {
           const result = [];
