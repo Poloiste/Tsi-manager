@@ -30,36 +30,8 @@ export function useChatNotifications(userId, selectedChannel, channels) {
   const lastNotificationTime = useRef({});
   const NOTIFICATION_COOLDOWN_MS = 3000; // 3 secondes entre notifications du même canal
   
-  // Référence pour l'audio de notification
-  const notificationSound = useRef(null);
-  
-  // Initialiser l'audio de notification
-  useEffect(() => {
-    // Créer un son simple avec l'API Web Audio
-    try {
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      const createBeep = () => {
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-        
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.frequency.value = 800;
-        oscillator.type = 'sine';
-        
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.3);
-      };
-      
-      notificationSound.current = createBeep;
-    } catch (error) {
-      console.warn('Web Audio API not supported:', error);
-    }
-  }, []);
+  // Référence pour l'audio context (créé paresseusement)
+  const audioContextRef = useRef(null);
   
   // Calculer le nombre total de messages non lus
   const totalUnreadCount = Object.values(unreadMessages).reduce((sum, count) => sum + count, 0);
@@ -139,12 +111,31 @@ export function useChatNotifications(userId, selectedChannel, channels) {
   
   // Jouer le son de notification
   const playNotificationSound = useCallback(() => {
-    if (soundEnabled && notificationSound.current) {
-      try {
-        notificationSound.current();
-      } catch (error) {
-        console.warn('Error playing notification sound:', error);
+    if (!soundEnabled) return;
+    
+    try {
+      // Créer AudioContext paresseusement au premier usage
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
       }
+      
+      const audioContext = audioContextRef.current;
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (error) {
+      console.warn('Error playing notification sound:', error);
     }
   }, [soundEnabled]);
   
@@ -191,7 +182,7 @@ export function useChatNotifications(userId, selectedChannel, channels) {
   }, []);
   
   // Incrémenter le compteur de messages non lus pour un canal
-  const incrementUnreadCount = useCallback((channelId, channelName) => {
+  const incrementUnreadCount = useCallback((channelId) => {
     if (!channelId) return;
     
     setUnreadMessages(prev => ({
@@ -224,7 +215,7 @@ export function useChatNotifications(userId, selectedChannel, channels) {
     }
     
     // Sinon, incrémenter le compteur et envoyer notifications
-    incrementUnreadCount(channelId, channelName);
+    incrementUnreadCount(channelId);
     playNotificationSound();
     
     // Envoyer notification navigateur si activée
