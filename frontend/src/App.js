@@ -23,6 +23,7 @@ import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './uti
 import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
 import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType } from './utils/suggestionHelpers';
 import { useSRS } from './hooks/useSRS';
+import { useQuiz } from './hooks/useQuiz';
 import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } from './utils/srsAlgorithm';
 import { useTheme } from './hooks/useTheme';
 import { getThemeClasses } from './utils/themeColors';
