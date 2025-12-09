@@ -2064,9 +2064,12 @@ function App() {
     }
 
     // Échapper les guillemets et entourer les valeurs de guillemets
+    // Normalize special characters to ensure proper encoding
     const escapeCSV = (str) => {
       if (!str) return '""';
-      return '"' + String(str).replace(/"/g, '""') + '"';
+      // Convert to string, normalize Unicode (NFC), escape quotes, and wrap in quotes
+      const normalized = String(str).normalize('NFC').replace(/"/g, '""');
+      return '"' + normalized + '"';
     };
 
     // Créer le contenu CSV avec en-têtes
@@ -2080,8 +2083,9 @@ function App() {
       csvContent += `${escapeCSV(f.question)},${escapeCSV(f.answer)},${escapeCSV(subject)},${escapeCSV(chapter)}\n`;
     });
 
-    // Créer et télécharger le fichier avec encodage UTF-8
-    const BOM = '\uFEFF'; // UTF-8 BOM pour Excel
+    // Créer et télécharger le fichier avec encodage UTF-8 BOM
+    // UTF-8 BOM ensures proper encoding in Excel and other tools
+    const BOM = '\uFEFF';
     const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
@@ -2106,10 +2110,14 @@ function App() {
       return;
     }
 
+    // Helper to remove UTF-8 BOM (Byte Order Mark) if present
+    const removeBOM = (text) => text.charCodeAt(0) === 0xFEFF ? text.substring(1) : text;
+
     const reader = new FileReader();
     reader.onload = async (e) => {
       try {
-        const content = e.target.result;
+        // Remove BOM and normalize Unicode to ensure consistent character encoding
+        const content = removeBOM(e.target.result).normalize('NFC');
         const lines = content.split('\n').filter(line => line.trim());
         
         if (lines.length === 0) {
@@ -2146,7 +2154,8 @@ function App() {
 
         const separator = detectSeparator(lines[0]);
         
-        // Parser CSV avec gestion des guillemets
+        // Parse CSV with proper quote handling
+        // Follows RFC 4180: fields may be quoted, quotes within fields are escaped by doubling
         const parseCSVLine = (line) => {
           const result = [];
           let current = '';
@@ -2159,7 +2168,7 @@ function App() {
             if (char === '"') {
               if (inQuotes && nextChar === '"') {
                 current += '"';
-                i++; // Skip next quote
+                i++; // Skip the escaped quote (RFC 4180)
               } else {
                 inQuotes = !inQuotes;
               }
@@ -2233,6 +2242,7 @@ function App() {
       }
     };
 
+    // Try to read as UTF-8 first
     reader.readAsText(file, 'UTF-8');
   };
 
