@@ -27,6 +27,10 @@ import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } fr
 import { useTheme } from './hooks/useTheme';
 import { getThemeClasses } from './utils/themeColors';
 import { ThemeToggle } from './components/ThemeToggle';
+import { useQuiz } from './hooks/useQuiz';
+import { QuizSetup } from './components/QuizSetup';
+import { QuizSession } from './components/QuizSession';
+import { QuizResults } from './components/QuizResults';
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
