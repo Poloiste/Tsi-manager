@@ -237,7 +237,8 @@ export function GroupDetail({
                 {/* Info sur l'expiration */}
                 {group.invite_code_expires_at && (
                   <p className={`text-xs mt-2 ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>
-                    💡 Ce code expire le {new Date(group.invite_code_expires_at).toLocaleDateString('fr-FR', { 
+                    <span className="mr-1" aria-hidden="true">💡</span>
+                    Ce code expire le {new Date(group.invite_code_expires_at).toLocaleDateString('fr-FR', { 
                       day: 'numeric', 
                       month: 'long', 
                       year: 'numeric' 
@@ -591,7 +592,8 @@ export function GroupDetail({
               }
             `}>
               <h3 className={`text-xl font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                ⚠️ Confirmer la suppression
+                <span className="mr-2" aria-hidden="true">⚠️</span>
+                Confirmer la suppression
               </h3>
               <p className={`mb-4 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
                 Êtes-vous sûr de vouloir supprimer définitivement ce groupe ?
@@ -604,7 +606,8 @@ export function GroupDetail({
                 }
               `}>
                 <p className={`text-sm font-semibold ${isDark ? 'text-red-300' : 'text-red-700'}`}>
-                  ⚠️ Cette action est irréversible et supprimera :
+                  <span className="mr-1" aria-hidden="true">⚠️</span>
+                  Cette action est irréversible et supprimera :
                 </p>
                 <ul className={`text-sm mt-2 space-y-1 ${isDark ? 'text-red-400' : 'text-red-600'}`}>
                   <li>• Tous les membres du groupe</li>
