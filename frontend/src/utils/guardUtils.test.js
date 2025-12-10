@@ -19,26 +19,30 @@ describe('guardUtils', () => {
 
   describe('rateLimit', () => {
     it('should allow first call immediately', () => {
-      const fn = jest.fn();
+      const fn = jest.fn(() => 'result');
       const limited = rateLimit(fn, 100, 'test');
       
-      limited();
+      const result = limited();
       expect(fn).toHaveBeenCalledTimes(1);
+      expect(result).toBe('result');
     });
 
-    it('should block rapid successive calls', () => {
-      const fn = jest.fn();
+    it('should block rapid successive calls and return last result', () => {
+      const fn = jest.fn(() => 'result');
       const limited = rateLimit(fn, 100, 'test');
       
-      limited();
-      limited();
-      limited();
+      const result1 = limited();
+      const result2 = limited(); // Should be blocked
+      const result3 = limited(); // Should be blocked
       
       expect(fn).toHaveBeenCalledTimes(1);
+      expect(result1).toBe('result');
+      expect(result2).toBe('result'); // Returns last valid result
+      expect(result3).toBe('result'); // Returns last valid result
     });
 
     it('should allow calls after minimum interval', () => {
-      const fn = jest.fn();
+      const fn = jest.fn(() => 'result');
       const limited = rateLimit(fn, 100, 'test');
       
       limited();
@@ -50,7 +54,7 @@ describe('guardUtils', () => {
 
     it('should warn on excessive calls per second', () => {
       const consoleWarn = jest.spyOn(console, 'warn').mockImplementation();
-      const fn = jest.fn();
+      const fn = jest.fn(() => 'result');
       const limited = rateLimit(fn, 1, 'test');
       
       // Call 21 times rapidly
@@ -112,6 +116,28 @@ describe('guardUtils', () => {
       const protectedFn = preventDeepRecursion((n, fn) => recursiveFn(n, fn), 'test', 10);
       
       expect(() => protectedFn(20, protectedFn)).toThrow('Maximum call stack depth exceeded');
+    });
+
+    it('should enforce recovery period after overflow', () => {
+      let callCount = 0;
+      const recursiveFn = function(n, protectedFn) {
+        callCount++;
+        if (n > 0) return protectedFn(n - 1, protectedFn);
+        return n;
+      };
+      
+      const protectedFn = preventDeepRecursion((n, fn) => recursiveFn(n, fn), 'test', 10);
+      
+      // First overflow
+      expect(() => protectedFn(20, protectedFn)).toThrow('Maximum call stack depth exceeded');
+      
+      // Immediate retry should fail with recovery message
+      expect(() => protectedFn(5, protectedFn)).toThrow('recovery period');
+      
+      // After recovery period, should work
+      jest.advanceTimersByTime(1000);
+      const result = protectedFn(3, protectedFn);
+      expect(result).toBe(0);
     });
 
     it('should handle async functions', async () => {

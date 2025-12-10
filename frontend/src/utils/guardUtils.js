@@ -13,6 +13,7 @@
 export function rateLimit(fn, minInterval = 100, name = 'anonymous') {
   let lastCallTime = 0;
   let callCount = 0;
+  let lastResult = undefined;
   const MAX_CALLS_PER_SECOND = 20;
   const RESET_INTERVAL = 1000;
   
@@ -38,7 +39,8 @@ export function rateLimit(fn, minInterval = 100, name = 'anonymous') {
         `[guardUtils] Function "${name}" called ${callCount} times in ${RESET_INTERVAL}ms. ` +
         `This might indicate an infinite loop. Blocking further calls.`
       );
-      return;
+      // Return last valid result to maintain predictable behavior
+      return lastResult;
     }
     
     // Check minimum interval
@@ -50,11 +52,14 @@ export function rateLimit(fn, minInterval = 100, name = 'anonymous') {
           `(${timeSinceLastCall}ms < ${minInterval}ms)`
         );
       }
-      return;
+      // Return last valid result instead of undefined
+      return lastResult;
     }
     
     lastCallTime = now;
-    return fn.apply(this, args);
+    const result = fn.apply(this, args);
+    lastResult = result;
+    return result;
   };
 }
 
@@ -89,8 +94,27 @@ export function debounce(fn, delay = 300) {
  */
 export function preventDeepRecursion(fn, name = 'anonymous', maxDepth = 100) {
   let currentDepth = 0;
+  let overflowDetectedAt = 0;
+  const RECOVERY_PERIOD_MS = 1000; // Wait 1 second before allowing recursion again
   
   return function(...args) {
+    const now = Date.now();
+    
+    // If we recently detected overflow, prevent immediate re-entry
+    if (overflowDetectedAt > 0) {
+      const timeSinceOverflow = now - overflowDetectedAt;
+      if (timeSinceOverflow < RECOVERY_PERIOD_MS) {
+        console.error(
+          `[guardUtils] Function "${name}" still in recovery period after overflow. ` +
+          `Wait ${RECOVERY_PERIOD_MS - timeSinceOverflow}ms before retrying.`
+        );
+        throw new Error(`${name} is in recovery period after stack overflow`);
+      }
+      // Recovery period elapsed, allow retry
+      overflowDetectedAt = 0;
+      currentDepth = 0;
+    }
+    
     currentDepth++;
     
     if (currentDepth > maxDepth) {
@@ -98,7 +122,8 @@ export function preventDeepRecursion(fn, name = 'anonymous', maxDepth = 100) {
         `[guardUtils] Maximum call depth exceeded for "${name}". ` +
         `Current depth: ${currentDepth}. This indicates an infinite recursion.`
       );
-      currentDepth = 0; // Reset to allow recovery
+      overflowDetectedAt = now; // Mark overflow time for recovery period
+      currentDepth = 0;
       throw new Error(`Maximum call stack depth exceeded in ${name}`);
     }
     
