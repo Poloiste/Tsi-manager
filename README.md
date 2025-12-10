@@ -150,6 +150,12 @@ L'application React s'ouvre automatiquement dans votre navigateur sur `http://lo
   - Salon général pour discussions diverses
   - Messages en temps réel avec Supabase Realtime
   - Suppression de vos propres messages
+- **👥 Groupes d'étude** : Créez et rejoignez des groupes d'étude collaboratifs
+  - Créez des groupes publics ou privés avec codes d'invitation
+  - Chat en temps réel réservé aux membres du groupe
+  - Partagez des decks de révision avec votre groupe
+  - Classement des membres par XP et progression
+  - Gestion des rôles (admin/membre)
 - **Événements personnels** : DS, Colles, DM personnalisés par utilisateur
 - **Statistiques** : Vue d'ensemble de votre progression personnelle
 - **Interface utilisateur moderne** : Dark theme avec design responsive
@@ -183,6 +189,7 @@ L'application React s'ouvre automatiquement dans votre navigateur sur `http://lo
 
 **Système de groupes :**
 - `groupes` - Groupes d'étude avec nom, description, date de création et créateur
+- `group_chats` - Messages de chat pour les groupes d'étude (nouveau)
 
 #### Politiques de sécurité (RLS)
 
@@ -191,6 +198,7 @@ Le script configure automatiquement les politiques de sécurité Row Level Secur
 - **Données personnelles** : Chaque utilisateur ne voit que ses propres données
 - **Chat** : Tous peuvent lire les messages, utilisateurs authentifiés peuvent envoyer, chacun peut supprimer ses messages
 - **Groupes** : Tous peuvent voir les groupes, seul le créateur peut modifier ou supprimer son groupe
+- **Chat de groupe** : Seuls les membres d'un groupe peuvent lire et envoyer des messages dans leur groupe (nouveau)
 
 ### Migration depuis localStorage
 
