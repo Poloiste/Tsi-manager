@@ -212,7 +212,7 @@ function App() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   
   // États pour les sous-sections des onglets fusionnés
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(true);
   const [discussionsView, setDiscussionsView] = useState('channels'); // 'channels' | 'groups'
   
   // États pour la recherche globale
@@ -3083,6 +3083,18 @@ function App() {
                   >
                     <Plus className="w-5 h-5" />
                     <span className="text-sm sm:text-base">Ajouter</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowSuggestions(!showSuggestions)}
+                    className={`flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg flex items-center justify-center gap-2 transition-all min-h-[44px] font-semibold ${
+                      showSuggestions 
+                        ? 'bg-purple-600 hover:bg-purple-700 text-white' 
+                        : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                    }`}
+                  >
+                    <Brain className="w-4 h-4" />
+                    <span className="text-sm sm:text-base">Suggestions</span>
                   </button>
                 </div>
               </div>
