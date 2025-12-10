@@ -457,29 +457,44 @@ export function useStudyGroups(userId) {
 
   // Charger les détails d'un groupe
   const loadGroupDetails = useCallback(async (groupId) => {
-    if (!userId) return;
+    if (!userId) {
+      console.warn('[useStudyGroups] loadGroupDetails called without userId');
+      return;
+    }
 
+    console.log('[useStudyGroups] Loading details for group:', groupId);
     setIsLoading(true);
     try {
       // Charger le groupe
+      console.log('[useStudyGroups] Fetching group data...');
       const { data: group, error: groupError } = await supabase
         .from('study_groups')
         .select('*')
         .eq('id', groupId)
         .single();
 
-      if (groupError) throw groupError;
+      if (groupError) {
+        console.error('[useStudyGroups] Error fetching group:', groupError);
+        throw new Error(`Impossible de charger le groupe: ${groupError.message}`);
+      }
+      console.log('[useStudyGroups] Group data loaded:', group);
 
       // Charger les membres
+      console.log('[useStudyGroups] Fetching members...');
       const { data: members, error: membersError } = await supabase
         .from('study_group_members')
         .select('*')
         .eq('group_id', groupId)
         .order('joined_at', { ascending: true });
 
-      if (membersError) throw membersError;
+      if (membersError) {
+        console.error('[useStudyGroups] Error fetching members:', membersError);
+        throw new Error(`Impossible de charger les membres: ${membersError.message}`);
+      }
+      console.log('[useStudyGroups] Members loaded:', members?.length || 0, 'members');
 
       // Charger les decks partagés
+      console.log('[useStudyGroups] Fetching shared decks...');
       const { data: sharedDecks, error: decksError } = await supabase
         .from('study_group_shared_decks')
         .select(`
@@ -494,9 +509,15 @@ export function useStudyGroups(userId) {
         .eq('group_id', groupId)
         .order('shared_at', { ascending: false });
 
-      if (decksError) throw decksError;
+      if (decksError) {
+        console.error('[useStudyGroups] Error fetching shared decks:', decksError);
+        // Don't throw, just log - shared decks are optional
+        console.warn('[useStudyGroups] Continuing without shared decks');
+      }
+      console.log('[useStudyGroups] Shared decks loaded:', sharedDecks?.length || 0, 'decks');
 
       // Charger les activités récentes
+      console.log('[useStudyGroups] Fetching activities...');
       const { data: activities, error: activitiesError } = await supabase
         .from('study_group_activities')
         .select('*')
@@ -504,7 +525,12 @@ export function useStudyGroups(userId) {
         .order('created_at', { ascending: false })
         .limit(20);
 
-      if (activitiesError) throw activitiesError;
+      if (activitiesError) {
+        console.error('[useStudyGroups] Error fetching activities:', activitiesError);
+        // Don't throw, just log - activities are optional
+        console.warn('[useStudyGroups] Continuing without activities');
+      }
+      console.log('[useStudyGroups] Activities loaded:', activities?.length || 0, 'activities');
 
       const groupDetails = {
         ...group,
@@ -513,39 +539,63 @@ export function useStudyGroups(userId) {
         activities: activities || []
       };
 
+      console.log('[useStudyGroups] Group details assembled successfully');
       setCurrentGroup(groupDetails);
       return groupDetails;
     } catch (error) {
-      console.error('Error loading group details:', error);
+      console.error('[useStudyGroups] Fatal error loading group details:', error);
       throw error;
     } finally {
       setIsLoading(false);
+      console.log('[useStudyGroups] loadGroupDetails completed');
     }
   }, [userId]);
 
   // Charger le leaderboard du groupe
   const loadGroupLeaderboard = useCallback(async (groupId) => {
-    if (!userId) return;
+    if (!userId) {
+      console.warn('[useStudyGroups] loadGroupLeaderboard called without userId');
+      return [];
+    }
 
+    console.log('[useStudyGroups] Loading leaderboard for group:', groupId);
     setIsLoading(true);
     try {
       // Récupérer les membres du groupe
+      console.log('[useStudyGroups] Fetching group members for leaderboard...');
       const { data: members, error: membersError } = await supabase
         .from('study_group_members')
         .select('user_id, role')
         .eq('group_id', groupId);
 
-      if (membersError) throw membersError;
+      if (membersError) {
+        console.error('[useStudyGroups] Error fetching members for leaderboard:', membersError);
+        throw new Error(`Impossible de charger les membres: ${membersError.message}`);
+      }
 
+      console.log('[useStudyGroups] Found', members?.length || 0, 'members');
       const userIds = members.map(m => m.user_id);
 
+      if (userIds.length === 0) {
+        console.log('[useStudyGroups] No members found, returning empty leaderboard');
+        return [];
+      }
+
       // Récupérer les profils de gamification
+      console.log('[useStudyGroups] Fetching gamification profiles for', userIds.length, 'users');
       const { data: profiles, error: profilesError } = await supabase
         .from('user_gamification')
         .select('*')
         .in('user_id', userIds);
 
-      if (profilesError) throw profilesError;
+      if (profilesError) {
+        console.error('[useStudyGroups] Error fetching gamification profiles:', profilesError);
+        // Don't throw - return empty leaderboard instead
+        console.warn('[useStudyGroups] Returning empty leaderboard due to error');
+        return [];
+      }
+
+      console.log('[useStudyGroups] Found', profiles?.length || 0, 'gamification profiles');
 
       // Combiner les données
       const leaderboard = (profiles || [])
@@ -564,12 +614,16 @@ export function useStudyGroups(userId) {
           return b.current_streak - a.current_streak;
         });
 
+      console.log('[useStudyGroups] Leaderboard assembled with', leaderboard.length, 'entries');
       return leaderboard;
     } catch (error) {
-      console.error('Error loading group leaderboard:', error);
-      throw error;
+      console.error('[useStudyGroups] Fatal error loading group leaderboard:', error);
+      // Return empty array instead of throwing
+      return [];
     } finally {
       setIsLoading(false);
+      console.log('[useStudyGroups] loadGroupLeaderboard completed');
+    }
     }
   }, [userId]);
 
