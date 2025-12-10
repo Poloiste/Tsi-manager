@@ -4,12 +4,12 @@ import { supabase } from '../supabaseClient';
 // Development logging utility
 const isDev = process.env.NODE_ENV === 'development';
 const log = (...args) => {
-  if (isDev) log(...args);
+  if (isDev) console.log(...args);
 };
 const logWarn = (...args) => {
-  if (isDev) logWarn(...args);
+  if (isDev) console.warn(...args);
 };
-const logError = (...args) => logError(...args); // Always log errors
+const logError = (...args) => console.error(...args); // Always log errors
 
 /**
  * Hook de gestion des groupes d'étude
@@ -714,7 +714,8 @@ export function useStudyGroups(userId) {
       loadMyGroups();
       loadAvailableGroups();
     }
-  }, [userId, loadMyGroups, loadAvailableGroups]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]); // Only re-run when userId changes to avoid infinite loops
 
   return {
     // États

@@ -374,7 +374,8 @@ export function useGamification(userId) {
     if (userId) {
       loadAll();
     }
-  }, [userId, loadBadges, loadUserBadges, loadUserProfile, loadDailyStats]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]); // Only re-run when userId changes to avoid infinite loops
 
   return {
     // États

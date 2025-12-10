@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from 'lucide-react';
 
 /**
@@ -119,7 +119,7 @@ export function ToastContainer({ toasts = [], onRemove }) {
 export function useToast() {
   const [toasts, setToasts] = useState([]);
 
-  const addToast = (message, type = 'info', duration = 5000) => {
+  const addToast = useCallback((message, type = 'info', duration = 5000) => {
     // Generate a more reliable unique ID
     const id = typeof crypto !== 'undefined' && crypto.randomUUID 
       ? crypto.randomUUID() 
@@ -129,16 +129,16 @@ export function useToast() {
     setToasts(prev => [...prev, newToast]);
     
     return id;
-  };
+  }, []);
 
-  const removeToast = (id) => {
+  const removeToast = useCallback((id) => {
     setToasts(prev => prev.filter(toast => toast.id !== id));
-  };
+  }, []);
 
-  const showSuccess = (message, duration) => addToast(message, 'success', duration);
-  const showError = (message, duration) => addToast(message, 'error', duration);
-  const showInfo = (message, duration) => addToast(message, 'info', duration);
-  const showWarning = (message, duration) => addToast(message, 'warning', duration);
+  const showSuccess = useCallback((message, duration) => addToast(message, 'success', duration), [addToast]);
+  const showError = useCallback((message, duration) => addToast(message, 'error', duration), [addToast]);
+  const showInfo = useCallback((message, duration) => addToast(message, 'info', duration), [addToast]);
+  const showWarning = useCallback((message, duration) => addToast(message, 'warning', duration), [addToast]);
 
   return {
     toasts,
