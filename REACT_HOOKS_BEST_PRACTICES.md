@@ -233,6 +233,70 @@ useEffect(() => {
 }, []);
 ```
 
+## Guard Utilities
+
+The project includes guard utilities in `utils/guardUtils.js` to prevent infinite loops and stack overflows:
+
+### Rate Limiting
+
+```javascript
+import { rateLimit } from '../utils/guardUtils';
+
+// Prevent function from being called too frequently
+const handleSearch = rateLimit((query) => {
+  performSearch(query);
+}, 100, 'search'); // Min 100ms between calls
+```
+
+### Debouncing
+
+```javascript
+import { debounce } from '../utils/guardUtils';
+
+// Delay execution until user stops typing
+const handleInputChange = debounce((value) => {
+  fetchSuggestions(value);
+}, 300); // 300ms delay
+```
+
+### Recursion Protection
+
+```javascript
+import { preventDeepRecursion } from '../utils/guardUtils';
+
+// Protect against infinite recursion
+const processTree = preventDeepRecursion(function(node) {
+  // Process node and children
+  node.children.forEach(child => processTree(child));
+}, 'processTree', 100); // Max depth of 100
+```
+
+### Circuit Breaker
+
+```javascript
+import { circuitBreaker } from '../utils/guardUtils';
+
+// Stop calling API after repeated failures
+const fetchData = circuitBreaker(async () => {
+  const response = await api.get('/data');
+  return response.data;
+}, {
+  threshold: 5, // Open circuit after 5 failures
+  resetTimeout: 60000, // Try again after 60s
+  name: 'fetchData'
+});
+```
+
+### State Update Guards
+
+```javascript
+import { guardStateUpdates } from '../utils/guardUtils';
+
+// Warn on excessive state updates
+const [data, setData] = useState([]);
+const guardedSetData = guardStateUpdates(setData, 'data', 50); // Max 50 updates/sec
+```
+
 ## Debugging Infinite Loops
 
 ### 1. Check useEffect Dependencies
