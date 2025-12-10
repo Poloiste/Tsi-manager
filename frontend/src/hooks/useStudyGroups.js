@@ -624,7 +624,6 @@ export function useStudyGroups(userId) {
       setIsLoading(false);
       console.log('[useStudyGroups] loadGroupLeaderboard completed');
     }
-    }
   }, [userId]);
 
   // Partager des decks au groupe
