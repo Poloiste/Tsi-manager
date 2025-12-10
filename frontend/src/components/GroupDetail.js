@@ -2,6 +2,13 @@ import React, { useState } from 'react';
 import { X, Users, Trophy, BookOpen, Copy, Check, LogOut, Trash2, RefreshCw, Share2 } from 'lucide-react';
 import { GroupLeaderboard } from './GroupLeaderboard';
 
+// Development logging utility
+const isDev = process.env.NODE_ENV === 'development';
+const log = (...args) => {
+  if (isDev) console.log(...args);
+};
+const logError = (...args) => console.error(...args); // Always log errors
+
 /**
  * Composant GroupDetail - Page/Modal de détail d'un groupe
  * @param {Object} group - Données du groupe
@@ -35,10 +42,10 @@ export function GroupDetail({
   const [showShareDecks, setShowShareDecks] = useState(false);
   const [selectedDecks, setSelectedDecks] = useState([]);
 
-  // Log pour déboguer
-  console.log('[GroupDetail] Rendering with group:', group);
-  console.log('[GroupDetail] Current user:', currentUserId);
-  console.log('[GroupDetail] Is admin:', isAdmin);
+  // Log pour déboguer (development only)
+  log('[GroupDetail] Rendering with group:', group);
+  log('[GroupDetail] Current user:', currentUserId);
+  log('[GroupDetail] Is admin:', isAdmin);
 
   const copyInviteCode = () => {
     if (group.invite_code) {
@@ -64,7 +71,7 @@ export function GroupDetail({
   ];
 
   if (!group) {
-    console.error('[GroupDetail] No group data provided');
+    logError('[GroupDetail] No group data provided');
     return (
       <div 
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"

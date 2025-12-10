@@ -38,6 +38,13 @@ import { CreateGroupModal } from './components/CreateGroupModal';
 import { JoinGroupModal } from './components/JoinGroupModal';
 import { useChatNotifications } from './hooks/useChatNotifications';
 
+// Development logging utility
+const isDev = process.env.NODE_ENV === 'development';
+const log = (...args) => {
+  if (isDev) console.log(...args);
+};
+const logError = (...args) => console.error(...args); // Always log errors
+
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
   const ref = useRef(null);
@@ -3776,23 +3783,23 @@ function App() {
                             key={group.id}
                             group={group}
                             onAction={async () => {
-                              console.log('[GroupDetail] Loading details for group:', group.id, group.name);
+                              log('[GroupDetail] Loading details for group:', group.id, group.name);
                               setIsLoadingGroupDetails(true);
                               try {
-                                console.log('[GroupDetail] Fetching group details...');
+                                log('[GroupDetail] Fetching group details...');
                                 const details = await studyGroups.loadGroupDetails(group.id);
-                                console.log('[GroupDetail] Details loaded:', details);
+                                log('[GroupDetail] Details loaded:', details);
                                 
-                                console.log('[GroupDetail] Fetching leaderboard...');
+                                log('[GroupDetail] Fetching leaderboard...');
                                 const leaderboard = await studyGroups.loadGroupLeaderboard(group.id);
-                                console.log('[GroupDetail] Leaderboard loaded:', leaderboard);
+                                log('[GroupDetail] Leaderboard loaded:', leaderboard);
                                 
                                 setSelectedGroup(details);
                                 setGroupLeaderboard(leaderboard);
                                 setShowGroupDetail(true);
-                                console.log('[GroupDetail] Modal opened successfully');
+                                log('[GroupDetail] Modal opened successfully');
                               } catch (error) {
-                                console.error('[GroupDetail] Error loading group details:', error);
+                                logError('[GroupDetail] Error loading group details:', error);
                                 showWarning(error.message || 'Erreur lors du chargement des détails du groupe');
                               } finally {
                                 setIsLoadingGroupDetails(false);
