@@ -1827,6 +1827,39 @@ function App() {
       alert('Erreur lors du chargement des cartes à réviser');
     }
   };
+
+  // Démarrer une session de révision SRS par catégorie
+  const startSRSSessionByCategory = async (category) => {
+    if (!user) return;
+    
+    console.log(`[App] Starting SRS session for category: ${category}`);
+    
+    try {
+      const cards = await srs.loadCardsByCategory(category);
+      
+      console.log(`[App] Loaded ${cards.length} cards for category ${category}`);
+      
+      if (cards.length === 0) {
+        const messages = {
+          'due': '🎉 Aucune carte à réviser maintenant !\nRevenez plus tard.',
+          'learning': '📚 Aucune carte en apprentissage pour le moment.',
+          'mastered': '🏆 Aucune carte maîtrisée pour le moment.\nContinuez à réviser !',
+          'new': '✨ Aucune nouvelle carte disponible.\nToutes les cartes ont été révisées au moins une fois !'
+        };
+        alert(messages[category] || 'Aucune carte disponible dans cette catégorie.');
+        return;
+      }
+      
+      setSrsFlashcards(cards);
+      setCurrentSRSIndex(0);
+      setIsSRSMode(true);
+      setShowFlashcardAnswer(false);
+      setFlashcardStats({ correct: 0, incorrect: 0, skipped: 0 });
+    } catch (error) {
+      console.error('Error starting SRS session by category:', error);
+      alert('Erreur lors du chargement des cartes');
+    }
+  };
   
   // Gérer une réponse SRS avec difficulté
   const handleSRSAnswer = async (difficulty) => {
@@ -4046,22 +4079,50 @@ function App() {
                     </div>
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
+                      <button
+                        onClick={() => {
+                          console.log('[App] Clicked on "À réviser" category');
+                          startSRSSessionByCategory('due');
+                        }}
+                        disabled={srs.stats.due === 0}
+                        className="bg-slate-900/50 p-3 rounded-lg hover:bg-slate-800/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent hover:border-red-500/50"
+                      >
                         <div className="text-red-300 text-2xl font-bold">{srs.stats.due}</div>
                         <div className="text-slate-400 text-xs">À réviser</div>
-                      </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
+                      </button>
+                      <button
+                        onClick={() => {
+                          console.log('[App] Clicked on "En apprentissage" category');
+                          startSRSSessionByCategory('learning');
+                        }}
+                        disabled={srs.stats.learning === 0}
+                        className="bg-slate-900/50 p-3 rounded-lg hover:bg-slate-800/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent hover:border-yellow-500/50"
+                      >
                         <div className="text-yellow-300 text-2xl font-bold">{srs.stats.learning}</div>
                         <div className="text-slate-400 text-xs">En apprentissage</div>
-                      </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
+                      </button>
+                      <button
+                        onClick={() => {
+                          console.log('[App] Clicked on "Maîtrisées" category');
+                          startSRSSessionByCategory('mastered');
+                        }}
+                        disabled={srs.stats.mastered === 0}
+                        className="bg-slate-900/50 p-3 rounded-lg hover:bg-slate-800/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent hover:border-green-500/50"
+                      >
                         <div className="text-green-300 text-2xl font-bold">{srs.stats.mastered}</div>
                         <div className="text-slate-400 text-xs">Maîtrisées</div>
-                      </div>
-                      <div className="bg-slate-900/50 p-3 rounded-lg">
+                      </button>
+                      <button
+                        onClick={() => {
+                          console.log('[App] Clicked on "Nouvelles" category');
+                          startSRSSessionByCategory('new');
+                        }}
+                        disabled={srs.stats.new === 0}
+                        className="bg-slate-900/50 p-3 rounded-lg hover:bg-slate-800/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent hover:border-blue-500/50"
+                      >
                         <div className="text-blue-300 text-2xl font-bold">{srs.stats.new}</div>
                         <div className="text-slate-400 text-xs">Nouvelles</div>
-                      </div>
+                      </button>
                     </div>
                     
                     <button
@@ -4763,41 +4824,69 @@ function App() {
                 </h3>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                  <div className="p-6 bg-gradient-to-br from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-2xl">
+                  <button
+                    onClick={() => {
+                      console.log('[App] Clicked on "À réviser" category (stats section)');
+                      startSRSSessionByCategory('due');
+                    }}
+                    disabled={srs.stats.due === 0}
+                    className="p-6 bg-gradient-to-br from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-2xl hover:border-red-400/60 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-4xl">🔴</div>
                       <div className="text-3xl font-bold text-red-300">{srs.stats.due}</div>
                     </div>
                     <p className="text-red-200 font-semibold">À réviser</p>
                     <p className="text-red-400/60 text-xs mt-1">Cartes dues aujourd'hui</p>
-                  </div>
+                  </button>
 
-                  <div className="p-6 bg-gradient-to-br from-yellow-900/30 to-amber-900/30 border border-yellow-500/30 rounded-2xl">
+                  <button
+                    onClick={() => {
+                      console.log('[App] Clicked on "En apprentissage" category (stats section)');
+                      startSRSSessionByCategory('learning');
+                    }}
+                    disabled={srs.stats.learning === 0}
+                    className="p-6 bg-gradient-to-br from-yellow-900/30 to-amber-900/30 border border-yellow-500/30 rounded-2xl hover:border-yellow-400/60 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-4xl">🟡</div>
                       <div className="text-3xl font-bold text-yellow-300">{srs.stats.learning}</div>
                     </div>
                     <p className="text-yellow-200 font-semibold">En apprentissage</p>
                     <p className="text-yellow-400/60 text-xs mt-1">Intervalle ≤ 21 jours</p>
-                  </div>
+                  </button>
 
-                  <div className="p-6 bg-gradient-to-br from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-2xl">
+                  <button
+                    onClick={() => {
+                      console.log('[App] Clicked on "Maîtrisées" category (stats section)');
+                      startSRSSessionByCategory('mastered');
+                    }}
+                    disabled={srs.stats.mastered === 0}
+                    className="p-6 bg-gradient-to-br from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-2xl hover:border-green-400/60 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-4xl">🟢</div>
                       <div className="text-3xl font-bold text-green-300">{srs.stats.mastered}</div>
                     </div>
                     <p className="text-green-200 font-semibold">Maîtrisées</p>
                     <p className="text-green-400/60 text-xs mt-1">Intervalle &gt; 21 jours</p>
-                  </div>
+                  </button>
 
-                  <div className="p-6 bg-gradient-to-br from-blue-900/30 to-cyan-900/30 border border-blue-500/30 rounded-2xl">
+                  <button
+                    onClick={() => {
+                      console.log('[App] Clicked on "Nouvelles" category (stats section)');
+                      startSRSSessionByCategory('new');
+                    }}
+                    disabled={srs.stats.new === 0}
+                    className="p-6 bg-gradient-to-br from-blue-900/30 to-cyan-900/30 border border-blue-500/30 rounded-2xl hover:border-blue-400/60 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-4xl">🔵</div>
                       <div className="text-3xl font-bold text-blue-300">{srs.stats.new}</div>
                     </div>
                     <p className="text-blue-200 font-semibold">Nouvelles</p>
                     <p className="text-blue-400/60 text-xs mt-1">Jamais révisées</p>
-                  </div>
+                  </button>
                 </div>
 
                 {/* SRS Progress */}
