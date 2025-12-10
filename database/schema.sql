@@ -240,6 +240,45 @@ CREATE POLICY "Users can delete their own messages" ON public.chat_messages
   FOR DELETE USING (auth.uid() = user_id);
 
 -- ==========================================
+-- GROUPES (STUDY GROUPS)
+-- ==========================================
+
+-- Table des groupes d'étude
+CREATE TABLE IF NOT EXISTS public.groupes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  nom TEXT NOT NULL,
+  description TEXT,
+  date_creation TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Index pour améliorer les performances
+CREATE INDEX IF NOT EXISTS idx_groupes_date_creation ON public.groupes(date_creation DESC);
+
+-- Enable Row Level Security
+ALTER TABLE public.groupes ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policies for groupes
+-- Tous peuvent voir les groupes
+DROP POLICY IF EXISTS "Anyone can view groups" ON public.groupes;
+CREATE POLICY "Anyone can view groups" ON public.groupes
+  FOR SELECT USING (true);
+
+-- Les utilisateurs authentifiés peuvent créer des groupes
+DROP POLICY IF EXISTS "Authenticated users can create groups" ON public.groupes;
+CREATE POLICY "Authenticated users can create groups" ON public.groupes
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+
+-- Les utilisateurs authentifiés peuvent mettre à jour des groupes
+DROP POLICY IF EXISTS "Authenticated users can update groups" ON public.groupes;
+CREATE POLICY "Authenticated users can update groups" ON public.groupes
+  FOR UPDATE USING (auth.uid() IS NOT NULL);
+
+-- Les utilisateurs authentifiés peuvent supprimer des groupes
+DROP POLICY IF EXISTS "Authenticated users can delete groups" ON public.groupes;
+CREATE POLICY "Authenticated users can delete groups" ON public.groupes
+  FOR DELETE USING (auth.uid() IS NOT NULL);
+
+-- ==========================================
 -- DEFAULT DATA
 -- ==========================================
 
