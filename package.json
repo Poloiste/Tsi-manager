@@ -2,9 +2,10 @@
   "name": "tsi-manager",
   "version": "1.0.0",
   "private": true,
+  "homepage": "/",
   "scripts": {
     "install:frontend": "cd frontend && npm install",
-    "build": "cd frontend && npm run build",
+    "build": "cd frontend && BUILD_PATH=../build npm run build",
     "start": "cd frontend && npm start"
   }
 }
