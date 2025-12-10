@@ -60,7 +60,7 @@ export function useGroupChat(groupId, userId) {
       throw new Error('User not authenticated or group not selected');
     }
 
-    if (!messageText || messageText.trim() === '') {
+    if (!messageText?.trim()) {
       logError('[useGroupChat] Empty message');
       throw new Error('Message cannot be empty');
     }

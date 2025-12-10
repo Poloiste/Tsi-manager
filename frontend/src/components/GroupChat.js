@@ -58,8 +58,12 @@ export function GroupChat({ groupId, userId, isDark = true }) {
       return date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
     }
     
-    // Si c'est hier
-    if (diff < 48 * 60 * 60 * 1000 && date.getDate() === now.getDate() - 1) {
+    // Si c'est hier - calcul correct pour les limites de mois
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    if (date.getDate() === yesterday.getDate() && 
+        date.getMonth() === yesterday.getMonth() && 
+        date.getFullYear() === yesterday.getFullYear()) {
       return `Hier ${date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`;
     }
     
