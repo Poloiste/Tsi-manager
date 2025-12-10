@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Users, Trophy, BookOpen, Copy, Check, LogOut, Trash2, RefreshCw, Share2, MessageCircle } from 'lucide-react';
+import { X, Users, Trophy, BookOpen, Copy, Check, LogOut, Trash2, RefreshCw, Share2, MessageCircle, Key } from 'lucide-react';
 import { GroupLeaderboard } from './GroupLeaderboard';
 import { GroupChat } from './GroupChat';
 
@@ -22,7 +22,7 @@ const logError = (...args) => console.error(...args); // Always log errors
  * @param {Array} availableDecks - Decks disponibles pour partage
  * @param {boolean} isDark - Mode sombre
  * @param {string} currentUserId - ID de l'utilisateur actuel
- * @param {boolean} isAdmin - L'utilisateur est-il admin
+ * @param {boolean} isCreator - L'utilisateur est-il le créateur
  */
 export function GroupDetail({ 
   group, 
@@ -35,7 +35,7 @@ export function GroupDetail({
   availableDecks = [],
   isDark = true,
   currentUserId = null,
-  isAdmin = false
+  isCreator = false
 }) {
   const [activeSection, setActiveSection] = useState('chat');
   const [copiedCode, setCopiedCode] = useState(false);
@@ -46,7 +46,7 @@ export function GroupDetail({
   // Log pour déboguer (development only)
   log('[GroupDetail] Rendering with group:', group);
   log('[GroupDetail] Current user:', currentUserId);
-  log('[GroupDetail] Is admin:', isAdmin);
+  log('[GroupDetail] Is creator:', isCreator);
 
   const copyInviteCode = () => {
     if (group.invite_code) {
@@ -153,56 +153,96 @@ export function GroupDetail({
 
             {/* Code d'invitation (si membre) */}
             {isMember && group.invite_code && (
-              <div className="mt-4 flex items-center gap-3 flex-wrap">
-                <div className={`
-                  flex items-center gap-2 px-4 py-2 rounded-lg border
-                  ${isDark 
-                    ? 'bg-slate-900/50 border-slate-600' 
-                    : 'bg-gray-50 border-gray-300'
-                  }
-                `}>
+              <div className="mt-4">
+                {/* Label avec icône */}
+                <div className="flex items-center gap-2 mb-2">
+                  <Key className={`w-4 h-4 ${isDark ? 'text-slate-400' : 'text-gray-600'}`} />
                   <span className={`text-sm font-semibold ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
-                    Code :
+                    Code d'invitation
                   </span>
-                  <code className={`
-                    text-xl font-bold tracking-wider
-                    ${isDark ? 'text-indigo-400' : 'text-indigo-600'}
+                  {!group.is_public && (
+                    <span className={`
+                      text-xs px-2 py-0.5 rounded-full
+                      ${isDark 
+                        ? 'bg-purple-900/30 text-purple-300 border border-purple-500/30' 
+                        : 'bg-purple-100 text-purple-700 border border-purple-300'
+                      }
+                    `}>
+                      Groupe privé
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Code affiché */}
+                  <div className={`
+                    flex items-center gap-2 px-4 py-2 rounded-lg border flex-1 min-w-[200px]
+                    ${isDark 
+                      ? 'bg-slate-900/50 border-slate-600' 
+                      : 'bg-gray-50 border-gray-300'
+                    }
                   `}>
-                    {group.invite_code}
-                  </code>
+                    <code className={`
+                      text-2xl font-bold tracking-wider flex-1
+                      ${isDark ? 'text-indigo-400' : 'text-indigo-600'}
+                    `}>
+                      {group.invite_code}
+                    </code>
+                  </div>
+
+                  {/* Bouton Copier */}
                   <button
                     onClick={copyInviteCode}
                     className={`
-                      p-1.5 rounded transition-colors
-                      ${isDark 
-                        ? 'hover:bg-slate-700 text-slate-400 hover:text-white' 
-                        : 'hover:bg-gray-200 text-gray-500 hover:text-gray-900'
-                      }
-                    `}
-                    title="Copier le code"
-                  >
-                    {copiedCode ? (
-                      <Check className="w-4 h-4 text-green-500" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-
-                {isAdmin && (
-                  <button
-                    onClick={() => onGenerateCode(group.id)}
-                    className={`
-                      flex items-center gap-2 px-3 py-2 rounded-lg border transition-colors text-sm font-semibold
+                      flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors font-semibold text-sm
                       ${isDark 
                         ? 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600' 
                         : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200'
                       }
                     `}
+                    title="Copier le code"
                   >
-                    <RefreshCw className="w-4 h-4" />
-                    Regénérer
+                    {copiedCode ? (
+                      <>
+                        <Check className="w-4 h-4 text-green-500" />
+                        Copié !
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        Copier
+                      </>
+                    )}
                   </button>
+
+                  {/* Bouton Regénérer (créateur seulement) */}
+                  {isCreator && (
+                    <button
+                      onClick={() => onGenerateCode(group.id)}
+                      className={`
+                        flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors text-sm font-semibold
+                        ${isDark 
+                          ? 'bg-indigo-900/30 border-indigo-500/30 text-indigo-300 hover:bg-indigo-900/50' 
+                          : 'bg-indigo-100 border-indigo-300 text-indigo-700 hover:bg-indigo-200'
+                        }
+                      `}
+                      title="Générer un nouveau code"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Nouveau code
+                    </button>
+                  )}
+                </div>
+
+                {/* Info sur l'expiration */}
+                {group.invite_code_expires_at && (
+                  <p className={`text-xs mt-2 ${isDark ? 'text-slate-500' : 'text-gray-500'}`}>
+                    💡 Ce code expire le {new Date(group.invite_code_expires_at).toLocaleDateString('fr-FR', { 
+                      day: 'numeric', 
+                      month: 'long', 
+                      year: 'numeric' 
+                    })}
+                  </p>
                 )}
               </div>
             )}
@@ -522,7 +562,7 @@ export function GroupDetail({
               Quitter le groupe
             </button>
 
-            {isAdmin && (
+            {isCreator && (
               <button
                 onClick={() => setShowDeleteConfirm(true)}
                 className={`
@@ -551,11 +591,28 @@ export function GroupDetail({
               }
             `}>
               <h3 className={`text-xl font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                Confirmer la suppression
+                ⚠️ Confirmer la suppression
               </h3>
-              <p className={`mb-6 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
-                Êtes-vous sûr de vouloir supprimer ce groupe ? Cette action est irréversible.
+              <p className={`mb-4 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+                Êtes-vous sûr de vouloir supprimer définitivement ce groupe ?
               </p>
+              <div className={`
+                p-3 rounded-lg mb-6
+                ${isDark 
+                  ? 'bg-red-900/20 border border-red-500/30' 
+                  : 'bg-red-50 border border-red-300'
+                }
+              `}>
+                <p className={`text-sm font-semibold ${isDark ? 'text-red-300' : 'text-red-700'}`}>
+                  ⚠️ Cette action est irréversible et supprimera :
+                </p>
+                <ul className={`text-sm mt-2 space-y-1 ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+                  <li>• Tous les membres du groupe</li>
+                  <li>• Tous les messages du chat</li>
+                  <li>• Tous les decks partagés</li>
+                  <li>• Toutes les activités</li>
+                </ul>
+              </div>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}

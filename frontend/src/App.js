@@ -3846,6 +3846,7 @@ function App() {
                             }}
                             actionLabel="Voir"
                             isDark={isDark}
+                            currentUserId={user?.id}
                           />
                         ))}
                       </div>
@@ -3888,6 +3889,7 @@ function App() {
                             }}
                             actionLabel="Rejoindre"
                             isDark={isDark}
+                            currentUserId={user?.id}
                           />
                         ))}
                       </div>
@@ -6224,7 +6226,7 @@ function App() {
           availableDecks={courses}
           isDark={isDark}
           currentUserId={user?.id}
-          isAdmin={selectedGroup?.members?.find(m => m.user_id === user?.id)?.role === 'admin'}
+          isCreator={selectedGroup?.created_by === user?.id}
         />
       )}
 
