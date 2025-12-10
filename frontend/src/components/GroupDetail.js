@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, Users, Trophy, BookOpen, Copy, Check, LogOut, Trash2, RefreshCw, Share2 } from 'lucide-react';
+import { X, Users, Trophy, BookOpen, Copy, Check, LogOut, Trash2, RefreshCw, Share2, MessageCircle } from 'lucide-react';
 import { GroupLeaderboard } from './GroupLeaderboard';
+import { GroupChat } from './GroupChat';
 
 // Development logging utility
 const isDev = process.env.NODE_ENV === 'development';
@@ -36,7 +37,7 @@ export function GroupDetail({
   currentUserId = null,
   isAdmin = false
 }) {
-  const [activeSection, setActiveSection] = useState('members');
+  const [activeSection, setActiveSection] = useState('chat');
   const [copiedCode, setCopiedCode] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showShareDecks, setShowShareDecks] = useState(false);
@@ -65,6 +66,7 @@ export function GroupDetail({
 
   // Sections disponibles
   const sections = [
+    { id: 'chat', label: '💬 Chat', icon: MessageCircle },
     { id: 'members', label: '👥 Membres', icon: Users },
     { id: 'leaderboard', label: '🏆 Classement', icon: Trophy },
     { id: 'decks', label: '📚 Decks', icon: BookOpen }
@@ -236,6 +238,28 @@ export function GroupDetail({
 
         {/* Content */}
         <div className="p-6 max-h-[60vh] overflow-y-auto">
+          {/* Section Chat */}
+          {activeSection === 'chat' && (
+            <div className="h-[55vh]">
+              {isMember ? (
+                <GroupChat 
+                  groupId={group.id}
+                  userId={currentUserId}
+                  isDark={isDark}
+                />
+              ) : (
+                <div className={`
+                  text-center py-12
+                  ${isDark ? 'text-slate-400' : 'text-gray-600'}
+                `}>
+                  <div className="text-6xl mb-4">🔒</div>
+                  <p className="text-lg font-semibold mb-2">Accès réservé aux membres</p>
+                  <p className="text-sm">Rejoignez ce groupe pour accéder au chat.</p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Section Membres */}
           {activeSection === 'members' && (
             <div className="space-y-3">
