@@ -120,6 +120,105 @@ export function useSRS(userId) {
   }, [userId]);
 
   /**
+   * Load cards by specific category/status
+   * 
+   * @param {string} category - Category: 'due', 'learning', 'mastered', 'new'
+   * @returns {Promise<Array>} Array of flashcards matching the category
+   */
+  const loadCardsByCategory = useCallback(async (category) => {
+    if (!userId) return [];
+
+    console.log(`[useSRS] Loading cards for category: ${category}`);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+
+      if (category === 'new') {
+        // Load flashcards that don't have SRS data yet
+        const { data: allFlashcards, error: allError } = await supabase
+          .from('shared_flashcards')
+          .select('*, shared_courses(subject, chapter)');
+
+        if (allError) throw allError;
+
+        const { data: userSRS, error: srsError } = await supabase
+          .from('user_flashcard_srs')
+          .select('flashcard_id')
+          .eq('user_id', userId);
+
+        if (srsError) throw srsError;
+
+        const reviewedIds = new Set(userSRS.map(s => s.flashcard_id));
+        const newCards = allFlashcards
+          .filter(card => !reviewedIds.has(card.id))
+          .map(card => ({
+            ...card,
+            srsData: null,
+            course: card.shared_courses
+          }));
+
+        console.log(`[useSRS] Found ${newCards.length} new cards`);
+        return newCards;
+      }
+
+      // Get all SRS data for the user
+      const { data: srsData, error: srsError } = await supabase
+        .from('user_flashcard_srs')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (srsError) throw srsError;
+
+      if (!srsData || srsData.length === 0) {
+        console.log(`[useSRS] No SRS data found for user`);
+        return [];
+      }
+
+      // Filter by category based on card status
+      const filteredSRS = srsData.filter(srs => {
+        const status = getCardStatus(srs);
+        return status === category;
+      });
+
+      console.log(`[useSRS] Filtered to ${filteredSRS.length} cards for category ${category}`);
+
+      if (filteredSRS.length === 0) {
+        return [];
+      }
+
+      // Get the flashcard details
+      const flashcardIds = filteredSRS.map(s => s.flashcard_id);
+      const { data: flashcards, error: flashcardsError } = await supabase
+        .from('shared_flashcards')
+        .select('*, shared_courses(subject, chapter)')
+        .in('id', flashcardIds);
+
+      if (flashcardsError) throw flashcardsError;
+
+      // Combine flashcard data with SRS data
+      const cardsWithSRS = flashcards.map(card => {
+        const srs = filteredSRS.find(s => s.flashcard_id === card.id);
+        return {
+          ...card,
+          srsData: srs,
+          course: card.shared_courses
+        };
+      });
+
+      console.log(`[useSRS] Returning ${cardsWithSRS.length} cards with details`);
+      return cardsWithSRS;
+    } catch (err) {
+      console.error('Error loading cards by category:', err);
+      setError(err.message);
+      return [];
+    } finally {
+      setIsLoading(false);
+    }
+  }, [userId]);
+
+  /**
    * Record a review and update SRS data
    * 
    * @param {string} flashcardId - The flashcard ID
@@ -348,6 +447,7 @@ export function useSRS(userId) {
     error,
     stats,
     loadCardsToReview,
+    loadCardsByCategory,
     recordReview,
     getReviewStats,
     getUpcomingReviews,
