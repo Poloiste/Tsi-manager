@@ -339,7 +339,8 @@ export function useSRS(userId) {
     if (userId) {
       getReviewStats();
     }
-  }, [userId, getReviewStats]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]); // Only re-run when userId changes, not when getReviewStats changes
 
   return {
     cardsToReview,

@@ -304,7 +304,8 @@ export function useNotifications(userId) {
       }
     };
     init();
-  }, [userId, loadSettings, loadReminders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]); // Only re-run when userId changes to avoid infinite loops
 
   // Vérifier la permission des notifications au chargement
   useEffect(() => {
@@ -325,7 +326,8 @@ export function useNotifications(userId) {
     checkDueReminders();
 
     return () => clearInterval(interval);
-  }, [userId, settings, checkDueReminders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, settings]); // Removed checkDueReminders from deps to prevent infinite loop
 
   return {
     settings,

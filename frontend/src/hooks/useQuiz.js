@@ -296,7 +296,8 @@ export function useQuiz(userId) {
     if (userId) {
       loadQuizHistory();
     }
-  }, [userId, loadQuizHistory]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]); // Only re-run when userId changes to avoid infinite loops
 
   // Nettoyer le timer au démontage
   useEffect(() => {
