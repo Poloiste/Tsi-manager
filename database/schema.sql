@@ -248,7 +248,8 @@ CREATE TABLE IF NOT EXISTS public.groupes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nom TEXT NOT NULL,
   description TEXT,
-  date_creation TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  date_creation TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by UUID REFERENCES auth.users(id) ON DELETE CASCADE
 );
 
 -- Index pour améliorer les performances
@@ -266,17 +267,17 @@ CREATE POLICY "Anyone can view groups" ON public.groupes
 -- Les utilisateurs authentifiés peuvent créer des groupes
 DROP POLICY IF EXISTS "Authenticated users can create groups" ON public.groupes;
 CREATE POLICY "Authenticated users can create groups" ON public.groupes
-  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL AND auth.uid() = created_by);
 
--- Les utilisateurs authentifiés peuvent mettre à jour des groupes
+-- Les utilisateurs authentifiés peuvent mettre à jour leurs propres groupes
 DROP POLICY IF EXISTS "Authenticated users can update groups" ON public.groupes;
 CREATE POLICY "Authenticated users can update groups" ON public.groupes
-  FOR UPDATE USING (auth.uid() IS NOT NULL);
+  FOR UPDATE USING (auth.uid() = created_by);
 
--- Les utilisateurs authentifiés peuvent supprimer des groupes
+-- Les utilisateurs authentifiés peuvent supprimer leurs propres groupes
 DROP POLICY IF EXISTS "Authenticated users can delete groups" ON public.groupes;
 CREATE POLICY "Authenticated users can delete groups" ON public.groupes
-  FOR DELETE USING (auth.uid() IS NOT NULL);
+  FOR DELETE USING (auth.uid() = created_by);
 
 -- ==========================================
 -- DEFAULT DATA

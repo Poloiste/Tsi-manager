@@ -94,7 +94,8 @@ CREATE TABLE IF NOT EXISTS public.groupes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   nom TEXT NOT NULL,
   description TEXT,
-  date_creation TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  date_creation TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  created_by UUID REFERENCES auth.users(id) ON DELETE CASCADE
 );
 ```
 
@@ -103,6 +104,7 @@ CREATE TABLE IF NOT EXISTS public.groupes (
 - **nom**: Nom du groupe (requis)
 - **description**: Description courte du groupe (optionnel)
 - **date_creation**: Date de création avec fuseau horaire (automatique)
+- **created_by**: Référence à l'utilisateur créateur (supprimé avec l'utilisateur)
 
 ##### Index
 ```sql
@@ -123,23 +125,24 @@ CREATE POLICY "Anyone can view groups" ON public.groupes
 ##### Création (INSERT)
 ```sql
 CREATE POLICY "Authenticated users can create groups" ON public.groupes
-  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
+  FOR INSERT WITH CHECK (auth.uid() IS NOT NULL AND auth.uid() = created_by);
 ```
 - Seuls les utilisateurs authentifiés peuvent créer des groupes
+- L'utilisateur doit être le créateur du groupe
 
 ##### Modification (UPDATE)
 ```sql
 CREATE POLICY "Authenticated users can update groups" ON public.groupes
-  FOR UPDATE USING (auth.uid() IS NOT NULL);
+  FOR UPDATE USING (auth.uid() = created_by);
 ```
-- Seuls les utilisateurs authentifiés peuvent modifier des groupes
+- Seul le créateur du groupe peut le modifier
 
 ##### Suppression (DELETE)
 ```sql
 CREATE POLICY "Authenticated users can delete groups" ON public.groupes
-  FOR DELETE USING (auth.uid() IS NOT NULL);
+  FOR DELETE USING (auth.uid() = created_by);
 ```
-- Seuls les utilisateurs authentifiés peuvent supprimer des groupes
+- Seul le créateur du groupe peut le supprimer
 
 #### 3. Documentation
 **Fichier:** `README.md`
@@ -170,7 +173,7 @@ const { data, error } = await supabase
 const { data, error } = await supabase
   .from('groupes')
   .insert([
-    { nom: 'Mon groupe', description: 'Description du groupe' }
+    { nom: 'Mon groupe', description: 'Description du groupe', created_by: userId }
   ]);
 
 // Mettre à jour un groupe
@@ -260,3 +263,25 @@ const { data, error } = await supabase
 - ✅ Aucun impact sur les fonctionnalités existantes
 - ✅ Rétrocompatible avec le code existant
 - ✅ Compatible avec l'implémentation `study_groups`
+
+
+## 📚 Différence entre `groupes` et `study_groups`
+
+### Table `groupes` (Simple)
+**Cas d'usage**: Groupes basiques pour organisation simple
+- ✅ Structure minimale (id, nom, description, date_creation, created_by)
+- ✅ Gestion simple sans rôles
+- ✅ Pas de système de membres
+- ✅ Idéal pour listes de groupes simples
+- ✅ Léger et rapide
+
+### Table `study_groups` (Avancée)
+**Cas d'usage**: Collaboration complète avec gestion avancée
+- ✅ Système de membres avec rôles (admin/member)
+- ✅ Codes d'invitation avec expiration
+- ✅ Partage de decks au sein du groupe
+- ✅ Historique d'activités
+- ✅ Leaderboard intégré avec gamification
+- ✅ Contrôle d'accès granulaire (public/privé)
+
+**Recommandation**: Utiliser `groupes` pour un MVP simple, migrer vers `study_groups` pour des fonctionnalités avancées.
