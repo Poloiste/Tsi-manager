@@ -299,6 +299,7 @@ function App() {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [showGroupDetail, setShowGroupDetail] = useState(false);
   const [groupLeaderboard, setGroupLeaderboard] = useState([]);
+  const [isLoadingGroupDetails, setIsLoadingGroupDetails] = useState(false);
   
   const [newCourse, setNewCourse] = useState({
     subject: '',
@@ -3775,11 +3776,27 @@ function App() {
                             key={group.id}
                             group={group}
                             onAction={async () => {
-                              const details = await studyGroups.loadGroupDetails(group.id);
-                              const leaderboard = await studyGroups.loadGroupLeaderboard(group.id);
-                              setSelectedGroup(details);
-                              setGroupLeaderboard(leaderboard);
-                              setShowGroupDetail(true);
+                              console.log('[GroupDetail] Loading details for group:', group.id, group.name);
+                              setIsLoadingGroupDetails(true);
+                              try {
+                                console.log('[GroupDetail] Fetching group details...');
+                                const details = await studyGroups.loadGroupDetails(group.id);
+                                console.log('[GroupDetail] Details loaded:', details);
+                                
+                                console.log('[GroupDetail] Fetching leaderboard...');
+                                const leaderboard = await studyGroups.loadGroupLeaderboard(group.id);
+                                console.log('[GroupDetail] Leaderboard loaded:', leaderboard);
+                                
+                                setSelectedGroup(details);
+                                setGroupLeaderboard(leaderboard);
+                                setShowGroupDetail(true);
+                                console.log('[GroupDetail] Modal opened successfully');
+                              } catch (error) {
+                                console.error('[GroupDetail] Error loading group details:', error);
+                                showWarning(error.message || 'Erreur lors du chargement des détails du groupe');
+                              } finally {
+                                setIsLoadingGroupDetails(false);
+                              }
                             }}
                             actionLabel="Voir"
                             isDark={isDark}
@@ -6111,6 +6128,19 @@ function App() {
 
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
+
+      {/* Loading Overlay for Group Details */}
+      {isLoadingGroupDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-slate-800 rounded-2xl p-8 border border-indigo-500/30 shadow-2xl">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-500 mx-auto mb-4"></div>
+              <p className="text-white text-lg font-semibold">Chargement du groupe...</p>
+              <p className="text-slate-400 text-sm mt-2">Récupération des détails</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

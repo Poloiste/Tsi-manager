@@ -35,6 +35,11 @@ export function GroupDetail({
   const [showShareDecks, setShowShareDecks] = useState(false);
   const [selectedDecks, setSelectedDecks] = useState([]);
 
+  // Log pour déboguer
+  console.log('[GroupDetail] Rendering with group:', group);
+  console.log('[GroupDetail] Current user:', currentUserId);
+  console.log('[GroupDetail] Is admin:', isAdmin);
+
   const copyInviteCode = () => {
     if (group.invite_code) {
       navigator.clipboard.writeText(group.invite_code);
@@ -58,7 +63,39 @@ export function GroupDetail({
     { id: 'decks', label: '📚 Decks', icon: BookOpen }
   ];
 
-  if (!group) return null;
+  if (!group) {
+    console.error('[GroupDetail] No group data provided');
+    return (
+      <div 
+        className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        onClick={onClose}
+      >
+        <div className={`
+          w-full max-w-md rounded-2xl border shadow-2xl p-8
+          ${isDark 
+            ? 'bg-slate-800 border-slate-700' 
+            : 'bg-white border-gray-200'
+          }
+        `}>
+          <div className="text-center">
+            <div className="text-6xl mb-4">⚠️</div>
+            <h3 className={`text-xl font-bold mb-3 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+              Groupe introuvable
+            </h3>
+            <p className={`mb-6 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+              Les détails de ce groupe n'ont pas pu être chargés.
+            </p>
+            <button
+              onClick={onClose}
+              className="px-6 py-2 rounded-lg font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 text-white hover:from-indigo-500 hover:to-purple-500 transition-all"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const isMember = group.members?.some(m => m.user_id === currentUserId);
 
