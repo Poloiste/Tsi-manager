@@ -179,16 +179,7 @@ export function useSRS(userId) {
       // Filter by category based on card status
       const filteredSRS = srsData.filter(srs => {
         const status = getCardStatus(srs);
-        console.log(`[useSRS] Card ${srs.flashcard_id}: status=${status}, interval=${srs.interval_days}, next_review=${srs.next_review_date}`);
-        
-        if (category === 'due') {
-          return status === 'due';
-        } else if (category === 'learning') {
-          return status === 'learning';
-        } else if (category === 'mastered') {
-          return status === 'mastered';
-        }
-        return false;
+        return status === category;
       });
 
       console.log(`[useSRS] Filtered to ${filteredSRS.length} cards for category ${category}`);

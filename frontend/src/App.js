@@ -111,6 +111,14 @@ const getDayName = () => {
   return days[today.getDay()];
 };
 
+// SRS category messages
+const SRS_CATEGORY_MESSAGES = {
+  'due': '🎉 Aucune carte à réviser maintenant !\nRevenez plus tard.',
+  'learning': '📚 Aucune carte en apprentissage pour le moment.',
+  'mastered': '🏆 Aucune carte maîtrisée pour le moment.\nContinuez à réviser !',
+  'new': '✨ Aucune nouvelle carte disponible.\nToutes les cartes ont été révisées au moins une fois !'
+};
+
 // ==================== MAIN APP ====================
 function App() {
   const { user, loading, signOut } = useAuth();
@@ -1840,13 +1848,7 @@ function App() {
       console.log(`[App] Loaded ${cards.length} cards for category ${category}`);
       
       if (cards.length === 0) {
-        const messages = {
-          'due': '🎉 Aucune carte à réviser maintenant !\nRevenez plus tard.',
-          'learning': '📚 Aucune carte en apprentissage pour le moment.',
-          'mastered': '🏆 Aucune carte maîtrisée pour le moment.\nContinuez à réviser !',
-          'new': '✨ Aucune nouvelle carte disponible.\nToutes les cartes ont été révisées au moins une fois !'
-        };
-        alert(messages[category] || 'Aucune carte disponible dans cette catégorie.');
+        alert(SRS_CATEGORY_MESSAGES[category] || 'Aucune carte disponible dans cette catégorie.');
         return;
       }
       
