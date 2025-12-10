@@ -2741,9 +2741,7 @@ function App() {
                 { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'quiz', label: '📝 Quiz' },
                 { id: 'chat', label: '💬 Discussions' },
-                { id: 'stats', label: '📊 Stats' },
-                { id: 'groups', label: '👥 Groupes' },
-                { id: 'suggestions', label: '🎯 Suggestions' }
+                { id: 'stats', label: '📊 Stats' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -2772,9 +2770,7 @@ function App() {
                 { id: 'flashcards', icon: '🎴', label: 'Révision' },
                 { id: 'quiz', icon: '📝', label: 'Quiz' },
                 { id: 'chat', icon: '💬', label: 'Chat' },
-                { id: 'stats', icon: '📊', label: 'Stats' },
-                { id: 'groups', icon: '👥', label: 'Groupes' },
-                { id: 'suggestions', icon: '🎯', label: 'Sugg.' }
+                { id: 'stats', icon: '📊', label: 'Stats' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -2980,9 +2976,7 @@ function App() {
                 { id: 'flashcards', label: '🎴 Révision' },
                 { id: 'quiz', label: '📝 Quiz' },
                 { id: 'chat', label: '💬 Discussions' },
-                { id: 'stats', label: '📊 Stats' },
-                { id: 'groups', label: '👥 Groupes' },
-                { id: 'suggestions', label: '🎯 Suggestions' }
+                { id: 'stats', label: '📊 Stats' }
               ].map(tab => (
                 <button
                   key={tab.id}
@@ -4562,48 +4556,6 @@ function App() {
 
           {/* TAB SUGGESTIONS */}
           {/* REMOVED: Suggestions tab - now merged into Planning tab */}
-          {activeTab === 'suggestions' && (
-            <div className="w-full text-center py-12">
-              <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-2xl p-8 max-w-2xl mx-auto">
-                <h2 className="text-3xl font-bold text-white mb-4">🎯 Suggestions déplacées</h2>
-                <p className="text-indigo-300 mb-6">
-                  Les suggestions sont maintenant intégrées dans l'onglet Planning !
-                </p>
-                <button
-                  onClick={() => {
-                    setActiveTab('planning');
-                    setShowSuggestions(true);
-                  }}
-                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold"
-                >
-                  📅 Aller au Planning → 🎯 Suggestions
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* REMOVED: Groups tab - now merged into Discussions tab */}
-          {activeTab === 'groups' && (
-            <div className="w-full text-center py-12">
-              <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-2xl p-8 max-w-2xl mx-auto">
-                <h2 className="text-3xl font-bold text-white mb-4">👥 Groupes déplacés</h2>
-                <p className="text-indigo-300 mb-6">
-                  Les groupes d'étude sont maintenant intégrés dans l'onglet Discussions !
-                </p>
-                <button
-                  onClick={() => {
-                    setActiveTab('chat');
-                    setDiscussionsView('groups');
-                  }}
-                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold"
-                >
-                  💬 Aller aux Discussions → 👥 Groupes
-                </button>
-              </div>
-            </div>
-          )}
-
-
           {/* TAB STATS */}
           {activeTab === 'stats' && (
             <div className="w-full space-y-8">
@@ -5152,26 +5104,6 @@ function App() {
             </div>
           )}
 
-          {/* TAB GROUPS - Now redirects to Discussions > Groups */}
-          {activeTab === 'groups' && (
-            <div className="w-full text-center py-12">
-              <div className="bg-indigo-900/30 border border-indigo-500/30 rounded-2xl p-8 max-w-2xl mx-auto">
-                <h2 className="text-3xl font-bold text-white mb-4">👥 Groupes déplacés</h2>
-                <p className="text-indigo-300 mb-6">
-                  Les groupes d'étude sont maintenant intégrés dans l'onglet Discussions !
-                </p>
-                <button
-                  onClick={() => {
-                    setActiveTab('chat');
-                    setDiscussionsView('groups');
-                  }}
-                  className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-semibold"
-                >
-                  💬 Aller aux Discussions → 👥 Groupes
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 
