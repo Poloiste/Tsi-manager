@@ -181,12 +181,16 @@ L'application React s'ouvre automatiquement dans votre navigateur sur `http://lo
 - `chat_channels` - Salons de discussion
 - `chat_messages` - Messages en temps réel
 
+**Système de groupes :**
+- `groupes` - Groupes d'étude avec nom, description, date de création et créateur
+
 #### Politiques de sécurité (RLS)
 
 Le script configure automatiquement les politiques de sécurité Row Level Security (RLS) :
 - **Données partagées** : Tous peuvent lire, utilisateurs authentifiés peuvent ajouter, créateurs peuvent supprimer
 - **Données personnelles** : Chaque utilisateur ne voit que ses propres données
 - **Chat** : Tous peuvent lire les messages, utilisateurs authentifiés peuvent envoyer, chacun peut supprimer ses messages
+- **Groupes** : Tous peuvent voir les groupes, seul le créateur peut modifier ou supprimer son groupe
 
 ### Migration depuis localStorage
 
