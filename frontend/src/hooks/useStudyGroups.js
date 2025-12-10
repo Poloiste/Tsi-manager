@@ -377,26 +377,26 @@ export function useStudyGroups(userId) {
     }
   }, [userId, loadMyGroups, loadAvailableGroups]);
 
-  // Supprimer un groupe (admin seulement)
+  // Supprimer un groupe (créateur seulement)
   const deleteGroup = useCallback(async (groupId) => {
     if (!userId) throw new Error('User not authenticated');
 
     setIsLoading(true);
     try {
-      // Vérifier que l'utilisateur est admin
-      const { data: membership } = await supabase
-        .from('study_group_members')
-        .select('*')
-        .eq('group_id', groupId)
-        .eq('user_id', userId)
-        .eq('role', 'admin')
+      // Vérifier que l'utilisateur est le créateur du groupe
+      const { data: group, error: groupError } = await supabase
+        .from('study_groups')
+        .select('created_by')
+        .eq('id', groupId)
         .single();
 
-      if (!membership) {
-        throw new Error('Seuls les admins peuvent supprimer un groupe');
+      if (groupError) throw groupError;
+
+      if (group.created_by !== userId) {
+        throw new Error('Seul le créateur peut supprimer ce groupe');
       }
 
-      // Supprimer le groupe (cascade supprimera les membres, decks, activités)
+      // Supprimer le groupe (cascade supprimera les membres, decks, activités, messages)
       const { error } = await supabase
         .from('study_groups')
         .delete()

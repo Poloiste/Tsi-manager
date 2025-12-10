@@ -7,8 +7,9 @@ import { Users, Lock, Globe } from 'lucide-react';
  * @param {Function} onAction - Callback pour l'action principale (Rejoindre/Voir)
  * @param {string} actionLabel - Label du bouton d'action
  * @param {boolean} isDark - Mode sombre
+ * @param {string} currentUserId - ID de l'utilisateur actuel (optionnel)
  */
-export function GroupCard({ group, onAction, actionLabel = 'Voir', isDark = true }) {
+export function GroupCard({ group, onAction, actionLabel = 'Voir', isDark = true, currentUserId = null }) {
   const memberCount = group.memberCount || 0;
   const maxMembers = group.max_members || 20;
   const isFull = memberCount >= maxMembers;
@@ -66,8 +67,8 @@ export function GroupCard({ group, onAction, actionLabel = 'Voir', isDark = true
           </span>
         )}
 
-        {/* Badge Admin (si c'est mon groupe et je suis admin) */}
-        {group.myRole === 'admin' && (
+        {/* Badge Créateur/Admin (si c'est mon groupe) */}
+        {currentUserId && group.created_by === currentUserId && (
           <span className={`
             px-2.5 py-1 rounded-full text-xs font-semibold
             ${isDark 
@@ -75,7 +76,18 @@ export function GroupCard({ group, onAction, actionLabel = 'Voir', isDark = true
               : 'bg-yellow-100 text-yellow-700 border border-yellow-300'
             }
           `}>
-            👑 Admin
+            👑 Créateur
+          </span>
+        )}
+        {currentUserId && group.myRole === 'admin' && group.created_by !== currentUserId && (
+          <span className={`
+            px-2.5 py-1 rounded-full text-xs font-semibold
+            ${isDark 
+              ? 'bg-blue-900/30 text-blue-300 border border-blue-500/30' 
+              : 'bg-blue-100 text-blue-700 border border-blue-300'
+            }
+          `}>
+            ⭐ Admin
           </span>
         )}
       </div>

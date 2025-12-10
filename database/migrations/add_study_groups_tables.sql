@@ -87,14 +87,9 @@ CREATE POLICY "Group admins can update their groups" ON public.study_groups
     )
   );
 
--- Les admins peuvent supprimer leur groupe
-CREATE POLICY "Group admins can delete their groups" ON public.study_groups
-  FOR DELETE USING (
-    id IN (
-      SELECT group_id FROM public.study_group_members 
-      WHERE user_id = auth.uid() AND role = 'admin'
-    )
-  );
+-- Seuls les créateurs peuvent supprimer leur groupe
+CREATE POLICY "Group creators can delete their groups" ON public.study_groups
+  FOR DELETE USING (created_by = auth.uid());
 
 -- RLS Policies for study_group_members
 -- Les membres peuvent voir les membres de leur groupe
