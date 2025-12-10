@@ -37,9 +37,11 @@ import { GroupDetail } from './components/GroupDetail';
 import { CreateGroupModal } from './components/CreateGroupModal';
 import { JoinGroupModal } from './components/JoinGroupModal';
 import { useChatNotifications } from './hooks/useChatNotifications';
+import { createDebugLogger } from './utils/guardUtils';
 
 // Development logging utility
 const isDev = process.env.NODE_ENV === 'development';
+const appLogger = createDebugLogger('App');
 const log = (...args) => {
   if (isDev) console.log(...args);
 };
@@ -1157,11 +1159,13 @@ function App() {
   useEffect(() => {
     const loadData = async () => {
       if (user) {
+        appLogger.log('Initial data load started for user:', user.id);
         await Promise.all([
           loadCourses(),
           loadFlashcards(),
           loadEvents()
         ]);
+        appLogger.log('Initial data load completed');
       }
       setIsLoading(false);
     };

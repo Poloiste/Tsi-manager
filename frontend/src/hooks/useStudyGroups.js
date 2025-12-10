@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
+import { createDebugLogger } from '../utils/guardUtils';
 
 // Development logging utility
 const isDev = process.env.NODE_ENV === 'development';
+const logger = createDebugLogger('useStudyGroups');
 const log = (...args) => {
   if (isDev) console.log(...args);
 };
@@ -27,6 +29,7 @@ export function useStudyGroups(userId) {
   const loadMyGroups = useCallback(async () => {
     if (!userId) return;
 
+    logger.log('loadMyGroups called for userId:', userId);
     setIsLoading(true);
     try {
       // Récupérer mes groupes avec le nombre de membres en une seule requête
@@ -79,6 +82,7 @@ export function useStudyGroups(userId) {
       }));
 
       setMyGroups(groupsWithCounts);
+      logger.log('loadMyGroups completed. Groups count:', groupsWithCounts.length);
     } catch (error) {
       logError('Error loading my groups:', error);
       throw error;
@@ -91,6 +95,7 @@ export function useStudyGroups(userId) {
   const loadAvailableGroups = useCallback(async () => {
     if (!userId) return;
 
+    logger.log('loadAvailableGroups called for userId:', userId);
     setIsLoading(true);
     try {
       // Récupérer les IDs des groupes dont je suis déjà membre
@@ -711,6 +716,7 @@ export function useStudyGroups(userId) {
   // Charger les données au montage
   useEffect(() => {
     if (userId) {
+      logger.log('useEffect triggered - loading groups data');
       loadMyGroups();
       loadAvailableGroups();
     }
