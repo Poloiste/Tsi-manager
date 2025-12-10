@@ -4554,8 +4554,6 @@ function App() {
             </div>
           )}
 
-          {/* TAB SUGGESTIONS */}
-          {/* REMOVED: Suggestions tab - now merged into Planning tab */}
           {/* TAB STATS */}
           {activeTab === 'stats' && (
             <div className="w-full space-y-8">
