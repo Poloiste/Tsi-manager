@@ -9,6 +9,11 @@
 DROP POLICY IF EXISTS "Public groups are viewable by everyone" ON public.study_groups;
 DROP POLICY IF EXISTS "Members can view their private groups" ON public.study_groups;
 
+-- Create composite index for better RLS policy performance
+-- This optimizes the EXISTS clause in the new policy
+CREATE INDEX IF NOT EXISTS idx_study_group_members_group_user 
+ON public.study_group_members(group_id, user_id);
+
 -- Create a single consolidated policy for group visibility
 -- This allows:
 -- 1. Public groups to be visible to everyone
