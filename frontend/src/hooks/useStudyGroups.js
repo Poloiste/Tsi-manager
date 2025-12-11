@@ -51,22 +51,34 @@ export function useStudyGroups(userId) {
         .eq('user_id', userId)
         .order('joined_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        logError('Error fetching group memberships:', error);
+        throw error;
+      }
+
+      logger.log('Memberships found:', data?.length || 0, 
+        data?.length > 0 ? `(first: ${data[0]?.study_groups?.name || 'N/A'})` : '');
 
       // Récupérer les comptes de membres pour tous les groupes en une seule requête
       const groupIds = (data || []).map(m => m.study_groups.id);
       
       if (groupIds.length === 0) {
+        logger.log('No group memberships found for user');
         setMyGroups([]);
         return;
       }
+
+      logger.log('Fetching member counts for', groupIds.length, 'groups');
 
       const { data: memberCounts, error: countError } = await supabase
         .from('study_group_members')
         .select('group_id')
         .in('group_id', groupIds);
 
-      if (countError) throw countError;
+      if (countError) {
+        logError('Error fetching member counts:', countError);
+        throw countError;
+      }
 
       // Compter les membres par groupe
       const countsMap = {};
@@ -81,8 +93,12 @@ export function useStudyGroups(userId) {
         joinedAt: membership.joined_at
       }));
 
+      const privateCount = groupsWithCounts.filter(g => !g.is_public).length;
+      const publicCount = groupsWithCounts.filter(g => g.is_public).length;
+      logger.log('loadMyGroups completed:', 
+        `${groupsWithCounts.length} total (${privateCount} private, ${publicCount} public)`);
+
       setMyGroups(groupsWithCounts);
-      logger.log('loadMyGroups completed. Groups count:', groupsWithCounts.length);
     } catch (error) {
       logError('Error loading my groups:', error);
       throw error;
@@ -160,21 +176,31 @@ export function useStudyGroups(userId) {
   const createGroup = useCallback(async (data) => {
     if (!userId) throw new Error('User not authenticated');
 
+    logger.log('createGroup called:', data.name, 
+      `(${data.isPublic ? 'public' : 'private'})`);
     setIsLoading(true);
     try {
+      const groupData = {
+        name: data.name,
+        description: data.description || '',
+        is_public: data.isPublic !== undefined ? data.isPublic : true,
+        max_members: data.maxMembers || 20,
+        created_by: userId
+      };
+      
       const { data: newGroup, error } = await supabase
         .from('study_groups')
-        .insert([{
-          name: data.name,
-          description: data.description || '',
-          is_public: data.isPublic !== undefined ? data.isPublic : true,
-          max_members: data.maxMembers || 20,
-          created_by: userId
-        }])
+        .insert([groupData])
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        logError('Error creating group:', error);
+        throw error;
+      }
+
+      logger.log('Group created successfully:', newGroup.id, 
+        `is_public=${newGroup.is_public}`);
 
       // Recharger mes groupes
       await loadMyGroups();
