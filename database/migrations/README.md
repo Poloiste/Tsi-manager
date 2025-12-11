@@ -27,6 +27,7 @@ supabase db push
 - `add_study_groups_tables.sql` - Adds tables for study groups feature
 - `add_user_flashcard_srs.sql` - Adds SRS (Spaced Repetition System) for flashcards
 - `add_group_chats_table.sql` - Adds group chat functionality for study groups
+- `fix_private_groups_visibility.sql` - Fixes RLS policies to ensure private groups are visible to creators and members
 
 ## Notes
 
