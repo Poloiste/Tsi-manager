@@ -82,18 +82,20 @@ export async function safeJsonParse(response) {
   
   // If not JSON, try to get text for better error messages
   const text = await response.text();
+  const trimmedText = text.trim().toLowerCase();
   
-  // Check if it's HTML error page
-  if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
+  // Check if it's HTML error page (case-insensitive)
+  if (trimmedText.startsWith('<!doctype') || trimmedText.startsWith('<html')) {
     throw new Error(
       `Server returned HTML instead of JSON (status: ${response.status}). ` +
       'The API endpoint may not exist or returned an error page'
     );
   }
   
+  // Don't include response preview to avoid exposing sensitive data
   throw new Error(
-    `Unexpected response type: ${contentType || 'unknown'}. ` +
-    `Response preview: ${text.substring(0, 100)}`
+    `Unexpected response type: ${contentType || 'unknown'} (status: ${response.status}). ` +
+    'Expected application/json'
   );
 }
 
@@ -105,15 +107,17 @@ export async function safeJsonParse(response) {
  */
 export async function handleApiError(response, context = 'API call') {
   try {
+    // Try to parse error response as JSON
     const errorData = await safeJsonParse(response);
     const errorMessage = errorData.error || errorData.message || `HTTP error! status: ${response.status}`;
     const error = new Error(errorMessage);
     logApiError(context, error, response);
     throw error;
-  } catch (error) {
-    // If safeJsonParse threw an error, use it directly
-    logApiError(context, error, response);
-    throw error;
+  } catch (parseError) {
+    // If parsing fails (non-JSON response), the parseError from safeJsonParse is already descriptive
+    // Log and re-throw it
+    logApiError(context, parseError, response);
+    throw parseError;
   }
 }
 
