@@ -270,13 +270,13 @@ describe('GroupDetail Component - Copy Button Functionality', () => {
   });
 
   test('parameters tab only shown for private group creators', () => {
-    render(<GroupDetail {...defaultProps} />);
+    const { rerender } = render(<GroupDetail {...defaultProps} />);
     
     // Parameters tab should be visible for creator of private group
     expect(screen.getByText('⚙️ Paramètres / Membres')).toBeInTheDocument();
     
     // Re-render as non-creator
-    const { rerender } = render(<GroupDetail {...defaultProps} isCreator={false} />);
+    rerender(<GroupDetail {...defaultProps} isCreator={false} />);
     expect(screen.queryByText('⚙️ Paramètres / Membres')).not.toBeInTheDocument();
   });
 });
