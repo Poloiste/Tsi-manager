@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { fetchJson } from '../utils/apiHelpers';
 
 // Get API URL from environment or use default
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
@@ -25,14 +26,11 @@ export function useChannels(groupId, userId) {
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/groups/${groupId}/channels?user_id=${userId}`);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
+      const data = await fetchJson(
+        `${API_URL}/groups/${groupId}/channels?user_id=${userId}`,
+        {},
+        'useChannels.loadChannels'
+      );
       setChannels(data || []);
     } catch (error) {
       console.error('[useChannels] Error loading channels:', error);
@@ -56,24 +54,21 @@ export function useChannels(groupId, userId) {
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/groups/${groupId}/channels`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const newChannel = await fetchJson(
+        `${API_URL}/groups/${groupId}/channels`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            name: channelName.trim(),
+            type
+          }),
         },
-        body: JSON.stringify({
-          user_id: userId,
-          name: channelName.trim(),
-          type
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
-      
-      const newChannel = await response.json();
+        'useChannels.createChannel'
+      );
       
       // Add the new channel to the list
       setChannels(prev => [...prev, newChannel]);
