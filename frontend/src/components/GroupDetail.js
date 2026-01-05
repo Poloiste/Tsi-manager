@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Copy, Check, X, AlertCircle, Users, Crown, LogOut, Trash2, RefreshCw, MessageCircle, Upload } from 'lucide-react';
 import { GroupLeaderboard } from './GroupLeaderboard';
-import { GroupChat } from './GroupChat';
+import { GroupChatWithChannels } from './GroupChatWithChannels';
 import { GroupFiles } from './GroupFiles';
 
 /**
@@ -285,10 +285,11 @@ export function GroupDetail({
           {/* Chat Tab */}
           {activeTab === 'chat' && (
             <div className="h-[600px]">
-              <GroupChat 
+              <GroupChatWithChannels 
                 groupId={group.id}
                 userId={currentUserId}
                 userName={currentUserName}
+                isAdmin={isCreator}
                 isDark={isDark}
               />
             </div>

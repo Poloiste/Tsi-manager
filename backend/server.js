@@ -1,9 +1,21 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
+const { Server } = require('socket.io');
 const supabase = require('./config/supabase');
 
 const app = express();
+const server = http.createServer(app);
+
+// Configure Socket.IO with CORS
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
 
 // Middlewares
 app.use(cors());
@@ -888,6 +900,287 @@ app.delete('/api/groups/:groupId/files/:fileId', async (req, res) => {
   }
 });
 
+// ============================================
+// ROUTES CHANNELS - GESTION DES CANAUX
+// ============================================
+
+// GET /api/groups/:groupId/channels - Récupérer les canaux d'un groupe
+app.get('/api/groups/:groupId/channels', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const userId = req.query.user_id; // TODO: Get from authenticated session instead
+
+    // Validate user_id is provided
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
+
+    // Verify user is a member of the group
+    const { data: membership, error: memberError } = await supabase
+      .from('study_group_members')
+      .select('id')
+      .eq('group_id', groupId)
+      .eq('user_id', userId)
+      .single();
+
+    if (memberError || !membership) {
+      return res.status(403).json({ error: 'You are not a member of this group' });
+    }
+
+    // Récupérer les canaux du groupe
+    const { data, error } = await supabase
+      .from('chat_channels')
+      .select('*')
+      .eq('group_id', groupId)
+      .order('created_at', { ascending: true });
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error fetching group channels:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/groups/:groupId/channels - Créer un nouveau canal
+app.post('/api/groups/:groupId/channels', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { user_id, name, type = 'group' } = req.body;
+
+    // Input validation
+    if (!user_id || !name) {
+      return res.status(400).json({ error: 'Missing required fields: user_id, name' });
+    }
+
+    if (typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ error: 'Channel name must be a non-empty string' });
+    }
+
+    if (name.length > 100) {
+      return res.status(400).json({ error: 'Channel name exceeds maximum length of 100 characters' });
+    }
+
+    // Verify user is an admin of the group
+    const { data: membership, error: memberError } = await supabase
+      .from('study_group_members')
+      .select('role')
+      .eq('group_id', groupId)
+      .eq('user_id', user_id)
+      .single();
+
+    if (memberError || !membership) {
+      return res.status(403).json({ error: 'You are not a member of this group' });
+    }
+
+    if (membership.role !== 'admin') {
+      return res.status(403).json({ error: 'Only group admins can create channels' });
+    }
+
+    // Create the channel
+    const { data, error } = await supabase
+      .from('chat_channels')
+      .insert([{
+        group_id: groupId,
+        name: name.trim(),
+        type
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    console.error('Error creating channel:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/channels/:channelId/messages - Récupérer les messages d'un canal
+app.get('/api/channels/:channelId/messages', async (req, res) => {
+  try {
+    const { channelId } = req.params;
+    const userId = req.query.user_id; // TODO: Get from authenticated session instead
+    let limit = 50; // Default limit
+    let offset = 0; // Default offset for pagination
+
+    // Validate user_id is provided
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
+
+    // Validate and cap the limit
+    if (req.query.limit !== undefined) {
+      const parsedLimit = Number(req.query.limit);
+      if (!Number.isInteger(parsedLimit) || parsedLimit < 1) {
+        return res.status(400).json({ error: 'Invalid limit parameter. Must be a positive integer.' });
+      }
+      limit = Math.min(parsedLimit, 100); // Cap at 100
+    }
+
+    // Parse offset for pagination
+    if (req.query.offset !== undefined) {
+      const parsedOffset = Number(req.query.offset);
+      if (!Number.isInteger(parsedOffset) || parsedOffset < 0) {
+        return res.status(400).json({ error: 'Invalid offset parameter. Must be a non-negative integer.' });
+      }
+      offset = parsedOffset;
+    }
+
+    // Get channel info to verify group membership
+    const { data: channel, error: channelError } = await supabase
+      .from('chat_channels')
+      .select('group_id')
+      .eq('id', channelId)
+      .single();
+
+    if (channelError || !channel) {
+      return res.status(404).json({ error: 'Channel not found' });
+    }
+
+    // If it's a group channel, verify membership
+    if (channel.group_id) {
+      const { data: membership, error: memberError } = await supabase
+        .from('study_group_members')
+        .select('id')
+        .eq('group_id', channel.group_id)
+        .eq('user_id', userId)
+        .single();
+
+      if (memberError || !membership) {
+        return res.status(403).json({ error: 'You are not a member of this group' });
+      }
+    }
+
+    // Récupérer les messages du canal avec pagination
+    const { data, error, count } = await supabase
+      .from('chat_messages')
+      .select('*', { count: 'exact' })
+      .eq('channel_id', channelId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) throw error;
+
+    res.json({
+      messages: data || [],
+      total: count,
+      limit,
+      offset,
+      hasMore: count > offset + limit
+    });
+  } catch (error) {
+    console.error('Error fetching channel messages:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/channels/:channelId/messages - Envoyer un message dans un canal
+app.post('/api/channels/:channelId/messages', async (req, res) => {
+  try {
+    const { channelId } = req.params;
+    const { user_id, user_name, content } = req.body;
+
+    // Input validation
+    if (!user_id || !user_name || !content) {
+      return res.status(400).json({ error: 'Missing required fields: user_id, user_name, content' });
+    }
+
+    if (typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ error: 'Content must be a non-empty string' });
+    }
+
+    if (content.length > 5000) {
+      return res.status(400).json({ error: 'Content exceeds maximum length of 5000 characters' });
+    }
+
+    // Get channel info to verify group membership
+    const { data: channel, error: channelError } = await supabase
+      .from('chat_channels')
+      .select('group_id')
+      .eq('id', channelId)
+      .single();
+
+    if (channelError || !channel) {
+      return res.status(404).json({ error: 'Channel not found' });
+    }
+
+    // If it's a group channel, verify membership
+    if (channel.group_id) {
+      const { data: membership, error: memberError } = await supabase
+        .from('study_group_members')
+        .select('id')
+        .eq('group_id', channel.group_id)
+        .eq('user_id', user_id)
+        .single();
+
+      if (memberError || !membership) {
+        return res.status(403).json({ error: 'You are not a member of this group' });
+      }
+    }
+
+    // Insérer le message
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .insert([{
+        channel_id: channelId,
+        user_id,
+        user_name,
+        content: content.trim()
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    console.error('Error sending message:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/channels/:channelId/messages/:messageId - Supprimer un message d'un canal
+app.delete('/api/channels/:channelId/messages/:messageId', async (req, res) => {
+  try {
+    const { channelId, messageId } = req.params;
+    const userId = req.query.user_id; // TODO: Get from authenticated session instead
+
+    // Validate user_id is provided
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
+
+    // Verify the message belongs to the user and the correct channel
+    const { data: message, error: messageError } = await supabase
+      .from('chat_messages')
+      .select('user_id, channel_id')
+      .eq('id', messageId)
+      .eq('channel_id', channelId)
+      .single();
+
+    if (messageError || !message) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    if (message.user_id !== userId) {
+      return res.status(403).json({ error: 'You can only delete your own messages' });
+    }
+
+    // Delete the message
+    const { error } = await supabase
+      .from('chat_messages')
+      .delete()
+      .eq('id', messageId);
+
+    if (error) throw error;
+
+    res.json({ message: 'Message deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ===== ROUTE DE TEST =====
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -897,10 +1190,176 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// ============================================
+// SOCKET.IO REAL-TIME MESSAGING
+// ============================================
+
+// Store active connections by channel
+const channelConnections = new Map();
+
+io.on('connection', (socket) => {
+  console.log(`✅ Client connected: ${socket.id}`);
+
+  // Join a specific channel
+  socket.on('join_channel', async ({ channelId, userId, userName }) => {
+    try {
+      // Verify user has access to this channel
+      const { data: channel, error: channelError } = await supabase
+        .from('chat_channels')
+        .select('group_id')
+        .eq('id', channelId)
+        .single();
+
+      if (channelError || !channel) {
+        socket.emit('error', { message: 'Channel not found' });
+        return;
+      }
+
+      // If it's a group channel, verify membership
+      if (channel.group_id) {
+        const { data: membership, error: memberError } = await supabase
+          .from('study_group_members')
+          .select('id')
+          .eq('group_id', channel.group_id)
+          .eq('user_id', userId)
+          .single();
+
+        if (memberError || !membership) {
+          socket.emit('error', { message: 'Access denied - not a member' });
+          return;
+        }
+      }
+
+      // Join the channel room
+      socket.join(`channel:${channelId}`);
+      socket.channelId = channelId;
+      socket.userId = userId;
+      socket.userName = userName;
+
+      // Track connection
+      if (!channelConnections.has(channelId)) {
+        channelConnections.set(channelId, new Set());
+      }
+      channelConnections.get(channelId).add(socket.id);
+
+      console.log(`📥 ${userName} joined channel ${channelId}`);
+      
+      // Notify others in the channel
+      socket.to(`channel:${channelId}`).emit('user_joined', {
+        userId,
+        userName
+      });
+    } catch (error) {
+      console.error('Error joining channel:', error);
+      socket.emit('error', { message: 'Failed to join channel' });
+    }
+  });
+
+  // Leave a channel
+  socket.on('leave_channel', ({ channelId }) => {
+    if (channelId) {
+      socket.leave(`channel:${channelId}`);
+      
+      // Remove from tracking
+      if (channelConnections.has(channelId)) {
+        channelConnections.get(channelId).delete(socket.id);
+        if (channelConnections.get(channelId).size === 0) {
+          channelConnections.delete(channelId);
+        }
+      }
+
+      console.log(`📤 ${socket.userName} left channel ${channelId}`);
+      
+      // Notify others
+      socket.to(`channel:${channelId}`).emit('user_left', {
+        userId: socket.userId,
+        userName: socket.userName
+      });
+    }
+  });
+
+  // Send a message
+  socket.on('send_message', async ({ channelId, content }) => {
+    try {
+      // Verify user is in the channel
+      if (socket.channelId !== channelId) {
+        socket.emit('error', { message: 'You are not in this channel' });
+        return;
+      }
+
+      // Validate content
+      if (!content || typeof content !== 'string' || content.trim().length === 0) {
+        socket.emit('error', { message: 'Invalid message content' });
+        return;
+      }
+
+      if (content.length > 5000) {
+        socket.emit('error', { message: 'Message too long' });
+        return;
+      }
+
+      // Save message to database
+      const { data: message, error } = await supabase
+        .from('chat_messages')
+        .insert([{
+          channel_id: channelId,
+          user_id: socket.userId,
+          user_name: socket.userName,
+          content: content.trim()
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Broadcast to all users in the channel (including sender)
+      io.to(`channel:${channelId}`).emit('new_message', message);
+
+      console.log(`💬 Message sent in channel ${channelId} by ${socket.userName}`);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      socket.emit('error', { message: 'Failed to send message' });
+    }
+  });
+
+  // Handle typing indicator
+  socket.on('typing', ({ channelId, isTyping }) => {
+    if (socket.channelId === channelId) {
+      socket.to(`channel:${channelId}`).emit('user_typing', {
+        userId: socket.userId,
+        userName: socket.userName,
+        isTyping
+      });
+    }
+  });
+
+  // Disconnect
+  socket.on('disconnect', () => {
+    console.log(`❌ Client disconnected: ${socket.id}`);
+    
+    // Clean up channel connections
+    if (socket.channelId) {
+      const channelId = socket.channelId;
+      socket.to(`channel:${channelId}`).emit('user_left', {
+        userId: socket.userId,
+        userName: socket.userName
+      });
+
+      if (channelConnections.has(channelId)) {
+        channelConnections.get(channelId).delete(socket.id);
+        if (channelConnections.get(channelId).size === 0) {
+          channelConnections.delete(channelId);
+        }
+      }
+    }
+  });
+});
+
 // Démarrage du serveur
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
   console.log(`🗄️  Connected to Supabase at ${process.env.SUPABASE_URL}`);
   console.log(`📡 API available at http://localhost:${PORT}/api`);
+  console.log(`🔌 WebSocket server ready`);
 });
