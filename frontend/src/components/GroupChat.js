@@ -6,15 +6,16 @@ import { useGroupChat } from '../hooks/useGroupChat';
  * Composant GroupChat - Interface de chat pour un groupe
  * @param {string} groupId - ID du groupe
  * @param {string} userId - ID de l'utilisateur connecté
+ * @param {string} userName - Nom de l'utilisateur connecté
  * @param {boolean} isDark - Mode sombre
  */
-export function GroupChat({ groupId, userId, isDark = true }) {
+export function GroupChat({ groupId, userId, userName, isDark = true }) {
   const [inputMessage, setInputMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
-  const { messages, isLoading, error, sendMessage, deleteMessage } = useGroupChat(groupId, userId);
+  const { messages, isLoading, error, sendMessage, deleteMessage } = useGroupChat(groupId, userId, userName);
 
   // Auto-scroll vers le bas quand de nouveaux messages arrivent
   useEffect(() => {
@@ -153,9 +154,19 @@ export function GroupChat({ groupId, userId, isDark = true }) {
                       </button>
                     )}
                     
+                    {/* Nom de l'utilisateur (si ce n'est pas son propre message) */}
+                    {!isOwnMessage && (
+                      <p className={`
+                        text-xs font-semibold mb-1
+                        ${isDark ? 'text-slate-300' : 'text-gray-700'}
+                      `}>
+                        {message.user_name || 'Utilisateur'}
+                      </p>
+                    )}
+                    
                     {/* Contenu du message */}
                     <p className="whitespace-pre-wrap break-words">
-                      {message.message}
+                      {message.content || message.message}
                     </p>
                     
                     {/* Heure */}

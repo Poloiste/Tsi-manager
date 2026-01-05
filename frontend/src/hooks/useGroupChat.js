@@ -10,18 +10,23 @@ const log = (...args) => {
 };
 const logError = (...args) => console.error(...args); // Always log errors
 
+// Get API URL from environment or use default
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+
 /**
- * Hook de gestion du chat de groupe
+ * Hook de gestion du chat de groupe via l'API backend
  * @param {string} groupId - ID du groupe
  * @param {string} userId - ID de l'utilisateur connecté
+ * @param {string} userName - Nom de l'utilisateur connecté
  * @returns {Object} État et fonctions de gestion du chat
  */
-export function useGroupChat(groupId, userId) {
+export function useGroupChat(groupId, userId, userName) {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [channelId, setChannelId] = useState(null);
 
-  // Charger les messages du groupe
+  // Charger les messages du groupe via l'API backend
   const loadMessages = useCallback(async () => {
     if (!groupId || !userId) {
       logError('[useGroupChat] Missing groupId or userId');
@@ -33,30 +38,46 @@ export function useGroupChat(groupId, userId) {
     setError(null);
     
     try {
-      const { data, error } = await supabase
-        .from('group_chats')
-        .select('*')
-        .eq('group_id', groupId)
-        .order('created_at', { ascending: true })
-        .limit(100); // Limiter aux 100 derniers messages
-
-      if (error) throw error;
-
+      const response = await fetch(`${API_URL}/groups/${groupId}/messages?limit=100&user_id=${userId}`);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
       logger.log('Messages loaded:', data?.length || 0);
       setMessages(data || []);
+      
+      // Récupérer le channel_id pour les abonnements en temps réel
+      if (data && data.length > 0) {
+        setChannelId(data[0].channel_id);
+      } else {
+        // Sinon, récupérer le channel_id via Supabase
+        const { data: channel } = await supabase
+          .from('chat_channels')
+          .select('id')
+          .eq('group_id', groupId)
+          .single();
+        
+        if (channel) {
+          setChannelId(channel.id);
+        }
+      }
     } catch (error) {
       logError('[useGroupChat] Error loading messages:', error);
-      setError('Impossible de charger les messages');
+      setError(error.message || 'Impossible de charger les messages');
       throw error;
     } finally {
       setIsLoading(false);
     }
   }, [groupId, userId]);
 
-  // Envoyer un nouveau message
+  // Envoyer un nouveau message via l'API backend
   const sendMessage = useCallback(async (messageText) => {
-    if (!groupId || !userId) {
-      logError('[useGroupChat] Missing groupId or userId');
+    if (!groupId || !userId || !userName) {
+      logError('[useGroupChat] Missing groupId, userId, or userName');
       throw new Error('User not authenticated or group not selected');
     }
 
@@ -69,28 +90,35 @@ export function useGroupChat(groupId, userId) {
     setError(null);
 
     try {
-      const { data, error } = await supabase
-        .from('group_chats')
-        .insert([{
-          group_id: groupId,
+      const response = await fetch(`${API_URL}/groups/${groupId}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
           user_id: userId,
-          message: messageText.trim()
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-
+          user_name: userName,
+          content: messageText.trim()
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
       logger.log('Message sent successfully:', data.id);
       return data;
     } catch (error) {
       logError('[useGroupChat] Error sending message:', error);
-      setError('Impossible d\'envoyer le message');
+      setError(error.message || 'Impossible d\'envoyer le message');
       throw error;
     }
-  }, [groupId, userId]);
+  }, [groupId, userId, userName]);
 
-  // Supprimer un message
+  // Supprimer un message via l'API backend
   const deleteMessage = useCallback(async (messageId) => {
     if (!userId) {
       logError('[useGroupChat] Missing userId');
@@ -101,21 +129,22 @@ export function useGroupChat(groupId, userId) {
     setError(null);
 
     try {
-      const { error } = await supabase
-        .from('group_chats')
-        .delete()
-        .eq('id', messageId)
-        .eq('user_id', userId); // RLS vérifie aussi, mais on ajoute une sécurité côté client
-
-      if (error) throw error;
+      const response = await fetch(`${API_URL}/groups/${groupId}/messages/${messageId}?user_id=${userId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
 
       logger.log('Message deleted successfully');
     } catch (error) {
       logError('[useGroupChat] Error deleting message:', error);
-      setError('Impossible de supprimer le message');
+      setError(error.message || 'Impossible de supprimer le message');
       throw error;
     }
-  }, [userId]);
+  }, [groupId, userId]);
 
   // Configurer les abonnements en temps réel
   useEffect(() => {
@@ -129,14 +158,19 @@ export function useGroupChat(groupId, userId) {
     // Charger les messages initiaux
     loadMessages();
 
-    // S'abonner aux nouveaux messages
+    // Attendre que le channelId soit disponible
+    if (!channelId) {
+      return;
+    }
+
+    // S'abonner aux nouveaux messages via chat_messages table
     const channel = supabase
       .channel(`group-chat:${groupId}`)
       .on('postgres_changes', {
         event: 'INSERT',
         schema: 'public',
-        table: 'group_chats',
-        filter: `group_id=eq.${groupId}`
+        table: 'chat_messages',
+        filter: `channel_id=eq.${channelId}`
       }, (payload) => {
         log('[useGroupChat] New message received:', payload.new);
         setMessages(prev => {
@@ -149,8 +183,8 @@ export function useGroupChat(groupId, userId) {
       .on('postgres_changes', {
         event: 'DELETE',
         schema: 'public',
-        table: 'group_chats',
-        filter: `group_id=eq.${groupId}`
+        table: 'chat_messages',
+        filter: `channel_id=eq.${channelId}`
       }, (payload) => {
         log('[useGroupChat] Message deleted:', payload.old.id);
         setMessages(prev => prev.filter(msg => msg.id !== payload.old.id));
@@ -164,7 +198,7 @@ export function useGroupChat(groupId, userId) {
       log('[useGroupChat] Cleaning up realtime subscription');
       supabase.removeChannel(channel);
     };
-  }, [groupId, userId, loadMessages]);
+  }, [groupId, userId, channelId, loadMessages]);
 
   return {
     messages,
