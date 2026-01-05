@@ -536,6 +536,213 @@ app.post('/api/shared/revisions', async (req, res) => {
   }
 });
 
+// ============================================
+// ROUTES GROUPES - MESSAGERIE ET FICHIERS
+// ============================================
+
+// ===== MESSAGERIE DE GROUPE =====
+// GET /api/groups/:groupId/messages - Récupérer les messages d'un groupe
+// NOTE: In production, add authentication middleware to verify user session
+app.get('/api/groups/:groupId/messages', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    let limit = 100; // Default limit
+
+    // Validate and cap the limit to prevent excessive memory usage
+    if (req.query.limit !== undefined) {
+      const parsedLimit = Number(req.query.limit);
+      if (!Number.isInteger(parsedLimit) || parsedLimit < 1) {
+        return res.status(400).json({ error: 'Invalid limit parameter. Must be a positive integer.' });
+      }
+      limit = Math.min(parsedLimit, 1000); // Cap at maximum of 1000
+    }
+
+    // Récupérer le channel_id associé au groupe
+    const { data: channel, error: channelError } = await supabase
+      .from('chat_channels')
+      .select('id')
+      .eq('group_id', groupId)
+      .single();
+
+    if (channelError) {
+      console.error('Error fetching channel:', channelError);
+      return res.status(404).json({ error: 'Channel not found for this group' });
+    }
+
+    // Récupérer les messages du channel
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('channel_id', channel.id)
+      .order('created_at', { ascending: true })
+      .limit(limit);
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error fetching group messages:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/groups/:groupId/messages - Envoyer un message dans un groupe
+// NOTE: In production, derive user_id from authenticated session, not request body
+// SECURITY WARNING: Current implementation accepts user_id from request body
+// This should be replaced with proper authentication middleware
+app.post('/api/groups/:groupId/messages', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { user_id, user_name, content } = req.body;
+
+    // Input validation
+    if (!user_id || !user_name || !content) {
+      return res.status(400).json({ error: 'Missing required fields: user_id, user_name, content' });
+    }
+
+    if (typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ error: 'Content must be a non-empty string' });
+    }
+
+    if (content.length > 5000) {
+      return res.status(400).json({ error: 'Content exceeds maximum length of 5000 characters' });
+    }
+
+    // Récupérer le channel_id associé au groupe
+    const { data: channel, error: channelError } = await supabase
+      .from('chat_channels')
+      .select('id')
+      .eq('group_id', groupId)
+      .single();
+
+    if (channelError) {
+      console.error('Error fetching channel:', channelError);
+      return res.status(404).json({ error: 'Channel not found for this group' });
+    }
+
+    // Insérer le message
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .insert([{
+        channel_id: channel.id,
+        user_id,
+        user_name,
+        content: content.trim()
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    console.error('Error sending group message:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===== PARTAGE DE FICHIERS =====
+// GET /api/groups/:groupId/files - Récupérer les fichiers d'un groupe
+app.get('/api/groups/:groupId/files', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    const { data, error } = await supabase
+      .from('group_files')
+      .select('*')
+      .eq('group_id', groupId)
+      .order('uploaded_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error fetching group files:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/groups/:groupId/files - Partager un fichier dans un groupe
+// NOTE: In production, derive user_id from authenticated session, not request body
+// SECURITY WARNING: Current implementation accepts user_id from request body
+// This should be replaced with proper authentication middleware
+app.post('/api/groups/:groupId/files', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { user_id, file_name, file_url } = req.body;
+
+    // Input validation
+    if (!user_id || !file_name || !file_url) {
+      return res.status(400).json({ error: 'Missing required fields: user_id, file_name, file_url' });
+    }
+
+    if (typeof file_name !== 'string' || file_name.trim().length === 0) {
+      return res.status(400).json({ error: 'File name must be a non-empty string' });
+    }
+
+    if (file_name.length > 255) {
+      return res.status(400).json({ error: 'File name exceeds maximum length of 255 characters' });
+    }
+
+    // Validate URL format more strictly
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(file_url);
+      // Only allow http and https protocols
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        return res.status(400).json({ error: 'Invalid file URL. Only HTTP and HTTPS protocols are allowed.' });
+      }
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid file URL format.' });
+    }
+
+    if (file_url.length > 2048) {
+      return res.status(400).json({ error: 'File URL exceeds maximum length of 2048 characters' });
+    }
+
+    const { data, error } = await supabase
+      .from('group_files')
+      .insert([{
+        group_id: groupId,
+        user_id,
+        file_name: file_name.trim(),
+        file_url: file_url.trim()
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    console.error('Error sharing file:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/groups/:groupId/files/:fileId - Supprimer un fichier
+app.delete('/api/groups/:groupId/files/:fileId', async (req, res) => {
+  try {
+    const { groupId, fileId } = req.params;
+
+    // Delete and check if any rows were affected
+    const { data, error, count } = await supabase
+      .from('group_files')
+      .delete()
+      .eq('id', fileId)
+      .eq('group_id', groupId)
+      .select();
+
+    if (error) throw error;
+    
+    // Check if a file was actually deleted
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    res.json({ message: 'File deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ===== ROUTE DE TEST =====
 app.get('/api/health', (req, res) => {
   res.json({ 
