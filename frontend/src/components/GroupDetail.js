@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Copy, Check, X, AlertCircle, Users, Crown, LogOut, Trash2, RefreshCw } from 'lucide-react';
+import { Copy, Check, X, AlertCircle, Users, Crown, LogOut, Trash2, RefreshCw, MessageCircle, Upload } from 'lucide-react';
 import { GroupLeaderboard } from './GroupLeaderboard';
+import { GroupChat } from './GroupChat';
 
 /**
  * GroupDetail Component
@@ -24,11 +25,12 @@ export function GroupDetail({
   availableDecks = [],
   isDark = true,
   currentUserId = null,
+  currentUserName = null,
   isCreator = false
 }) {
   const [copySuccess, setCopySuccess] = useState(null); // Track which button ('code' or 'link')
   const [copyError, setCopyError] = useState(null);
-  const [activeTab, setActiveTab] = useState('overview'); // 'overview' or 'parameters'
+  const [activeTab, setActiveTab] = useState('chat'); // 'chat', 'files', 'overview' or 'parameters'
   const timeoutRefs = useRef({ success: null, error: null });
   
   // Cleanup timeouts on unmount
@@ -204,11 +206,45 @@ export function GroupDetail({
             : 'bg-white/95 backdrop-blur border-gray-200'
           }
         `}>
-          <div className="flex px-6">
+          <div className="flex px-6 overflow-x-auto">
+            <button
+              onClick={() => setActiveTab('chat')}
+              className={`
+                px-6 py-3 font-semibold transition-all relative whitespace-nowrap
+                ${activeTab === 'chat'
+                  ? isDark
+                    ? 'text-indigo-400 border-b-2 border-indigo-400'
+                    : 'text-indigo-600 border-b-2 border-indigo-600'
+                  : isDark
+                    ? 'text-slate-400 hover:text-slate-300'
+                    : 'text-gray-600 hover:text-gray-900'
+                }
+              `}
+            >
+              <MessageCircle className="w-4 h-4 inline mr-2" />
+              Chat
+            </button>
+            <button
+              onClick={() => setActiveTab('files')}
+              className={`
+                px-6 py-3 font-semibold transition-all relative whitespace-nowrap
+                ${activeTab === 'files'
+                  ? isDark
+                    ? 'text-indigo-400 border-b-2 border-indigo-400'
+                    : 'text-indigo-600 border-b-2 border-indigo-600'
+                  : isDark
+                    ? 'text-slate-400 hover:text-slate-300'
+                    : 'text-gray-600 hover:text-gray-900'
+                }
+              `}
+            >
+              <Upload className="w-4 h-4 inline mr-2" />
+              Fichiers
+            </button>
             <button
               onClick={() => setActiveTab('overview')}
               className={`
-                px-6 py-3 font-semibold transition-all relative
+                px-6 py-3 font-semibold transition-all relative whitespace-nowrap
                 ${activeTab === 'overview'
                   ? isDark
                     ? 'text-indigo-400 border-b-2 border-indigo-400'
@@ -225,7 +261,7 @@ export function GroupDetail({
               <button
                 onClick={() => setActiveTab('parameters')}
                 className={`
-                  px-6 py-3 font-semibold transition-all relative
+                  px-6 py-3 font-semibold transition-all relative whitespace-nowrap
                   ${activeTab === 'parameters'
                     ? isDark
                       ? 'text-indigo-400 border-b-2 border-indigo-400'
@@ -244,6 +280,35 @@ export function GroupDetail({
 
         {/* Content */}
         <div className="p-6 space-y-6">
+          {/* Chat Tab */}
+          {activeTab === 'chat' && (
+            <div className="h-[600px]">
+              <GroupChat 
+                groupId={group.id}
+                userId={currentUserId}
+                userName={currentUserName}
+                isDark={isDark}
+              />
+            </div>
+          )}
+
+          {/* Files Tab */}
+          {activeTab === 'files' && (
+            <div>
+              <h3 className={`text-xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                📁 Fichiers partagés
+              </h3>
+              <div className={`
+                text-center py-12
+                ${isDark ? 'text-slate-400' : 'text-gray-600'}
+              `}>
+                <div className="text-6xl mb-4">📁</div>
+                <p className="text-lg font-semibold mb-2">Partage de fichiers</p>
+                <p className="text-sm">Cette fonctionnalité sera bientôt disponible</p>
+              </div>
+            </div>
+          )}
+
           {/* Overview Tab */}
           {activeTab === 'overview' && (
             <>

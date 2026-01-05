@@ -6226,6 +6226,7 @@ function App() {
           availableDecks={courses}
           isDark={isDark}
           currentUserId={user?.id}
+          currentUserName={getUserDisplayName(user)}
           isCreator={selectedGroup?.created_by === user?.id}
         />
       )}
