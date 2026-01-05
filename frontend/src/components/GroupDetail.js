@@ -28,6 +28,15 @@ export function GroupDetail({
 }) {
   const [copySuccess, setCopySuccess] = useState(null); // Track which button ('code' or 'link')
   const [copyError, setCopyError] = useState(null);
+  const timeoutRefs = React.useRef({ success: null, error: null });
+  
+  // Cleanup timeouts on unmount
+  React.useEffect(() => {
+    return () => {
+      if (timeoutRefs.current.success) clearTimeout(timeoutRefs.current.success);
+      if (timeoutRefs.current.error) clearTimeout(timeoutRefs.current.error);
+    };
+  }, []);
   
   /**
    * Enhanced copy to clipboard with accessibility and fallback support
@@ -64,17 +73,25 @@ export function GroupDetail({
       setCopySuccess(type);
       setCopyError(null);
       
+      // Clear any existing success timeout
+      if (timeoutRefs.current.success) clearTimeout(timeoutRefs.current.success);
+      
       // Reset feedback after 2 seconds
-      setTimeout(() => {
+      timeoutRefs.current.success = setTimeout(() => {
         setCopySuccess(null);
+        timeoutRefs.current.success = null;
       }, 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
       setCopyError(`Impossible de copier le ${label}`);
       
+      // Clear any existing error timeout
+      if (timeoutRefs.current.error) clearTimeout(timeoutRefs.current.error);
+      
       // Clear error after 3 seconds
-      setTimeout(() => {
+      timeoutRefs.current.error = setTimeout(() => {
         setCopyError(null);
+        timeoutRefs.current.error = null;
       }, 3000);
     }
   };
@@ -411,7 +428,7 @@ export function GroupDetail({
           )}
 
           {/* Action Buttons */}
-          <div className="flex gap-3 pt-4 border-t border-slate-700">
+          <div className={`flex gap-3 pt-4 border-t ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
             {!isCreator && onLeave && (
               <button
                 onClick={() => onLeave(group.id)}
