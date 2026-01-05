@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Copy, Check, X, AlertCircle, Users, Crown, LogOut, Trash2, RefreshCw } from 'lucide-react';
 import { GroupLeaderboard } from './GroupLeaderboard';
 
@@ -28,10 +28,10 @@ export function GroupDetail({
 }) {
   const [copySuccess, setCopySuccess] = useState(null); // Track which button ('code' or 'link')
   const [copyError, setCopyError] = useState(null);
-  const timeoutRefs = React.useRef({ success: null, error: null });
+  const timeoutRefs = useRef({ success: null, error: null });
   
   // Cleanup timeouts on unmount
-  React.useEffect(() => {
+  useEffect(() => {
     return () => {
       if (timeoutRefs.current.success) clearTimeout(timeoutRefs.current.success);
       if (timeoutRefs.current.error) clearTimeout(timeoutRefs.current.error);
