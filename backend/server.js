@@ -550,8 +550,8 @@ app.get('/api/groups/:groupId/messages', async (req, res) => {
 
     // Validate and cap the limit to prevent excessive memory usage
     if (req.query.limit !== undefined) {
-      const parsedLimit = parseInt(req.query.limit, 10);
-      if (isNaN(parsedLimit) || parsedLimit < 1) {
+      const parsedLimit = Number(req.query.limit);
+      if (!Number.isInteger(parsedLimit) || parsedLimit < 1) {
         return res.status(400).json({ error: 'Invalid limit parameter. Must be a positive integer.' });
       }
       limit = Math.min(parsedLimit, 1000); // Cap at maximum of 1000

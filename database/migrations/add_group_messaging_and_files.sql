@@ -82,11 +82,16 @@ CREATE POLICY "Group members can send group messages" ON public.chat_messages
 
 -- Function to create a chat channel for a study group
 CREATE OR REPLACE FUNCTION create_group_chat_channel() RETURNS TRIGGER AS $$
+DECLARE
+  safe_name TEXT;
 BEGIN
+  -- Sanitize group name: limit length and use only safe characters
+  safe_name := substring(regexp_replace(NEW.name, '[^a-zA-Z0-9\s\-]', '', 'g'), 1, 50);
+  
   -- Create a dedicated chat channel for the new study group
   -- Use the group ID in the name to ensure uniqueness
   INSERT INTO public.chat_channels (name, type, group_id)
-  VALUES ('Group: ' || NEW.name, 'group', NEW.id);
+  VALUES ('Group: ' || safe_name, 'group', NEW.id);
   
   RETURN NEW;
 END;
