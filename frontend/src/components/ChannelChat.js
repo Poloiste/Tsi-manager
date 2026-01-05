@@ -253,7 +253,7 @@ export function ChannelChat({ channelId, channelName, userId, userName, isDark =
                     
                     {/* Message content */}
                     <p className="whitespace-pre-wrap break-words">
-                      {message.content || message.message}
+                      {message.content}
                     </p>
                     
                     {/* Timestamp */}

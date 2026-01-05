@@ -166,7 +166,7 @@ export function GroupChat({ groupId, userId, userName, isDark = true }) {
                     
                     {/* Contenu du message */}
                     <p className="whitespace-pre-wrap break-words">
-                      {message.content || message.message}
+                      {message.content}
                     </p>
                     
                     {/* Heure */}
