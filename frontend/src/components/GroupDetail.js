@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Copy, Check, X, AlertCircle, Users, Crown, LogOut, Trash2, RefreshCw, MessageCircle, Upload } from 'lucide-react';
 import { GroupLeaderboard } from './GroupLeaderboard';
 import { GroupChat } from './GroupChat';
+import { GroupFiles } from './GroupFiles';
 
 /**
  * GroupDetail Component
@@ -35,9 +36,10 @@ export function GroupDetail({
   
   // Cleanup timeouts on unmount
   useEffect(() => {
+    const timeouts = timeoutRefs.current;
     return () => {
-      if (timeoutRefs.current.success) clearTimeout(timeoutRefs.current.success);
-      if (timeoutRefs.current.error) clearTimeout(timeoutRefs.current.error);
+      if (timeouts.success) clearTimeout(timeouts.success);
+      if (timeouts.error) clearTimeout(timeouts.error);
     };
   }, []);
   
@@ -294,18 +296,13 @@ export function GroupDetail({
 
           {/* Files Tab */}
           {activeTab === 'files' && (
-            <div>
-              <h3 className={`text-xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                📁 Fichiers partagés
-              </h3>
-              <div className={`
-                text-center py-12
-                ${isDark ? 'text-slate-400' : 'text-gray-600'}
-              `}>
-                <div className="text-6xl mb-4">📁</div>
-                <p className="text-lg font-semibold mb-2">Partage de fichiers</p>
-                <p className="text-sm">Cette fonctionnalité sera bientôt disponible</p>
-              </div>
+            <div className="h-[600px]">
+              <GroupFiles 
+                groupId={group.id}
+                userId={currentUserId}
+                isDark={isDark}
+                isAdmin={isCreator}
+              />
             </div>
           )}
 

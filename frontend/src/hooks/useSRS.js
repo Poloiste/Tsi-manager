@@ -133,7 +133,7 @@ export function useSRS(userId) {
     setError(null);
 
     try {
-      const today = new Date().toISOString().split('T')[0];
+      // const today = new Date().toISOString().split('T')[0]; // Unused for now
 
       if (category === 'new') {
         // Load flashcards that don't have SRS data yet
