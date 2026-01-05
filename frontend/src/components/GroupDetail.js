@@ -113,6 +113,9 @@ export function GroupDetail({
       await onGenerateCode(group.id);
     }
   };
+  
+  // Check if parameters tab should be visible
+  const showParametersTab = !group.is_public && isCreator;
 
   if (!group) {
     return null;
@@ -218,7 +221,7 @@ export function GroupDetail({
             >
               📊 Vue d'ensemble
             </button>
-            {!group.is_public && isCreator && (
+            {showParametersTab && (
               <button
                 onClick={() => setActiveTab('parameters')}
                 className={`
@@ -328,7 +331,7 @@ export function GroupDetail({
           )}
 
           {/* Parameters/Members Tab */}
-          {activeTab === 'parameters' && !group.is_public && isCreator && (
+          {activeTab === 'parameters' && showParametersTab && (
             <>
               {/* Private Group Invitation Section - ENHANCED COPY BUTTON */}
               <div className={`
