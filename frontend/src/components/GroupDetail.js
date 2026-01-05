@@ -28,6 +28,7 @@ export function GroupDetail({
 }) {
   const [copySuccess, setCopySuccess] = useState(null); // Track which button ('code' or 'link')
   const [copyError, setCopyError] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview'); // 'overview' or 'parameters'
   const timeoutRefs = useRef({ success: null, error: null });
   
   // Cleanup timeouts on unmount
@@ -192,272 +193,326 @@ export function GroupDetail({
           </button>
         </div>
 
+        {/* Tab Navigation */}
+        <div className={`
+          sticky top-[85px] z-10 border-b
+          ${isDark 
+            ? 'bg-slate-800/95 backdrop-blur border-slate-700' 
+            : 'bg-white/95 backdrop-blur border-gray-200'
+          }
+        `}>
+          <div className="flex px-6">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`
+                px-6 py-3 font-semibold transition-all relative
+                ${activeTab === 'overview'
+                  ? isDark
+                    ? 'text-indigo-400 border-b-2 border-indigo-400'
+                    : 'text-indigo-600 border-b-2 border-indigo-600'
+                  : isDark
+                    ? 'text-slate-400 hover:text-slate-300'
+                    : 'text-gray-600 hover:text-gray-900'
+                }
+              `}
+            >
+              📊 Vue d'ensemble
+            </button>
+            {!group.is_public && isCreator && (
+              <button
+                onClick={() => setActiveTab('parameters')}
+                className={`
+                  px-6 py-3 font-semibold transition-all relative
+                  ${activeTab === 'parameters'
+                    ? isDark
+                      ? 'text-indigo-400 border-b-2 border-indigo-400'
+                      : 'text-indigo-600 border-b-2 border-indigo-600'
+                    : isDark
+                      ? 'text-slate-400 hover:text-slate-300'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }
+                `}
+              >
+                ⚙️ Paramètres / Membres
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* Group Description */}
-          {group.description && (
-            <div className={`
-              p-4 rounded-lg
-              ${isDark ? 'bg-slate-700/50' : 'bg-gray-50'}
-            `}>
-              <p className={isDark ? 'text-slate-300' : 'text-gray-700'}>
-                {group.description}
-              </p>
-            </div>
-          )}
-
-          {/* Private Group Invitation Section - ENHANCED COPY BUTTON */}
-          {!group.is_public && isCreator && (
-            <div className={`
-              p-6 rounded-xl border
-              ${isDark 
-                ? 'bg-gradient-to-br from-purple-900/20 to-indigo-900/20 border-purple-500/30' 
-                : 'bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200'
-              }
-            `}>
-              <div className="flex items-start gap-3 mb-4">
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <>
+              {/* Group Description */}
+              {group.description && (
                 <div className={`
-                  p-2 rounded-lg
-                  ${isDark ? 'bg-purple-900/40' : 'bg-purple-200'}
+                  p-4 rounded-lg
+                  ${isDark ? 'bg-slate-700/50' : 'bg-gray-50'}
                 `}>
-                  <Copy className={`w-5 h-5 ${isDark ? 'text-purple-300' : 'text-purple-700'}`} />
-                </div>
-                <div className="flex-1">
-                  <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                    Invitation au groupe privé
-                  </h3>
-                  <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
-                    Partagez ce code ou ce lien pour inviter des membres
+                  <p className={isDark ? 'text-slate-300' : 'text-gray-700'}>
+                    {group.description}
                   </p>
+                </div>
+              )}
+
+              {/* Group Stats */}
+              <div className={`
+                grid grid-cols-2 gap-4 p-4 rounded-lg
+                ${isDark ? 'bg-slate-700/50' : 'bg-gray-50'}
+              `}>
+                <div>
+                  <div className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+                    Membres
+                  </div>
+                  <div className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    {group.memberCount || 0}
+                  </div>
+                </div>
+                <div>
+                  <div className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+                    Créé le
+                  </div>
+                  <div className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    {group.created_at ? new Date(group.created_at).toLocaleDateString('fr-FR') : 'N/A'}
+                  </div>
                 </div>
               </div>
 
-              {/* Invite Code Display with Copy Button */}
-              {group.invite_code ? (
-                <div className="space-y-3">
-                  {/* Code d'invitation */}
-                  <div>
-                    <label className={`
-                      block text-sm font-semibold mb-2
-                      ${isDark ? 'text-purple-300' : 'text-purple-700'}
-                    `}>
-                      Code d'invitation
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <div className={`
-                        flex-1 px-4 py-3 rounded-lg font-mono text-lg font-bold
-                        ${isDark 
-                          ? 'bg-slate-800 text-purple-300 border border-slate-700' 
-                          : 'bg-white text-purple-700 border border-purple-200'
-                        }
-                      `}>
-                        {group.invite_code}
-                      </div>
-                      <button
-                        onClick={() => handleCopyToClipboard(group.invite_code, 'code', 'code')}
-                        className={`
-                          flex items-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all
-                          ${copySuccess === 'code' 
-                            ? isDark
-                              ? 'bg-green-600 hover:bg-green-700 text-white'
-                              : 'bg-green-500 hover:bg-green-600 text-white'
-                            : isDark
-                              ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                              : 'bg-indigo-500 hover:bg-indigo-600 text-white'
-                          }
-                          focus:outline-none focus:ring-2 focus:ring-offset-2
-                          ${isDark ? 'focus:ring-indigo-500' : 'focus:ring-indigo-400'}
-                        `}
-                        aria-label={copySuccess === 'code' ? "Code copié" : "Copier le code d'invitation"}
-                        title={copySuccess === 'code' ? "Code copié !" : "Copier le code"}
-                      >
-                        {copySuccess === 'code' ? (
-                          <>
-                            <Check className="w-5 h-5" />
-                            <span>Copié !</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-5 h-5" />
-                            <span>Copier</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
+              {/* Leaderboard */}
+              {leaderboard && leaderboard.length > 0 && (
+                <div>
+                  <h3 className={`text-xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    🏆 Classement
+                  </h3>
+                  <GroupLeaderboard 
+                    leaderboard={leaderboard}
+                    isDark={isDark}
+                    currentUserId={currentUserId}
+                  />
+                </div>
+              )}
 
-                  {/* Lien d'invitation complet */}
-                  <div>
-                    <label className={`
-                      block text-sm font-semibold mb-2
-                      ${isDark ? 'text-purple-300' : 'text-purple-700'}
-                    `}>
-                      Lien d'invitation (recommandé)
-                    </label>
-                    <div className="flex items-center gap-2">
-                      <div className={`
-                        flex-1 px-4 py-3 rounded-lg font-mono text-sm overflow-x-auto
-                        ${isDark 
-                          ? 'bg-slate-800 text-indigo-300 border border-slate-700' 
-                          : 'bg-white text-indigo-700 border border-indigo-200'
-                        }
-                      `}>
-                        {getInvitationLink()}
-                      </div>
-                      <button
-                        onClick={() => handleCopyToClipboard(getInvitationLink(), 'link', 'lien')}
-                        className={`
-                          flex items-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all whitespace-nowrap
-                          ${copySuccess === 'link' 
-                            ? isDark
-                              ? 'bg-green-600 hover:bg-green-700 text-white'
-                              : 'bg-green-500 hover:bg-green-600 text-white'
-                            : isDark
-                              ? 'bg-purple-600 hover:bg-purple-700 text-white'
-                              : 'bg-purple-500 hover:bg-purple-600 text-white'
-                          }
-                          focus:outline-none focus:ring-2 focus:ring-offset-2
-                          ${isDark ? 'focus:ring-purple-500' : 'focus:ring-purple-400'}
-                        `}
-                        aria-label={copySuccess === 'link' ? "Lien copié" : "Copier le lien d'invitation"}
-                        title={copySuccess === 'link' ? "Lien copié !" : "Copier le lien"}
-                      >
-                        {copySuccess === 'link' ? (
-                          <>
-                            <Check className="w-5 h-5" />
-                            <span>Copié !</span>
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-5 h-5" />
-                            <span>Copier le lien</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Copy Error Message */}
-                  {copyError && (
-                    <div className={`
-                      flex items-center gap-2 p-3 rounded-lg
-                      ${isDark 
-                        ? 'bg-red-900/30 border border-red-500/30 text-red-300' 
-                        : 'bg-red-50 border border-red-200 text-red-700'
-                      }
-                    `}>
-                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                      <span className="text-sm">{copyError}</span>
-                    </div>
-                  )}
-
-                  {/* Regenerate Code Button */}
+              {/* Action Buttons */}
+              <div className={`flex gap-3 pt-4 border-t ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
+                {!isCreator && onLeave && (
                   <button
-                    onClick={handleGenerateNewCode}
+                    onClick={() => onLeave(group.id)}
                     className={`
-                      w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all
+                      flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all
                       ${isDark 
                         ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' 
                         : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
                       }
-                      focus:outline-none focus:ring-2 focus:ring-offset-2
-                      ${isDark ? 'focus:ring-slate-500' : 'focus:ring-gray-400'}
                     `}
-                    aria-label="Générer un nouveau code"
                   >
-                    <RefreshCw className="w-4 h-4" />
-                    <span>Générer un nouveau code</span>
+                    <LogOut className="w-4 h-4" />
+                    Quitter le groupe
                   </button>
+                )}
+                {isCreator && onDelete && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('Êtes-vous sûr de vouloir supprimer ce groupe ?')) {
+                        onDelete(group.id);
+                      }
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Supprimer le groupe
+                  </button>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Parameters/Members Tab */}
+          {activeTab === 'parameters' && !group.is_public && isCreator && (
+            <>
+              {/* Private Group Invitation Section - ENHANCED COPY BUTTON */}
+              <div className={`
+                p-6 rounded-xl border
+                ${isDark 
+                  ? 'bg-gradient-to-br from-purple-900/20 to-indigo-900/20 border-purple-500/30' 
+                  : 'bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200'
+                }
+              `}>
+                <div className="flex items-start gap-3 mb-4">
+                  <div className={`
+                    p-2 rounded-lg
+                    ${isDark ? 'bg-purple-900/40' : 'bg-purple-200'}
+                  `}>
+                    <Copy className={`w-5 h-5 ${isDark ? 'text-purple-300' : 'text-purple-700'}`} />
+                  </div>
+                  <div className="flex-1">
+                    <h3 className={`text-lg font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                      Invitation au groupe privé
+                    </h3>
+                    <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
+                      Partagez ce code ou ce lien pour inviter des membres
+                    </p>
+                  </div>
                 </div>
-              ) : (
-                <button
-                  onClick={handleGenerateNewCode}
-                  className={`
-                    w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all
-                    ${isDark 
-                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
-                      : 'bg-indigo-500 hover:bg-indigo-600 text-white'
-                    }
-                    focus:outline-none focus:ring-2 focus:ring-offset-2
-                    ${isDark ? 'focus:ring-indigo-500' : 'focus:ring-indigo-400'}
-                  `}
-                  aria-label="Générer le premier code d'invitation"
-                >
-                  <RefreshCw className="w-5 h-5" />
-                  <span>Générer un code d'invitation</span>
-                </button>
-              )}
-            </div>
+
+                {/* Invite Code Display with Copy Button */}
+                {group.invite_code ? (
+                  <div className="space-y-3">
+                    {/* Code d'invitation */}
+                    <div>
+                      <label className={`
+                        block text-sm font-semibold mb-2
+                        ${isDark ? 'text-purple-300' : 'text-purple-700'}
+                      `}>
+                        Code d'invitation
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <div className={`
+                          flex-1 px-4 py-3 rounded-lg font-mono text-lg font-bold
+                          ${isDark 
+                            ? 'bg-slate-800 text-purple-300 border border-slate-700' 
+                            : 'bg-white text-purple-700 border border-purple-200'
+                          }
+                        `}>
+                          {group.invite_code}
+                        </div>
+                        <button
+                          onClick={() => handleCopyToClipboard(group.invite_code, 'code', 'code')}
+                          className={`
+                            flex items-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all
+                            ${copySuccess === 'code' 
+                              ? isDark
+                                ? 'bg-green-600 hover:bg-green-700 text-white'
+                                : 'bg-green-500 hover:bg-green-600 text-white'
+                              : isDark
+                                ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                                : 'bg-indigo-500 hover:bg-indigo-600 text-white'
+                            }
+                            focus:outline-none focus:ring-2 focus:ring-offset-2
+                            ${isDark ? 'focus:ring-indigo-500' : 'focus:ring-indigo-400'}
+                          `}
+                          aria-label={copySuccess === 'code' ? "Code copié" : "Copier le code d'invitation"}
+                          title={copySuccess === 'code' ? "Code copié !" : "Copier le code"}
+                        >
+                          {copySuccess === 'code' ? (
+                            <>
+                              <Check className="w-5 h-5" />
+                              <span>Copié !</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-5 h-5" />
+                              <span>Copier</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Lien d'invitation complet */}
+                    <div>
+                      <label className={`
+                        block text-sm font-semibold mb-2
+                        ${isDark ? 'text-purple-300' : 'text-purple-700'}
+                      `}>
+                        Lien d'invitation (recommandé)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <div className={`
+                          flex-1 px-4 py-3 rounded-lg font-mono text-sm overflow-x-auto
+                          ${isDark 
+                            ? 'bg-slate-800 text-indigo-300 border border-slate-700' 
+                            : 'bg-white text-indigo-700 border border-indigo-200'
+                          }
+                        `}>
+                          {getInvitationLink()}
+                        </div>
+                        <button
+                          onClick={() => handleCopyToClipboard(getInvitationLink(), 'link', 'lien')}
+                          className={`
+                            flex items-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all whitespace-nowrap
+                            ${copySuccess === 'link' 
+                              ? isDark
+                                ? 'bg-green-600 hover:bg-green-700 text-white'
+                                : 'bg-green-500 hover:bg-green-600 text-white'
+                              : isDark
+                                ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                                : 'bg-purple-500 hover:bg-purple-600 text-white'
+                            }
+                            focus:outline-none focus:ring-2 focus:ring-offset-2
+                            ${isDark ? 'focus:ring-purple-500' : 'focus:ring-purple-400'}
+                          `}
+                          aria-label={copySuccess === 'link' ? "Lien copié" : "Copier le lien d'invitation"}
+                          title={copySuccess === 'link' ? "Lien copié !" : "Copier le lien"}
+                        >
+                          {copySuccess === 'link' ? (
+                            <>
+                              <Check className="w-5 h-5" />
+                              <span>Copié !</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-5 h-5" />
+                              <span>Copier le lien</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Copy Error Message */}
+                    {copyError && (
+                      <div className={`
+                        flex items-center gap-2 p-3 rounded-lg
+                        ${isDark 
+                          ? 'bg-red-900/30 border border-red-500/30 text-red-300' 
+                          : 'bg-red-50 border border-red-200 text-red-700'
+                        }
+                      `}>
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-sm">{copyError}</span>
+                      </div>
+                    )}
+
+                    {/* Regenerate Code Button */}
+                    <button
+                      onClick={handleGenerateNewCode}
+                      className={`
+                        w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all
+                        ${isDark 
+                          ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' 
+                          : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                        }
+                        focus:outline-none focus:ring-2 focus:ring-offset-2
+                        ${isDark ? 'focus:ring-slate-500' : 'focus:ring-gray-400'}
+                      `}
+                      aria-label="Générer un nouveau code"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>Générer un nouveau code</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleGenerateNewCode}
+                    className={`
+                      w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all
+                      ${isDark 
+                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white' 
+                        : 'bg-indigo-500 hover:bg-indigo-600 text-white'
+                      }
+                      focus:outline-none focus:ring-2 focus:ring-offset-2
+                      ${isDark ? 'focus:ring-indigo-500' : 'focus:ring-indigo-400'}
+                    `}
+                    aria-label="Générer le premier code d'invitation"
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                    <span>Générer un code d'invitation</span>
+                  </button>
+                )}
+              </div>
+            </>
           )}
-
-          {/* Group Stats */}
-          <div className={`
-            grid grid-cols-2 gap-4 p-4 rounded-lg
-            ${isDark ? 'bg-slate-700/50' : 'bg-gray-50'}
-          `}>
-            <div>
-              <div className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
-                Membres
-              </div>
-              <div className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                {group.memberCount || 0}
-              </div>
-            </div>
-            <div>
-              <div className={`text-sm font-medium ${isDark ? 'text-slate-400' : 'text-gray-600'}`}>
-                Créé le
-              </div>
-              <div className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                {group.created_at ? new Date(group.created_at).toLocaleDateString('fr-FR') : 'N/A'}
-              </div>
-            </div>
-          </div>
-
-          {/* Leaderboard */}
-          {leaderboard && leaderboard.length > 0 && (
-            <div>
-              <h3 className={`text-xl font-bold mb-4 ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                🏆 Classement
-              </h3>
-              <GroupLeaderboard 
-                leaderboard={leaderboard}
-                isDark={isDark}
-                currentUserId={currentUserId}
-              />
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className={`flex gap-3 pt-4 border-t ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
-            {!isCreator && onLeave && (
-              <button
-                onClick={() => onLeave(group.id)}
-                className={`
-                  flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all
-                  ${isDark 
-                    ? 'bg-slate-700 hover:bg-slate-600 text-slate-300' 
-                    : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
-                  }
-                `}
-              >
-                <LogOut className="w-4 h-4" />
-                Quitter le groupe
-              </button>
-            )}
-            {isCreator && onDelete && (
-              <button
-                onClick={() => {
-                  if (window.confirm('Êtes-vous sûr de vouloir supprimer ce groupe ?')) {
-                    onDelete(group.id);
-                  }
-                }}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-all"
-              >
-                <Trash2 className="w-4 h-4" />
-                Supprimer le groupe
-              </button>
-            )}
-          </div>
         </div>
       </div>
     </div>
