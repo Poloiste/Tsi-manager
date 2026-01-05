@@ -546,12 +546,16 @@ app.post('/api/shared/revisions', async (req, res) => {
 app.get('/api/groups/:groupId/messages', async (req, res) => {
   try {
     const { groupId } = req.params;
-    let { limit = 100 } = req.query;
+    let limit = 100; // Default limit
 
     // Validate and cap the limit to prevent excessive memory usage
-    limit = parseInt(limit);
-    if (isNaN(limit) || limit < 1) limit = 100;
-    if (limit > 1000) limit = 1000; // Maximum limit
+    if (req.query.limit !== undefined) {
+      const parsedLimit = parseInt(req.query.limit, 10);
+      if (!Number.isInteger(parsedLimit) || parsedLimit < 1) {
+        return res.status(400).json({ error: 'Invalid limit parameter. Must be a positive integer.' });
+      }
+      limit = Math.min(parsedLimit, 1000); // Cap at maximum of 1000
+    }
 
     // Récupérer le channel_id associé au groupe
     const { data: channel, error: channelError } = await supabase
@@ -677,9 +681,16 @@ app.post('/api/groups/:groupId/files', async (req, res) => {
       return res.status(400).json({ error: 'File name exceeds maximum length of 255 characters' });
     }
 
-    // Basic URL validation
-    if (typeof file_url !== 'string' || !file_url.match(/^https?:\/\/.+/)) {
-      return res.status(400).json({ error: 'Invalid file URL format. Must be a valid HTTP/HTTPS URL' });
+    // Validate URL format more strictly
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(file_url);
+      // Only allow http and https protocols
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        return res.status(400).json({ error: 'Invalid file URL. Only HTTP and HTTPS protocols are allowed.' });
+      }
+    } catch (err) {
+      return res.status(400).json({ error: 'Invalid file URL format.' });
     }
 
     if (file_url.length > 2048) {
@@ -710,26 +721,21 @@ app.delete('/api/groups/:groupId/files/:fileId', async (req, res) => {
   try {
     const { groupId, fileId } = req.params;
 
-    // First check if the file exists
-    const { data: existingFile, error: fetchError } = await supabase
-      .from('group_files')
-      .select('id')
-      .eq('id', fileId)
-      .eq('group_id', groupId)
-      .single();
-
-    if (fetchError || !existingFile) {
-      return res.status(404).json({ error: 'File not found' });
-    }
-
-    // Delete the file
-    const { error } = await supabase
+    // Delete and check if any rows were affected
+    const { data, error, count } = await supabase
       .from('group_files')
       .delete()
       .eq('id', fileId)
-      .eq('group_id', groupId);
+      .eq('group_id', groupId)
+      .select();
 
     if (error) throw error;
+    
+    // Check if a file was actually deleted
+    if (!data || data.length === 0) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
     res.json({ message: 'File deleted successfully' });
   } catch (error) {
     console.error('Error deleting file:', error);

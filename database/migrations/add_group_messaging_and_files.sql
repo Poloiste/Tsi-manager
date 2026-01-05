@@ -84,9 +84,9 @@ CREATE POLICY "Group members can send group messages" ON public.chat_messages
 CREATE OR REPLACE FUNCTION create_group_chat_channel() RETURNS TRIGGER AS $$
 BEGIN
   -- Create a dedicated chat channel for the new study group
-  -- Use a unique name by including the group ID to avoid conflicts
+  -- Use the group ID in the name to ensure uniqueness
   INSERT INTO public.chat_channels (name, type, group_id)
-  VALUES (NEW.name || ' (Group)', 'group', NEW.id);
+  VALUES ('Group: ' || NEW.name, 'group', NEW.id);
   
   RETURN NEW;
 END;
