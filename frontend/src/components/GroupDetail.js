@@ -114,7 +114,7 @@ export function GroupDetail({
     }
   };
   
-  // Check if parameters tab should be visible
+  // Check if parameters tab should be visible (only for private group creators)
   const showParametersTab = !group.is_public && isCreator;
 
   if (!group) {
