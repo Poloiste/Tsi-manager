@@ -64,7 +64,8 @@ export function logApiError(context, error, response = null) {
  * Safely parses JSON response with proper error handling
  * Handles cases where response is HTML instead of JSON (e.g., 404 pages)
  * @param {Response} response - Fetch response
- * @returns {Promise<any>} Parsed JSON or error object
+ * @returns {Promise<any>} Parsed JSON data
+ * @throws {Error} If response is not valid JSON or cannot be parsed
  */
 export async function safeJsonParse(response) {
   const contentType = response.headers.get('content-type');
@@ -75,33 +76,25 @@ export async function safeJsonParse(response) {
       return await response.json();
     } catch (error) {
       console.error('[API] Failed to parse JSON response:', error);
-      return {
-        error: 'Invalid JSON response',
-        details: error.message,
-      };
+      throw new Error('Invalid JSON response: ' + error.message);
     }
   }
   
   // If not JSON, try to get text for better error messages
-  try {
-    const text = await response.text();
-    // Check if it's HTML error page
-    if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
-      return {
-        error: `Server returned HTML instead of JSON (status: ${response.status})`,
-        details: 'The API endpoint may not exist or returned an error page',
-      };
-    }
-    return {
-      error: `Unexpected response type: ${contentType || 'unknown'}`,
-      details: text.substring(0, 200), // Limit text length
-    };
-  } catch (error) {
-    return {
-      error: 'Failed to read response',
-      details: error.message,
-    };
+  const text = await response.text();
+  
+  // Check if it's HTML error page
+  if (text.startsWith('<!DOCTYPE') || text.startsWith('<html')) {
+    throw new Error(
+      `Server returned HTML instead of JSON (status: ${response.status}). ` +
+      'The API endpoint may not exist or returned an error page'
+    );
   }
+  
+  throw new Error(
+    `Unexpected response type: ${contentType || 'unknown'}. ` +
+    `Response preview: ${text.substring(0, 100)}`
+  );
 }
 
 /**
@@ -111,20 +104,17 @@ export async function safeJsonParse(response) {
  * @returns {Promise<never>} Throws an error with appropriate message
  */
 export async function handleApiError(response, context = 'API call') {
-  let errorData;
-  
   try {
-    errorData = await safeJsonParse(response);
-  } catch (error) {
+    const errorData = await safeJsonParse(response);
+    const errorMessage = errorData.error || errorData.message || `HTTP error! status: ${response.status}`;
+    const error = new Error(errorMessage);
     logApiError(context, error, response);
-    throw new Error(`HTTP error! status: ${response.status}`);
+    throw error;
+  } catch (error) {
+    // If safeJsonParse threw an error, use it directly
+    logApiError(context, error, response);
+    throw error;
   }
-  
-  const errorMessage = errorData.error || errorData.message || `HTTP error! status: ${response.status}`;
-  const error = new Error(errorMessage);
-  
-  logApiError(context, error, response);
-  throw error;
 }
 
 /**
@@ -163,18 +153,8 @@ export async function fetchJson(url, options = {}, context = 'API call') {
     await handleApiError(response, context);
   }
   
+  // safeJsonParse now throws on errors, so we can directly parse
   const data = await safeJsonParse(response);
-  
-  // Check if safeJsonParse returned an error object
-  if (data && data.error) {
-    const error = new Error(data.error);
-    if (data.details) {
-      error.details = data.details;
-    }
-    logApiError(context, error, response);
-    throw error;
-  }
-  
   logApiResponse(response, data);
   
   return data;
