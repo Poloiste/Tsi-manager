@@ -536,6 +536,155 @@ app.post('/api/shared/revisions', async (req, res) => {
   }
 });
 
+// ============================================
+// ROUTES GROUPES - MESSAGERIE ET FICHIERS
+// ============================================
+
+// ===== MESSAGERIE DE GROUPE =====
+// GET /api/groups/:groupId/messages - Récupérer les messages d'un groupe
+app.get('/api/groups/:groupId/messages', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { limit = 100 } = req.query;
+
+    // Récupérer le channel_id associé au groupe
+    const { data: channel, error: channelError } = await supabase
+      .from('chat_channels')
+      .select('id')
+      .eq('group_id', groupId)
+      .single();
+
+    if (channelError) {
+      console.error('Error fetching channel:', channelError);
+      return res.status(404).json({ error: 'Channel not found for this group' });
+    }
+
+    // Récupérer les messages du channel
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('channel_id', channel.id)
+      .order('created_at', { ascending: true })
+      .limit(parseInt(limit));
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error fetching group messages:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/groups/:groupId/messages - Envoyer un message dans un groupe
+app.post('/api/groups/:groupId/messages', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { user_id, user_name, content } = req.body;
+
+    if (!user_id || !user_name || !content) {
+      return res.status(400).json({ error: 'Missing required fields: user_id, user_name, content' });
+    }
+
+    // Récupérer le channel_id associé au groupe
+    const { data: channel, error: channelError } = await supabase
+      .from('chat_channels')
+      .select('id')
+      .eq('group_id', groupId)
+      .single();
+
+    if (channelError) {
+      console.error('Error fetching channel:', channelError);
+      return res.status(404).json({ error: 'Channel not found for this group' });
+    }
+
+    // Insérer le message
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .insert([{
+        channel_id: channel.id,
+        user_id,
+        user_name,
+        content
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    console.error('Error sending group message:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ===== PARTAGE DE FICHIERS =====
+// GET /api/groups/:groupId/files - Récupérer les fichiers d'un groupe
+app.get('/api/groups/:groupId/files', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    const { data, error } = await supabase
+      .from('group_files')
+      .select('*')
+      .eq('group_id', groupId)
+      .order('uploaded_at', { ascending: false });
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error fetching group files:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/groups/:groupId/files - Partager un fichier dans un groupe
+app.post('/api/groups/:groupId/files', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { user_id, file_name, file_url } = req.body;
+
+    if (!user_id || !file_name || !file_url) {
+      return res.status(400).json({ error: 'Missing required fields: user_id, file_name, file_url' });
+    }
+
+    const { data, error } = await supabase
+      .from('group_files')
+      .insert([{
+        group_id: groupId,
+        user_id,
+        file_name,
+        file_url
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    console.error('Error sharing file:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/groups/:groupId/files/:fileId - Supprimer un fichier
+app.delete('/api/groups/:groupId/files/:fileId', async (req, res) => {
+  try {
+    const { groupId, fileId } = req.params;
+
+    const { error } = await supabase
+      .from('group_files')
+      .delete()
+      .eq('id', fileId)
+      .eq('group_id', groupId);
+
+    if (error) throw error;
+    res.json({ message: 'File deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ===== ROUTE DE TEST =====
 app.get('/api/health', (req, res) => {
   res.json({ 
