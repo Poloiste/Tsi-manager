@@ -14,9 +14,18 @@ const isDev = process.env.NODE_ENV === 'development';
  */
 export function logApiRequest(method, url, options = {}) {
   if (isDev) {
+    let parsedBody;
+    if (options.body) {
+      try {
+        parsedBody = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+      } catch (error) {
+        parsedBody = options.body; // Keep as string if parsing fails
+      }
+    }
+    
     console.log(`[API Request] ${method} ${url}`, {
       headers: options.headers,
-      body: options.body ? JSON.parse(options.body) : undefined,
+      body: parsedBody,
     });
   }
 }
@@ -155,6 +164,17 @@ export async function fetchJson(url, options = {}, context = 'API call') {
   }
   
   const data = await safeJsonParse(response);
+  
+  // Check if safeJsonParse returned an error object
+  if (data && data.error) {
+    const error = new Error(data.error);
+    if (data.details) {
+      error.details = data.details;
+    }
+    logApiError(context, error, response);
+    throw error;
+  }
+  
   logApiResponse(response, data);
   
   return data;
