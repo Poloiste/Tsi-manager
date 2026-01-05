@@ -25,9 +25,11 @@ CREATE POLICY "Anyone can read public channels" ON public.chat_channels
 CREATE POLICY "Group members can read group channels" ON public.chat_channels
   FOR SELECT USING (
     group_id IS NOT NULL AND
-    group_id IN (
-      SELECT group_id FROM public.study_group_members 
-      WHERE user_id = auth.uid()
+    EXISTS (
+      SELECT 1
+      FROM public.study_group_members
+      WHERE study_group_members.group_id = chat_channels.group_id
+      AND study_group_members.user_id = auth.uid()
     )
   );
 
@@ -47,12 +49,12 @@ CREATE POLICY "Anyone can read public messages" ON public.chat_messages
 -- Allow group members to read messages in their group's channel
 CREATE POLICY "Group members can read group messages" ON public.chat_messages
   FOR SELECT USING (
-    channel_id IN (
-      SELECT id FROM public.chat_channels 
-      WHERE group_id IN (
-        SELECT group_id FROM public.study_group_members 
-        WHERE user_id = auth.uid()
-      )
+    EXISTS (
+      SELECT 1
+      FROM public.chat_channels
+      INNER JOIN public.study_group_members ON chat_channels.group_id = study_group_members.group_id
+      WHERE chat_channels.id = chat_messages.channel_id
+      AND study_group_members.user_id = auth.uid()
     )
   );
 
@@ -69,12 +71,12 @@ CREATE POLICY "Authenticated users can send public messages" ON public.chat_mess
 CREATE POLICY "Group members can send group messages" ON public.chat_messages
   FOR INSERT WITH CHECK (
     auth.uid() IS NOT NULL AND
-    channel_id IN (
-      SELECT id FROM public.chat_channels 
-      WHERE group_id IN (
-        SELECT group_id FROM public.study_group_members 
-        WHERE user_id = auth.uid()
-      )
+    EXISTS (
+      SELECT 1
+      FROM public.chat_channels
+      INNER JOIN public.study_group_members ON chat_channels.group_id = study_group_members.group_id
+      WHERE chat_channels.id = chat_messages.channel_id
+      AND study_group_members.user_id = auth.uid()
     )
   );
 
@@ -122,9 +124,11 @@ ALTER TABLE public.group_files ENABLE ROW LEVEL SECURITY;
 -- Allow group members to view files shared in their group
 CREATE POLICY "Group members can view group files" ON public.group_files
   FOR SELECT USING (
-    group_id IN (
-      SELECT group_id FROM public.study_group_members 
-      WHERE user_id = auth.uid()
+    EXISTS (
+      SELECT 1
+      FROM public.study_group_members
+      WHERE study_group_members.group_id = group_files.group_id
+      AND study_group_members.user_id = auth.uid()
     )
   );
 
@@ -132,9 +136,11 @@ CREATE POLICY "Group members can view group files" ON public.group_files
 CREATE POLICY "Group members can share files" ON public.group_files
   FOR INSERT WITH CHECK (
     auth.uid() = user_id AND
-    group_id IN (
-      SELECT group_id FROM public.study_group_members 
-      WHERE user_id = auth.uid()
+    EXISTS (
+      SELECT 1
+      FROM public.study_group_members
+      WHERE study_group_members.group_id = group_files.group_id
+      AND study_group_members.user_id = auth.uid()
     )
   );
 
@@ -145,8 +151,11 @@ CREATE POLICY "Users can delete their own files" ON public.group_files
 -- Allow admins to delete any files in their group
 CREATE POLICY "Admins can delete group files" ON public.group_files
   FOR DELETE USING (
-    group_id IN (
-      SELECT group_id FROM public.study_group_members 
-      WHERE user_id = auth.uid() AND role = 'admin'
+    EXISTS (
+      SELECT 1
+      FROM public.study_group_members
+      WHERE study_group_members.group_id = group_files.group_id
+      AND study_group_members.user_id = auth.uid() 
+      AND study_group_members.role = 'admin'
     )
   );
