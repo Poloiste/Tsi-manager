@@ -30,21 +30,22 @@ export function GroupFiles({ groupId, userId, isDark = true, isAdmin = false }) 
     setError(null);
     
     try {
-      const response = await fetch(`${API_URL}/groups/${groupId}/files`);
+      const response = await fetch(`${API_URL}/groups/${groupId}/files?user_id=${userId}`);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
       
       const data = await response.json();
       setFiles(data || []);
     } catch (error) {
       console.error('Error loading files:', error);
-      setError('Impossible de charger les fichiers');
+      setError(error.message || 'Impossible de charger les fichiers');
     } finally {
       setIsLoading(false);
     }
-  }, [groupId]);
+  }, [groupId, userId]);
 
   useEffect(() => {
     loadFiles();
@@ -97,18 +98,19 @@ export function GroupFiles({ groupId, userId, isDark = true, isAdmin = false }) 
     }
 
     try {
-      const response = await fetch(`${API_URL}/groups/${groupId}/files/${fileId}`, {
+      const response = await fetch(`${API_URL}/groups/${groupId}/files/${fileId}?user_id=${userId}`, {
         method: 'DELETE',
       });
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
       
       setFiles(prev => prev.filter(f => f.id !== fileId));
     } catch (error) {
       console.error('Error deleting file:', error);
-      setError('Impossible de supprimer le fichier');
+      setError(error.message || 'Impossible de supprimer le fichier');
     }
   };
 

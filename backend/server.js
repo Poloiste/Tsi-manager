@@ -546,6 +546,7 @@ app.post('/api/shared/revisions', async (req, res) => {
 app.get('/api/groups/:groupId/messages', async (req, res) => {
   try {
     const { groupId } = req.params;
+    const userId = req.query.user_id; // In production, get from authenticated session
     let limit = 100; // Default limit
 
     // Validate and cap the limit to prevent excessive memory usage
@@ -555,6 +556,20 @@ app.get('/api/groups/:groupId/messages', async (req, res) => {
         return res.status(400).json({ error: 'Invalid limit parameter. Must be a positive integer.' });
       }
       limit = Math.min(parsedLimit, 1000); // Cap at maximum of 1000
+    }
+
+    // Verify user is a member of the group
+    if (userId) {
+      const { data: membership, error: memberError } = await supabase
+        .from('study_group_members')
+        .select('id')
+        .eq('group_id', groupId)
+        .eq('user_id', userId)
+        .single();
+
+      if (memberError || !membership) {
+        return res.status(403).json({ error: 'You are not a member of this group' });
+      }
     }
 
     // Récupérer le channel_id associé au groupe
@@ -607,6 +622,18 @@ app.post('/api/groups/:groupId/messages', async (req, res) => {
       return res.status(400).json({ error: 'Content exceeds maximum length of 5000 characters' });
     }
 
+    // Verify user is a member of the group
+    const { data: membership, error: memberError } = await supabase
+      .from('study_group_members')
+      .select('id')
+      .eq('group_id', groupId)
+      .eq('user_id', user_id)
+      .single();
+
+    if (memberError || !membership) {
+      return res.status(403).json({ error: 'You are not a member of this group' });
+    }
+
     // Récupérer le channel_id associé au groupe
     const { data: channel, error: channelError } = await supabase
       .from('chat_channels')
@@ -644,6 +671,21 @@ app.post('/api/groups/:groupId/messages', async (req, res) => {
 app.get('/api/groups/:groupId/files', async (req, res) => {
   try {
     const { groupId } = req.params;
+    const userId = req.query.user_id; // In production, get from authenticated session
+
+    // Verify user is a member of the group
+    if (userId) {
+      const { data: membership, error: memberError } = await supabase
+        .from('study_group_members')
+        .select('id')
+        .eq('group_id', groupId)
+        .eq('user_id', userId)
+        .single();
+
+      if (memberError || !membership) {
+        return res.status(403).json({ error: 'You are not a member of this group' });
+      }
+    }
 
     const { data, error } = await supabase
       .from('group_files')
@@ -697,6 +739,18 @@ app.post('/api/groups/:groupId/files', async (req, res) => {
       return res.status(400).json({ error: 'File URL exceeds maximum length of 2048 characters' });
     }
 
+    // Verify user is a member of the group
+    const { data: membership, error: memberError } = await supabase
+      .from('study_group_members')
+      .select('id')
+      .eq('group_id', groupId)
+      .eq('user_id', user_id)
+      .single();
+
+    if (memberError || !membership) {
+      return res.status(403).json({ error: 'You are not a member of this group' });
+    }
+
     const { data, error } = await supabase
       .from('group_files')
       .insert([{
@@ -720,6 +774,38 @@ app.post('/api/groups/:groupId/files', async (req, res) => {
 app.delete('/api/groups/:groupId/files/:fileId', async (req, res) => {
   try {
     const { groupId, fileId } = req.params;
+    const userId = req.query.user_id; // In production, get from authenticated session
+
+    // Verify user is either the file owner or a group admin
+    if (userId) {
+      // Check if user owns the file
+      const { data: file, error: fileError } = await supabase
+        .from('group_files')
+        .select('user_id')
+        .eq('id', fileId)
+        .eq('group_id', groupId)
+        .single();
+
+      if (fileError || !file) {
+        return res.status(404).json({ error: 'File not found' });
+      }
+
+      const isOwner = file.user_id === userId;
+
+      // Check if user is an admin of the group
+      const { data: membership, error: memberError } = await supabase
+        .from('study_group_members')
+        .select('role')
+        .eq('group_id', groupId)
+        .eq('user_id', userId)
+        .single();
+
+      const isAdmin = membership && membership.role === 'admin';
+
+      if (!isOwner && !isAdmin) {
+        return res.status(403).json({ error: 'You can only delete your own files or must be a group admin' });
+      }
+    }
 
     // Delete and check if any rows were affected
     const { data, error, count } = await supabase

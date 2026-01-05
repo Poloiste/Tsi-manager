@@ -38,10 +38,11 @@ export function useGroupChat(groupId, userId, userName) {
     setError(null);
     
     try {
-      const response = await fetch(`${API_URL}/groups/${groupId}/messages?limit=100`);
+      const response = await fetch(`${API_URL}/groups/${groupId}/messages?limit=100&user_id=${userId}`);
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
       
       const data = await response.json();
@@ -66,7 +67,7 @@ export function useGroupChat(groupId, userId, userName) {
       }
     } catch (error) {
       logError('[useGroupChat] Error loading messages:', error);
-      setError('Impossible de charger les messages');
+      setError(error.message || 'Impossible de charger les messages');
       throw error;
     } finally {
       setIsLoading(false);
