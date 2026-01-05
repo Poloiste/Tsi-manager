@@ -63,6 +63,10 @@ describe('GroupDetail Component - Copy Button Functionality', () => {
   test('renders private group invitation section for creator', () => {
     render(<GroupDetail {...defaultProps} />);
     
+    // Click on Parameters/Members tab
+    const parametersTab = screen.getByText('⚙️ Paramètres / Membres');
+    fireEvent.click(parametersTab);
+    
     expect(screen.getByText('Invitation au groupe privé')).toBeInTheDocument();
     expect(screen.getByText('Code d\'invitation')).toBeInTheDocument();
     expect(screen.getByText(mockGroup.invite_code)).toBeInTheDocument();
@@ -70,6 +74,10 @@ describe('GroupDetail Component - Copy Button Functionality', () => {
 
   test('displays full invitation link', () => {
     render(<GroupDetail {...defaultProps} />);
+    
+    // Click on Parameters/Members tab
+    const parametersTab = screen.getByText('⚙️ Paramètres / Membres');
+    fireEvent.click(parametersTab);
     
     const expectedLink = `${window.location.origin}/join-group/${mockGroup.invite_code}`;
     expect(screen.getByText(expectedLink)).toBeInTheDocument();
@@ -79,6 +87,10 @@ describe('GroupDetail Component - Copy Button Functionality', () => {
     mockClipboard.writeText.mockResolvedValueOnce();
     
     render(<GroupDetail {...defaultProps} />);
+    
+    // Click on Parameters/Members tab
+    const parametersTab = screen.getByText('⚙️ Paramètres / Membres');
+    fireEvent.click(parametersTab);
     
     // Verify both copy buttons are present initially
     expect(screen.getByText('Copier')).toBeInTheDocument();
@@ -106,6 +118,10 @@ describe('GroupDetail Component - Copy Button Functionality', () => {
     
     render(<GroupDetail {...defaultProps} />);
     
+    // Click on Parameters/Members tab
+    const parametersTab = screen.getByText('⚙️ Paramètres / Membres');
+    fireEvent.click(parametersTab);
+    
     const expectedLink = `${window.location.origin}/join-group/${mockGroup.invite_code}`;
     const copyButtons = screen.getAllByRole('button', { name: /copier/i });
     const copyLinkButton = copyButtons[1];
@@ -122,6 +138,10 @@ describe('GroupDetail Component - Copy Button Functionality', () => {
     mockClipboard.writeText.mockRejectedValueOnce(new Error('Clipboard error'));
     
     render(<GroupDetail {...defaultProps} />);
+    
+    // Click on Parameters/Members tab
+    const parametersTab = screen.getByText('⚙️ Paramètres / Membres');
+    fireEvent.click(parametersTab);
     
     const copyButtons = screen.getAllByRole('button', { name: /copier/i });
     fireEvent.click(copyButtons[0]);
@@ -141,6 +161,10 @@ describe('GroupDetail Component - Copy Button Functionality', () => {
     
     render(<GroupDetail {...defaultProps} />);
     
+    // Click on Parameters/Members tab
+    const parametersTab = screen.getByText('⚙️ Paramètres / Membres');
+    fireEvent.click(parametersTab);
+    
     const copyButtons = screen.getAllByRole('button', { name: /copier/i });
     fireEvent.click(copyButtons[0]);
     
@@ -155,6 +179,10 @@ describe('GroupDetail Component - Copy Button Functionality', () => {
   test('generate code button calls onGenerateCode', () => {
     render(<GroupDetail {...defaultProps} />);
     
+    // Click on Parameters/Members tab
+    const parametersTab = screen.getByText('⚙️ Paramètres / Membres');
+    fireEvent.click(parametersTab);
+    
     const generateButton = screen.getByRole('button', { name: /générer un nouveau code/i });
     fireEvent.click(generateButton);
     
@@ -164,6 +192,8 @@ describe('GroupDetail Component - Copy Button Functionality', () => {
   test('does not show invitation section for non-creator', () => {
     render(<GroupDetail {...defaultProps} isCreator={false} />);
     
+    // Parameters tab should not be shown for non-creator
+    expect(screen.queryByText('⚙️ Paramètres / Membres')).not.toBeInTheDocument();
     expect(screen.queryByText('Invitation au groupe privé')).not.toBeInTheDocument();
   });
 
@@ -171,11 +201,17 @@ describe('GroupDetail Component - Copy Button Functionality', () => {
     const publicGroup = { ...mockGroup, is_public: true };
     render(<GroupDetail {...defaultProps} group={publicGroup} />);
     
+    // Parameters tab should not be shown for public group
+    expect(screen.queryByText('⚙️ Paramètres / Membres')).not.toBeInTheDocument();
     expect(screen.queryByText('Invitation au groupe privé')).not.toBeInTheDocument();
   });
 
   test('copy button has proper accessibility attributes', () => {
     render(<GroupDetail {...defaultProps} />);
+    
+    // Click on Parameters/Members tab
+    const parametersTab = screen.getByText('⚙️ Paramètres / Membres');
+    fireEvent.click(parametersTab);
     
     const copyButtons = screen.getAllByRole('button', { name: /copier/i });
     copyButtons.forEach(button => {
@@ -200,5 +236,47 @@ describe('GroupDetail Component - Copy Button Functionality', () => {
     expect(screen.getByText(mockGroup.description)).toBeInTheDocument();
     expect(screen.getByText('🔒 Privé')).toBeInTheDocument();
     expect(screen.getByText(/créateur/i)).toBeInTheDocument();
+  });
+
+  test('renders overview tab by default', () => {
+    render(<GroupDetail {...defaultProps} />);
+    
+    // Overview tab should be active (shown) by default
+    expect(screen.getByText('📊 Vue d\'ensemble')).toBeInTheDocument();
+    expect(screen.getByText(mockGroup.description)).toBeInTheDocument();
+    expect(screen.getByText('🏆 Classement')).toBeInTheDocument();
+  });
+
+  test('switches between tabs correctly', () => {
+    render(<GroupDetail {...defaultProps} />);
+    
+    // Overview should be shown initially
+    expect(screen.getByText(mockGroup.description)).toBeInTheDocument();
+    
+    // Click on Parameters/Members tab
+    const parametersTab = screen.getByText('⚙️ Paramètres / Membres');
+    fireEvent.click(parametersTab);
+    
+    // Now invitation section should be visible
+    expect(screen.getByText('Invitation au groupe privé')).toBeInTheDocument();
+    
+    // Click back to Overview tab
+    const overviewTab = screen.getByText('📊 Vue d\'ensemble');
+    fireEvent.click(overviewTab);
+    
+    // Overview content should be visible again and invitation section should not be visible
+    expect(screen.getByText(mockGroup.description)).toBeInTheDocument();
+    expect(screen.queryByText('Invitation au groupe privé')).not.toBeInTheDocument();
+  });
+
+  test('parameters tab only shown for private group creators', () => {
+    const { rerender } = render(<GroupDetail {...defaultProps} />);
+    
+    // Parameters tab should be visible for creator of private group
+    expect(screen.getByText('⚙️ Paramètres / Membres')).toBeInTheDocument();
+    
+    // Re-render as non-creator
+    rerender(<GroupDetail {...defaultProps} isCreator={false} />);
+    expect(screen.queryByText('⚙️ Paramètres / Membres')).not.toBeInTheDocument();
   });
 });
