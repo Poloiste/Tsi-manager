@@ -26,15 +26,16 @@ export function GroupDetail({
   currentUserId = null,
   isCreator = false
 }) {
-  const [copySuccess, setCopySuccess] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(null); // Track which button ('code' or 'link')
   const [copyError, setCopyError] = useState(null);
   
   /**
    * Enhanced copy to clipboard with accessibility and fallback support
    * @param {string} text - Text to copy
+   * @param {string} type - Type of copy action ('code' or 'link')
    * @param {string} label - Label for user feedback
    */
-  const handleCopyToClipboard = async (text, label = 'code') => {
+  const handleCopyToClipboard = async (text, type, label = 'code') => {
     try {
       // Modern Clipboard API (preferred)
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -60,12 +61,12 @@ export function GroupDetail({
       }
       
       // Show success feedback
-      setCopySuccess(true);
+      setCopySuccess(type);
       setCopyError(null);
       
       // Reset feedback after 2 seconds
       setTimeout(() => {
-        setCopySuccess(false);
+        setCopySuccess(null);
       }, 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
@@ -236,10 +237,10 @@ export function GroupDetail({
                         {group.invite_code}
                       </div>
                       <button
-                        onClick={() => handleCopyToClipboard(group.invite_code, 'code')}
+                        onClick={() => handleCopyToClipboard(group.invite_code, 'code', 'code')}
                         className={`
                           flex items-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all
-                          ${copySuccess 
+                          ${copySuccess === 'code' 
                             ? isDark
                               ? 'bg-green-600 hover:bg-green-700 text-white'
                               : 'bg-green-500 hover:bg-green-600 text-white'
@@ -250,10 +251,10 @@ export function GroupDetail({
                           focus:outline-none focus:ring-2 focus:ring-offset-2
                           ${isDark ? 'focus:ring-indigo-500' : 'focus:ring-indigo-400'}
                         `}
-                        aria-label={copySuccess ? "Code copié" : "Copier le code d'invitation"}
-                        title={copySuccess ? "Code copié !" : "Copier le code"}
+                        aria-label={copySuccess === 'code' ? "Code copié" : "Copier le code d'invitation"}
+                        title={copySuccess === 'code' ? "Code copié !" : "Copier le code"}
                       >
-                        {copySuccess ? (
+                        {copySuccess === 'code' ? (
                           <>
                             <Check className="w-5 h-5" />
                             <span>Copié !</span>
@@ -287,10 +288,10 @@ export function GroupDetail({
                         {getInvitationLink()}
                       </div>
                       <button
-                        onClick={() => handleCopyToClipboard(getInvitationLink(), 'lien')}
+                        onClick={() => handleCopyToClipboard(getInvitationLink(), 'link', 'lien')}
                         className={`
                           flex items-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all whitespace-nowrap
-                          ${copySuccess 
+                          ${copySuccess === 'link' 
                             ? isDark
                               ? 'bg-green-600 hover:bg-green-700 text-white'
                               : 'bg-green-500 hover:bg-green-600 text-white'
@@ -301,10 +302,10 @@ export function GroupDetail({
                           focus:outline-none focus:ring-2 focus:ring-offset-2
                           ${isDark ? 'focus:ring-purple-500' : 'focus:ring-purple-400'}
                         `}
-                        aria-label={copySuccess ? "Lien copié" : "Copier le lien d'invitation"}
-                        title={copySuccess ? "Lien copié !" : "Copier le lien"}
+                        aria-label={copySuccess === 'link' ? "Lien copié" : "Copier le lien d'invitation"}
+                        title={copySuccess === 'link' ? "Lien copié !" : "Copier le lien"}
                       >
-                        {copySuccess ? (
+                        {copySuccess === 'link' ? (
                           <>
                             <Check className="w-5 h-5" />
                             <span>Copié !</span>
