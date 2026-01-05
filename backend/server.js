@@ -542,10 +542,16 @@ app.post('/api/shared/revisions', async (req, res) => {
 
 // ===== MESSAGERIE DE GROUPE =====
 // GET /api/groups/:groupId/messages - Récupérer les messages d'un groupe
+// NOTE: In production, add authentication middleware to verify user session
 app.get('/api/groups/:groupId/messages', async (req, res) => {
   try {
     const { groupId } = req.params;
-    const { limit = 100 } = req.query;
+    let { limit = 100 } = req.query;
+
+    // Validate and cap the limit to prevent excessive memory usage
+    limit = parseInt(limit);
+    if (isNaN(limit) || limit < 1) limit = 100;
+    if (limit > 1000) limit = 1000; // Maximum limit
 
     // Récupérer le channel_id associé au groupe
     const { data: channel, error: channelError } = await supabase
@@ -565,7 +571,7 @@ app.get('/api/groups/:groupId/messages', async (req, res) => {
       .select('*')
       .eq('channel_id', channel.id)
       .order('created_at', { ascending: true })
-      .limit(parseInt(limit));
+      .limit(limit);
 
     if (error) throw error;
     res.json(data || []);
@@ -576,13 +582,25 @@ app.get('/api/groups/:groupId/messages', async (req, res) => {
 });
 
 // POST /api/groups/:groupId/messages - Envoyer un message dans un groupe
+// NOTE: In production, derive user_id from authenticated session, not request body
+// SECURITY WARNING: Current implementation accepts user_id from request body
+// This should be replaced with proper authentication middleware
 app.post('/api/groups/:groupId/messages', async (req, res) => {
   try {
     const { groupId } = req.params;
     const { user_id, user_name, content } = req.body;
 
+    // Input validation
     if (!user_id || !user_name || !content) {
       return res.status(400).json({ error: 'Missing required fields: user_id, user_name, content' });
+    }
+
+    if (typeof content !== 'string' || content.trim().length === 0) {
+      return res.status(400).json({ error: 'Content must be a non-empty string' });
+    }
+
+    if (content.length > 5000) {
+      return res.status(400).json({ error: 'Content exceeds maximum length of 5000 characters' });
     }
 
     // Récupérer le channel_id associé au groupe
@@ -604,7 +622,7 @@ app.post('/api/groups/:groupId/messages', async (req, res) => {
         channel_id: channel.id,
         user_id,
         user_name,
-        content
+        content: content.trim()
       }])
       .select()
       .single();
@@ -638,13 +656,34 @@ app.get('/api/groups/:groupId/files', async (req, res) => {
 });
 
 // POST /api/groups/:groupId/files - Partager un fichier dans un groupe
+// NOTE: In production, derive user_id from authenticated session, not request body
+// SECURITY WARNING: Current implementation accepts user_id from request body
+// This should be replaced with proper authentication middleware
 app.post('/api/groups/:groupId/files', async (req, res) => {
   try {
     const { groupId } = req.params;
     const { user_id, file_name, file_url } = req.body;
 
+    // Input validation
     if (!user_id || !file_name || !file_url) {
       return res.status(400).json({ error: 'Missing required fields: user_id, file_name, file_url' });
+    }
+
+    if (typeof file_name !== 'string' || file_name.trim().length === 0) {
+      return res.status(400).json({ error: 'File name must be a non-empty string' });
+    }
+
+    if (file_name.length > 255) {
+      return res.status(400).json({ error: 'File name exceeds maximum length of 255 characters' });
+    }
+
+    // Basic URL validation
+    if (typeof file_url !== 'string' || !file_url.match(/^https?:\/\/.+/)) {
+      return res.status(400).json({ error: 'Invalid file URL format. Must be a valid HTTP/HTTPS URL' });
+    }
+
+    if (file_url.length > 2048) {
+      return res.status(400).json({ error: 'File URL exceeds maximum length of 2048 characters' });
     }
 
     const { data, error } = await supabase
@@ -652,8 +691,8 @@ app.post('/api/groups/:groupId/files', async (req, res) => {
       .insert([{
         group_id: groupId,
         user_id,
-        file_name,
-        file_url
+        file_name: file_name.trim(),
+        file_url: file_url.trim()
       }])
       .select()
       .single();
@@ -671,6 +710,19 @@ app.delete('/api/groups/:groupId/files/:fileId', async (req, res) => {
   try {
     const { groupId, fileId } = req.params;
 
+    // First check if the file exists
+    const { data: existingFile, error: fetchError } = await supabase
+      .from('group_files')
+      .select('id')
+      .eq('id', fileId)
+      .eq('group_id', groupId)
+      .single();
+
+    if (fetchError || !existingFile) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Delete the file
     const { error } = await supabase
       .from('group_files')
       .delete()

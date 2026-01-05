@@ -84,8 +84,9 @@ CREATE POLICY "Group members can send group messages" ON public.chat_messages
 CREATE OR REPLACE FUNCTION create_group_chat_channel() RETURNS TRIGGER AS $$
 BEGIN
   -- Create a dedicated chat channel for the new study group
+  -- Use a unique name by including the group ID to avoid conflicts
   INSERT INTO public.chat_channels (name, type, group_id)
-  VALUES (NEW.name, 'group', NEW.id);
+  VALUES (NEW.name || ' (Group)', 'group', NEW.id);
   
   RETURN NEW;
 END;
@@ -144,13 +145,13 @@ CREATE POLICY "Group members can share files" ON public.group_files
     )
   );
 
--- Allow users to delete their own shared files
-CREATE POLICY "Users can delete their own files" ON public.group_files
-  FOR DELETE USING (auth.uid() = user_id);
+-- Allow users to delete their own shared files OR if they're admins in the group
+DROP POLICY IF EXISTS "Users can delete their own files" ON public.group_files;
+DROP POLICY IF EXISTS "Admins can delete group files" ON public.group_files;
 
--- Allow admins to delete any files in their group
-CREATE POLICY "Admins can delete group files" ON public.group_files
+CREATE POLICY "Users can delete own files or admins can delete group files" ON public.group_files
   FOR DELETE USING (
+    auth.uid() = user_id OR
     EXISTS (
       SELECT 1
       FROM public.study_group_members
