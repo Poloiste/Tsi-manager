@@ -76,7 +76,8 @@ export async function safeJsonParse(response) {
       return await response.json();
     } catch (error) {
       console.error('[API] Failed to parse JSON response:', error);
-      throw new Error('Invalid JSON response: ' + error.message);
+      // Use generic error message to avoid exposing internal details
+      throw new Error('Invalid JSON response from server');
     }
   }
   
@@ -84,8 +85,12 @@ export async function safeJsonParse(response) {
   const text = await response.text();
   const trimmedText = text.trim().toLowerCase();
   
-  // Check if it's HTML error page (case-insensitive)
-  if (trimmedText.startsWith('<!doctype') || trimmedText.startsWith('<html')) {
+  // Check if it's HTML error page (case-insensitive, multiple patterns)
+  if (trimmedText.startsWith('<!doctype') || 
+      trimmedText.startsWith('<html') || 
+      trimmedText.startsWith('<head') ||
+      trimmedText.startsWith('<body') ||
+      trimmedText.includes('<html')) {
     throw new Error(
       `Server returned HTML instead of JSON (status: ${response.status}). ` +
       'The API endpoint may not exist or returned an error page'
