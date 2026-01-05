@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Upload, Trash2, ExternalLink, AlertCircle } from 'lucide-react';
+import { fetchJson, handleApiError, fetchWithLogging } from '../utils/apiHelpers';
 
 // Get API URL from environment or use default
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
@@ -30,14 +31,11 @@ export function GroupFiles({ groupId, userId, isDark = true, isAdmin = false }) 
     setError(null);
     
     try {
-      const response = await fetch(`${API_URL}/groups/${groupId}/files?user_id=${userId}`);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
+      const data = await fetchJson(
+        `${API_URL}/groups/${groupId}/files?user_id=${userId}`,
+        {},
+        'GroupFiles.loadFiles'
+      );
       setFiles(data || []);
     } catch (error) {
       console.error('Error loading files:', error);
@@ -63,24 +61,21 @@ export function GroupFiles({ groupId, userId, isDark = true, isAdmin = false }) 
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/groups/${groupId}/files`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const data = await fetchJson(
+        `${API_URL}/groups/${groupId}/files`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            file_name: newFile.file_name.trim(),
+            file_url: newFile.file_url.trim()
+          }),
         },
-        body: JSON.stringify({
-          user_id: userId,
-          file_name: newFile.file_name.trim(),
-          file_url: newFile.file_url.trim()
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
+        'GroupFiles.handleUploadFile'
+      );
       setFiles(prev => [data, ...prev]);
       setNewFile({ file_name: '', file_url: '' });
       setShowUploadForm(false);
@@ -98,13 +93,16 @@ export function GroupFiles({ groupId, userId, isDark = true, isAdmin = false }) 
     }
 
     try {
-      const response = await fetch(`${API_URL}/groups/${groupId}/files/${fileId}?user_id=${userId}`, {
-        method: 'DELETE',
-      });
+      const response = await fetchWithLogging(
+        `${API_URL}/groups/${groupId}/files/${fileId}?user_id=${userId}`,
+        {
+          method: 'DELETE',
+        },
+        'GroupFiles.handleDeleteFile'
+      );
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        await handleApiError(response, 'GroupFiles.handleDeleteFile');
       }
       
       setFiles(prev => prev.filter(f => f.id !== fileId));

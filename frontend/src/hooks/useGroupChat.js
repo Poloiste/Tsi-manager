@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { createDebugLogger } from '../utils/guardUtils';
+import { fetchJson, handleApiError, fetchWithLogging } from '../utils/apiHelpers';
 
 // Development logging utility
 const isDev = process.env.NODE_ENV === 'development';
@@ -38,14 +39,11 @@ export function useGroupChat(groupId, userId, userName) {
     setError(null);
     
     try {
-      const response = await fetch(`${API_URL}/groups/${groupId}/messages?limit=100&user_id=${userId}`);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
+      const data = await fetchJson(
+        `${API_URL}/groups/${groupId}/messages?limit=100&user_id=${userId}`,
+        {},
+        'useGroupChat.loadMessages'
+      );
       
       logger.log('Messages loaded:', data?.length || 0);
       setMessages(data || []);
@@ -90,24 +88,21 @@ export function useGroupChat(groupId, userId, userName) {
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/groups/${groupId}/messages`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const data = await fetchJson(
+        `${API_URL}/groups/${groupId}/messages`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            user_name: userName,
+            content: messageText.trim()
+          }),
         },
-        body: JSON.stringify({
-          user_id: userId,
-          user_name: userName,
-          content: messageText.trim()
-        }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
+        'useGroupChat.sendMessage'
+      );
       
       logger.log('Message sent successfully:', data.id);
       return data;
@@ -129,13 +124,16 @@ export function useGroupChat(groupId, userId, userName) {
     setError(null);
 
     try {
-      const response = await fetch(`${API_URL}/groups/${groupId}/messages/${messageId}?user_id=${userId}`, {
-        method: 'DELETE',
-      });
+      const response = await fetchWithLogging(
+        `${API_URL}/groups/${groupId}/messages/${messageId}?user_id=${userId}`,
+        {
+          method: 'DELETE',
+        },
+        'useGroupChat.deleteMessage'
+      );
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        await handleApiError(response, 'useGroupChat.deleteMessage');
       }
 
       logger.log('Message deleted successfully');

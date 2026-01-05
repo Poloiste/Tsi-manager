@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { socketService } from '../services/socketService';
+import { fetchJson, handleApiError, fetchWithLogging } from '../utils/apiHelpers';
 
 // Get API URL from environment or use default
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
@@ -34,16 +35,11 @@ export function useChannelMessages(channelId, userId, userName) {
 
     try {
       const currentOffset = loadMore ? offset : 0;
-      const response = await fetch(
-        `${API_URL}/channels/${channelId}/messages?user_id=${userId}&limit=${limit}&offset=${currentOffset}`
+      const data = await fetchJson(
+        `${API_URL}/channels/${channelId}/messages?user_id=${userId}&limit=${limit}&offset=${currentOffset}`,
+        {},
+        'useChannelMessages.loadMessages'
       );
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
       
       if (loadMore) {
         // Append older messages to the top
@@ -105,16 +101,16 @@ export function useChannelMessages(channelId, userId, userName) {
     setError(null);
 
     try {
-      const response = await fetch(
+      const response = await fetchWithLogging(
         `${API_URL}/channels/${channelId}/messages/${messageId}?user_id=${userId}`,
         {
           method: 'DELETE',
-        }
+        },
+        'useChannelMessages.deleteMessage'
       );
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        await handleApiError(response, 'useChannelMessages.deleteMessage');
       }
 
       // Remove message from local state
