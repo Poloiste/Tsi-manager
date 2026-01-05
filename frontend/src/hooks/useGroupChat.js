@@ -103,7 +103,8 @@ export function useGroupChat(groupId, userId, userName) {
       });
       
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
       }
       
       const data = await response.json();
@@ -112,12 +113,12 @@ export function useGroupChat(groupId, userId, userName) {
       return data;
     } catch (error) {
       logError('[useGroupChat] Error sending message:', error);
-      setError('Impossible d\'envoyer le message');
+      setError(error.message || 'Impossible d\'envoyer le message');
       throw error;
     }
   }, [groupId, userId, userName]);
 
-  // Supprimer un message via Supabase (backend n'a pas d'endpoint DELETE pour messages)
+  // Supprimer un message via l'API backend
   const deleteMessage = useCallback(async (messageId) => {
     if (!userId) {
       logError('[useGroupChat] Missing userId');
@@ -128,21 +129,22 @@ export function useGroupChat(groupId, userId, userName) {
     setError(null);
 
     try {
-      const { error } = await supabase
-        .from('chat_messages')
-        .delete()
-        .eq('id', messageId)
-        .eq('user_id', userId); // RLS vérifie aussi, mais on ajoute une sécurité côté client
-
-      if (error) throw error;
+      const response = await fetch(`${API_URL}/groups/${groupId}/messages/${messageId}?user_id=${userId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
 
       logger.log('Message deleted successfully');
     } catch (error) {
       logError('[useGroupChat] Error deleting message:', error);
-      setError('Impossible de supprimer le message');
+      setError(error.message || 'Impossible de supprimer le message');
       throw error;
     }
-  }, [userId]);
+  }, [groupId, userId]);
 
   // Configurer les abonnements en temps réel
   useEffect(() => {

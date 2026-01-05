@@ -542,12 +542,17 @@ app.post('/api/shared/revisions', async (req, res) => {
 
 // ===== MESSAGERIE DE GROUPE =====
 // GET /api/groups/:groupId/messages - Récupérer les messages d'un groupe
-// NOTE: In production, add authentication middleware to verify user session
+// NOTE: In production, replace query parameter with authenticated session
 app.get('/api/groups/:groupId/messages', async (req, res) => {
   try {
     const { groupId } = req.params;
-    const userId = req.query.user_id; // In production, get from authenticated session
+    const userId = req.query.user_id; // TODO: Get from authenticated session instead
     let limit = 100; // Default limit
+
+    // Validate user_id is provided
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
 
     // Validate and cap the limit to prevent excessive memory usage
     if (req.query.limit !== undefined) {
@@ -559,17 +564,15 @@ app.get('/api/groups/:groupId/messages', async (req, res) => {
     }
 
     // Verify user is a member of the group
-    if (userId) {
-      const { data: membership, error: memberError } = await supabase
-        .from('study_group_members')
-        .select('id')
-        .eq('group_id', groupId)
-        .eq('user_id', userId)
-        .single();
+    const { data: membership, error: memberError } = await supabase
+      .from('study_group_members')
+      .select('id')
+      .eq('group_id', groupId)
+      .eq('user_id', userId)
+      .single();
 
-      if (memberError || !membership) {
-        return res.status(403).json({ error: 'You are not a member of this group' });
-      }
+    if (memberError || !membership) {
+      return res.status(403).json({ error: 'You are not a member of this group' });
     }
 
     // Récupérer le channel_id associé au groupe
@@ -666,25 +669,80 @@ app.post('/api/groups/:groupId/messages', async (req, res) => {
   }
 });
 
+// DELETE /api/groups/:groupId/messages/:messageId - Supprimer un message
+app.delete('/api/groups/:groupId/messages/:messageId', async (req, res) => {
+  try {
+    const { groupId, messageId } = req.params;
+    const userId = req.query.user_id; // TODO: Get from authenticated session instead
+
+    // Validate user_id is provided
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
+
+    // Verify the message belongs to the user
+    const { data: message, error: messageError } = await supabase
+      .from('chat_messages')
+      .select('user_id, channel_id')
+      .eq('id', messageId)
+      .single();
+
+    if (messageError || !message) {
+      return res.status(404).json({ error: 'Message not found' });
+    }
+
+    if (message.user_id !== userId) {
+      return res.status(403).json({ error: 'You can only delete your own messages' });
+    }
+
+    // Verify the message belongs to the correct group's channel
+    const { data: channel, error: channelError } = await supabase
+      .from('chat_channels')
+      .select('group_id')
+      .eq('id', message.channel_id)
+      .single();
+
+    if (channelError || !channel || channel.group_id !== groupId) {
+      return res.status(404).json({ error: 'Message not found in this group' });
+    }
+
+    // Delete the message
+    const { error } = await supabase
+      .from('chat_messages')
+      .delete()
+      .eq('id', messageId);
+
+    if (error) throw error;
+
+    res.json({ message: 'Message deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting message:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ===== PARTAGE DE FICHIERS =====
 // GET /api/groups/:groupId/files - Récupérer les fichiers d'un groupe
 app.get('/api/groups/:groupId/files', async (req, res) => {
   try {
     const { groupId } = req.params;
-    const userId = req.query.user_id; // In production, get from authenticated session
+    const userId = req.query.user_id; // TODO: Get from authenticated session instead
+
+    // Validate user_id is provided
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
 
     // Verify user is a member of the group
-    if (userId) {
-      const { data: membership, error: memberError } = await supabase
-        .from('study_group_members')
-        .select('id')
-        .eq('group_id', groupId)
-        .eq('user_id', userId)
-        .single();
+    const { data: membership, error: memberError } = await supabase
+      .from('study_group_members')
+      .select('id')
+      .eq('group_id', groupId)
+      .eq('user_id', userId)
+      .single();
 
-      if (memberError || !membership) {
-        return res.status(403).json({ error: 'You are not a member of this group' });
-      }
+    if (memberError || !membership) {
+      return res.status(403).json({ error: 'You are not a member of this group' });
     }
 
     const { data, error } = await supabase
@@ -774,53 +832,54 @@ app.post('/api/groups/:groupId/files', async (req, res) => {
 app.delete('/api/groups/:groupId/files/:fileId', async (req, res) => {
   try {
     const { groupId, fileId } = req.params;
-    const userId = req.query.user_id; // In production, get from authenticated session
+    const userId = req.query.user_id; // TODO: Get from authenticated session instead
 
-    // Verify user is either the file owner or a group admin
-    if (userId) {
-      // Check if user owns the file
-      const { data: file, error: fileError } = await supabase
-        .from('group_files')
-        .select('user_id')
-        .eq('id', fileId)
-        .eq('group_id', groupId)
-        .single();
-
-      if (fileError || !file) {
-        return res.status(404).json({ error: 'File not found' });
-      }
-
-      const isOwner = file.user_id === userId;
-
-      // Check if user is an admin of the group
-      const { data: membership, error: memberError } = await supabase
-        .from('study_group_members')
-        .select('role')
-        .eq('group_id', groupId)
-        .eq('user_id', userId)
-        .single();
-
-      const isAdmin = membership && membership.role === 'admin';
-
-      if (!isOwner && !isAdmin) {
-        return res.status(403).json({ error: 'You can only delete your own files or must be a group admin' });
-      }
+    // Validate user_id is provided
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
     }
 
-    // Delete and check if any rows were affected
-    const { data, error, count } = await supabase
+    // Check if user owns the file
+    const { data: file, error: fileError } = await supabase
+      .from('group_files')
+      .select('user_id')
+      .eq('id', fileId)
+      .eq('group_id', groupId)
+      .single();
+
+    if (fileError || !file) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    const isOwner = file.user_id === userId;
+
+    // Check if user is an admin of the group
+    const { data: membership, error: memberError } = await supabase
+      .from('study_group_members')
+      .select('role')
+      .eq('group_id', groupId)
+      .eq('user_id', userId)
+      .single();
+
+    if (memberError) {
+      // User is not a member at all
+      return res.status(403).json({ error: 'You are not a member of this group' });
+    }
+
+    const isAdmin = membership && membership.role === 'admin';
+
+    if (!isOwner && !isAdmin) {
+      return res.status(403).json({ error: 'You can only delete your own files or must be a group admin' });
+    }
+
+    // Delete the file
+    const { error } = await supabase
       .from('group_files')
       .delete()
       .eq('id', fileId)
-      .eq('group_id', groupId)
-      .select();
+      .eq('group_id', groupId);
 
     if (error) throw error;
-    
-    // Check if a file was actually deleted
-    if (!data || data.length === 0) {
-      return res.status(404).json({ error: 'File not found' });
-    }
 
     res.json({ message: 'File deleted successfully' });
   } catch (error) {
