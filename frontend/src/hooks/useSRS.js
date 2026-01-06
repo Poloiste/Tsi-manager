@@ -35,24 +35,48 @@ export function useSRS(userId) {
       throw new Error('User ID is required');
     }
 
+    if (!flashcardId) {
+      throw new Error('Flashcard ID is required');
+    }
+
     try {
+      // Validate that the flashcard exists
+      const { data: flashcard, error: flashcardError } = await supabase
+        .from('shared_flashcards')
+        .select('id')
+        .eq('id', flashcardId)
+        .single();
+
+      if (flashcardError || !flashcard) {
+        throw new Error('Flashcard not found');
+      }
+
       const today = new Date().toISOString().split('T')[0];
+      const now = new Date().toISOString();
       
+      // Use UPSERT to handle both insert and update cases
       const { data, error } = await supabase
         .from('user_flashcard_srs')
-        .insert({
+        .upsert({
           user_id: userId,
           flashcard_id: flashcardId,
           ease_factor: 2.5,
           interval_days: 0,
           repetitions: 0,
           next_review_date: today,
-          quality_history: []
+          quality_history: [],
+          last_reviewed: now,
+          updated_at: now
+        }, {
+          onConflict: 'user_id,flashcard_id'
         })
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error initializing SRS:', error);
+        throw error;
+      }
       return data;
     } catch (err) {
       console.error('Error initializing SRS:', err);
@@ -230,8 +254,23 @@ export function useSRS(userId) {
       throw new Error('User ID is required');
     }
 
+    if (!flashcardId) {
+      throw new Error('Flashcard ID is required');
+    }
+
     try {
-      // Convert difficulty to quality score
+      // Validate that the flashcard exists before proceeding
+      const { data: flashcard, error: flashcardError } = await supabase
+        .from('shared_flashcards')
+        .select('id')
+        .eq('id', flashcardId)
+        .single();
+
+      if (flashcardError || !flashcard) {
+        throw new Error('Flashcard not found');
+      }
+
+      // Convert difficulty to quality score (validates difficulty)
       const quality = responseToQuality(difficulty);
 
       // Get current SRS data or create if doesn't exist
@@ -246,6 +285,7 @@ export function useSRS(userId) {
       if (fetchError && fetchError.code === 'PGRST116') {
         srsData = await initializeSRS(flashcardId);
       } else if (fetchError) {
+        console.error('Error fetching SRS data:', fetchError);
         throw fetchError;
       }
 
@@ -260,66 +300,62 @@ export function useSRS(userId) {
       // Update quality history
       const qualityHistory = [...(srsData.quality_history || []), quality];
 
-      // Update SRS data in database
+      const now = new Date().toISOString();
+
+      // Use UPSERT to handle both insert and update cases seamlessly
       const { data: updatedData, error: updateError } = await supabase
         .from('user_flashcard_srs')
-        .update({
+        .upsert({
+          user_id: userId,
+          flashcard_id: flashcardId,
           ease_factor: nextReview.easeFactor,
           interval_days: nextReview.interval,
           repetitions: nextReview.repetitions,
           next_review_date: nextReview.nextReviewDate,
           quality_history: qualityHistory,
-          last_reviewed: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          last_reviewed: now,
+          updated_at: now
+        }, {
+          onConflict: 'user_id,flashcard_id'
         })
-        .eq('user_id', userId)
-        .eq('flashcard_id', flashcardId)
         .select()
         .single();
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Error updating SRS data:', updateError);
+        throw updateError;
+      }
 
       // Also update the user_flashcard_stats table for backward compatibility
-      // First, try to get existing stats
+      // Use UPSERT for stats to avoid duplicate key errors
+      const isCorrect = isDifficultyCorrect(difficulty);
+      
+      // First get current stats to calculate increments properly
       const { data: existingStats } = await supabase
         .from('user_flashcard_stats')
-        .select('*')
+        .select('correct_count, incorrect_count')
         .eq('user_id', userId)
         .eq('flashcard_id', flashcardId)
         .single();
 
-      const isCorrect = isDifficultyCorrect(difficulty);
-      
-      if (existingStats) {
-        // Update existing stats by incrementing
-        const { error: statsError } = await supabase
-          .from('user_flashcard_stats')
-          .update({
-            correct_count: isCorrect ? existingStats.correct_count + 1 : existingStats.correct_count,
-            incorrect_count: !isCorrect ? existingStats.incorrect_count + 1 : existingStats.incorrect_count,
-            last_reviewed: new Date().toISOString()
-          })
-          .eq('user_id', userId)
-          .eq('flashcard_id', flashcardId);
+      const { error: statsError } = await supabase
+        .from('user_flashcard_stats')
+        .upsert({
+          user_id: userId,
+          flashcard_id: flashcardId,
+          correct_count: existingStats 
+            ? (isCorrect ? existingStats.correct_count + 1 : existingStats.correct_count)
+            : (isCorrect ? 1 : 0),
+          incorrect_count: existingStats
+            ? (!isCorrect ? existingStats.incorrect_count + 1 : existingStats.incorrect_count)
+            : (!isCorrect ? 1 : 0),
+          last_reviewed: now
+        }, {
+          onConflict: 'user_id,flashcard_id'
+        });
 
-        if (statsError) {
-          console.warn('Error updating flashcard stats:', statsError);
-        }
-      } else {
-        // Insert new stats
-        const { error: statsError } = await supabase
-          .from('user_flashcard_stats')
-          .insert({
-            user_id: userId,
-            flashcard_id: flashcardId,
-            correct_count: isCorrect ? 1 : 0,
-            incorrect_count: !isCorrect ? 1 : 0,
-            last_reviewed: new Date().toISOString()
-          });
-
-        if (statsError) {
-          console.warn('Error inserting flashcard stats:', statsError);
-        }
+      if (statsError) {
+        console.warn('Error updating flashcard stats:', statsError);
       }
 
       return updatedData;
