@@ -143,8 +143,30 @@ export function useChannelMessages(channelId, userId, userName) {
     // Join the channel
     socketService.joinChannel(channelId, userId, userName);
 
-    // Load initial messages
-    loadMessages(false);
+    // Load initial messages (call directly without using the callback)
+    const loadInitialMessages = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      try {
+        const data = await fetchJson(
+          `${API_URL}/channels/${channelId}/messages?user_id=${userId}&limit=${limit}&offset=0`,
+          {},
+          'useChannelMessages.loadInitialMessages'
+        );
+        
+        setMessages(data.messages.reverse());
+        setHasMore(data.hasMore);
+        setOffset(data.messages.length);
+      } catch (error) {
+        console.error('[useChannelMessages] Error loading messages:', error);
+        setError(error.message || 'Failed to load messages');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadInitialMessages();
 
     // Listen for new messages
     const cleanupNewMessage = socketService.onNewMessage((message) => {
@@ -199,10 +221,11 @@ export function useChannelMessages(channelId, userId, userName) {
       setError(error.message || 'WebSocket error occurred');
     });
 
-    // Cleanup
+    // Cleanup function - called when channelId, userId, or userName changes, or component unmounts
     return () => {
       console.log('[useChannelMessages] Cleaning up Socket.IO for channel:', channelId);
       
+      // Leave channel and remove all event listeners
       socketService.leaveChannel(channelId);
       cleanupNewMessage();
       cleanupTyping();
@@ -212,7 +235,9 @@ export function useChannelMessages(channelId, userId, userName) {
       Object.values(typingTimeoutRef.current).forEach(timeout => clearTimeout(timeout));
       typingTimeoutRef.current = {};
     };
-  }, [channelId, userId, userName, loadMessages]);
+    // Remove loadMessages from dependencies to prevent re-subscription
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelId, userId, userName]);
 
   return {
     messages,
