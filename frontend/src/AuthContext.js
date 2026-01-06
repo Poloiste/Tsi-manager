@@ -1,26 +1,101 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { isNetworkError } from './utils/apiHelpers';
 
 const AuthContext = createContext();
+
+// Token refresh retry configuration
+const TOKEN_REFRESH_CONFIG = {
+  maxRetries: 3,
+  retryDelay: 2000, // 2 seconds
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
     checkUser();
+    
+    // Subscribe to auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[Auth] State changed:', event);
+      
+      if (event === 'SIGNED_IN' && session) {
+        setUser(session.user);
+        setAuthError(null);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setAuthError(null);
+      } else if (event === 'TOKEN_REFRESHED') {
+        console.log('[Auth] Token refreshed successfully');
+        setUser(session?.user || null);
+        setAuthError(null);
+      } else if (event === 'USER_UPDATED') {
+        setUser(session?.user || null);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const checkUser = async () => {
     try {
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('[Auth] Error checking session:', error);
+        setAuthError(error.message);
+        setUser(null);
+      } else if (data.session) {
         setUser(data.session.user);
+        setAuthError(null);
+      } else {
+        setUser(null);
       }
     } catch (error) {
-      console.error('Erreur vérification session:', error);
+      console.error('[Auth] Unexpected error checking session:', error);
+      setAuthError(error.message);
+      setUser(null);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
+  };
+
+  const refreshSession = async (retryCount = 0) => {
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data.session) {
+        setUser(data.session.user);
+        setAuthError(null);
+        console.log('[Auth] Session refreshed successfully');
+        return data.session;
+      }
+      
+      throw new Error('No session returned after refresh');
+    } catch (error) {
+      console.error(`[Auth] Token refresh attempt ${retryCount + 1} failed:`, error);
+      
+      // Retry on network errors using shared utility
+      if (retryCount < TOKEN_REFRESH_CONFIG.maxRetries && isNetworkError(error)) {
+        console.warn(`[Auth] Retrying token refresh in ${TOKEN_REFRESH_CONFIG.retryDelay / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, TOKEN_REFRESH_CONFIG.retryDelay));
+        return refreshSession(retryCount + 1);
+      }
+      
+      // If all retries failed or it's not a network error, handle the error
+      setAuthError('Failed to refresh authentication. Please sign in again.');
+      setUser(null);
+      throw error;
+    }
   };
 
   const signUp = async (email, password, name) => {
@@ -69,7 +144,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signUp, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, authError, signUp, signIn, signOut, refreshSession }}>
       {children}
     </AuthContext.Provider>
   );

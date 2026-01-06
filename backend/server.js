@@ -21,6 +21,29 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
+// Middleware to ensure all API responses have proper Content-Type
+app.use('/api', (req, res, next) => {
+  // Store original res.send and res.json
+  const originalSend = res.send;
+  const originalJson = res.json;
+  
+  // Override res.send to always set Content-Type for API routes
+  res.send = function(data) {
+    if (!res.get('Content-Type')) {
+      res.set('Content-Type', 'application/json');
+    }
+    return originalSend.call(this, data);
+  };
+  
+  // Override res.json to ensure it's always JSON
+  res.json = function(data) {
+    res.set('Content-Type', 'application/json');
+    return originalJson.call(this, data);
+  };
+  
+  next();
+});
+
 // ============================================
 // ROUTES DONNÉES PERSONNELLES
 // ============================================
