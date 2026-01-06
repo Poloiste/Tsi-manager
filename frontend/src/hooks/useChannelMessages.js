@@ -22,6 +22,15 @@ export function useChannelMessages(channelId, userId, userName) {
   
   const limit = 50;
   const typingTimeoutRef = useRef({});
+  // Track if initial load has been triggered for this channel to prevent re-loads
+  const initialLoadTriggeredRef = useRef(false);
+  const currentChannelRef = useRef(null);
+
+  // Reset initial load flag when channel changes
+  if (currentChannelRef.current !== channelId) {
+    initialLoadTriggeredRef.current = false;
+    currentChannelRef.current = channelId;
+  }
 
   // Load messages for the channel
   const loadMessages = useCallback(async (loadMore = false) => {
@@ -143,30 +152,11 @@ export function useChannelMessages(channelId, userId, userName) {
     // Join the channel
     socketService.joinChannel(channelId, userId, userName);
 
-    // Load initial messages (call directly without using the callback)
-    const loadInitialMessages = async () => {
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const data = await fetchJson(
-          `${API_URL}/channels/${channelId}/messages?user_id=${userId}&limit=${limit}&offset=0`,
-          {},
-          'useChannelMessages.loadInitialMessages'
-        );
-        
-        setMessages(data.messages.reverse());
-        setHasMore(data.hasMore);
-        setOffset(data.messages.length);
-      } catch (error) {
-        console.error('[useChannelMessages] Error loading messages:', error);
-        setError(error.message || 'Failed to load messages');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadInitialMessages();
+    // Load initial messages only once per channel
+    if (!initialLoadTriggeredRef.current) {
+      initialLoadTriggeredRef.current = true;
+      loadMessages(false);
+    }
 
     // Listen for new messages
     const cleanupNewMessage = socketService.onNewMessage((message) => {
@@ -235,9 +225,7 @@ export function useChannelMessages(channelId, userId, userName) {
       Object.values(typingTimeoutRef.current).forEach(timeout => clearTimeout(timeout));
       typingTimeoutRef.current = {};
     };
-    // Remove loadMessages from dependencies to prevent re-subscription
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [channelId, userId, userName]);
+  }, [channelId, userId, userName, loadMessages]);
 
   return {
     messages,
