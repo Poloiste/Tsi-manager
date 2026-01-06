@@ -199,10 +199,15 @@ export async function safeJsonParse(response) {
 export async function handleApiError(response, context = 'API call') {
   // Handle 405 Method Not Allowed specifically
   if (response.status === 405) {
+    const cleanUrl = response.url.includes('?') ? response.url.split('?')[0] : response.url;
+    const allowedMethods = response.headers.get('Allow');
+    const methodInfo = allowedMethods 
+      ? `specified method. Allowed methods: ${allowedMethods}` 
+      : 'specified method';
+    
     const error = new Error(
       `HTTP method not allowed for this endpoint (405). ` +
-      `The server does not support the ${response.url.includes('?') ? response.url.split('?')[0] : response.url} ` +
-      `endpoint with the ${response.headers.get('Allow') ? `specified method. Allowed methods: ${response.headers.get('Allow')}` : 'specified method'}.`
+      `The server does not support the ${cleanUrl} endpoint with the ${methodInfo}.`
     );
     logApiError(context, error, response);
     throw error;

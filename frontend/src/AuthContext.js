@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { isNetworkError } from './utils/apiHelpers';
 
 const AuthContext = createContext();
 
@@ -83,18 +84,11 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error(`[Auth] Token refresh attempt ${retryCount + 1} failed:`, error);
       
-      // Retry on network errors
-      if (retryCount < TOKEN_REFRESH_CONFIG.maxRetries) {
-        const isNetworkError = 
-          error.message?.includes('network') ||
-          error.message?.includes('fetch') ||
-          error.message?.includes('connection');
-        
-        if (isNetworkError) {
-          console.warn(`[Auth] Retrying token refresh in ${TOKEN_REFRESH_CONFIG.retryDelay / 1000}s...`);
-          await new Promise(resolve => setTimeout(resolve, TOKEN_REFRESH_CONFIG.retryDelay));
-          return refreshSession(retryCount + 1);
-        }
+      // Retry on network errors using shared utility
+      if (retryCount < TOKEN_REFRESH_CONFIG.maxRetries && isNetworkError(error)) {
+        console.warn(`[Auth] Retrying token refresh in ${TOKEN_REFRESH_CONFIG.retryDelay / 1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, TOKEN_REFRESH_CONFIG.retryDelay));
+        return refreshSession(retryCount + 1);
       }
       
       // If all retries failed or it's not a network error, handle the error
