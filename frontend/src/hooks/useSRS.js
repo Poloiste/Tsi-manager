@@ -338,24 +338,29 @@ export function useSRS(userId) {
         .eq('flashcard_id', flashcardId)
         .single();
 
+      // Calculate new counts based on existing stats and current response
+      const newCorrectCount = existingStats 
+        ? (isCorrect ? existingStats.correct_count + 1 : existingStats.correct_count)
+        : (isCorrect ? 1 : 0);
+      
+      const newIncorrectCount = existingStats
+        ? (!isCorrect ? existingStats.incorrect_count + 1 : existingStats.incorrect_count)
+        : (!isCorrect ? 1 : 0);
+
       const { error: statsError } = await supabase
         .from('user_flashcard_stats')
         .upsert({
           user_id: userId,
           flashcard_id: flashcardId,
-          correct_count: existingStats 
-            ? (isCorrect ? existingStats.correct_count + 1 : existingStats.correct_count)
-            : (isCorrect ? 1 : 0),
-          incorrect_count: existingStats
-            ? (!isCorrect ? existingStats.incorrect_count + 1 : existingStats.incorrect_count)
-            : (!isCorrect ? 1 : 0),
+          correct_count: newCorrectCount,
+          incorrect_count: newIncorrectCount,
           last_reviewed: now
         }, {
           onConflict: 'user_id,flashcard_id'
         });
 
       if (statsError) {
-        console.warn('Error updating flashcard stats:', statsError);
+        console.error('Error updating flashcard stats:', statsError);
       }
 
       return updatedData;
