@@ -1251,8 +1251,8 @@ function App() {
   useEffect(() => {
     if (user && !isLoading && courses.length > 0 && notificationSettings) {
       const checkNotifications = () => {
-        // Check for due cards
-        if (srs.stats.due > 0 && notificationSettings.due_cards_reminder_enabled) {
+        // Check for due cards - Add validation for srs.stats
+        if (srs && srs.stats && typeof srs.stats.due === 'number' && srs.stats.due > 0 && notificationSettings.due_cards_reminder_enabled) {
           showInfo(`🔴 ${srs.stats.due} carte${srs.stats.due > 1 ? 's' : ''} à réviser aujourd'hui`);
         }
         
@@ -4193,7 +4193,7 @@ function App() {
                           <p className="text-red-200 text-sm">Système de répétition espacée (SRS)</p>
                         </div>
                       </div>
-                      {srs.stats.due > 0 && (
+                      {srs && srs.stats && typeof srs.stats.due === 'number' && srs.stats.due > 0 && (
                         <div className="bg-red-500 text-white px-4 py-2 rounded-full font-bold text-xl">
                           {srs.stats.due}
                         </div>
@@ -4206,10 +4206,10 @@ function App() {
                           console.log('[App] Clicked on "À réviser" category');
                           startSRSSessionByCategory('due');
                         }}
-                        disabled={srs.stats.due === 0}
+                        disabled={!srs || !srs.stats || srs.stats.due === 0}
                         className="bg-slate-900/50 p-3 rounded-lg hover:bg-slate-800/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent hover:border-red-500/50"
                       >
-                        <div className="text-red-300 text-2xl font-bold">{srs.stats.due}</div>
+                        <div className="text-red-300 text-2xl font-bold">{srs?.stats?.due || 0}</div>
                         <div className="text-slate-400 text-xs">À réviser</div>
                       </button>
                       <button
@@ -4217,10 +4217,10 @@ function App() {
                           console.log('[App] Clicked on "En apprentissage" category');
                           startSRSSessionByCategory('learning');
                         }}
-                        disabled={srs.stats.learning === 0}
+                        disabled={!srs || !srs.stats || srs.stats.learning === 0}
                         className="bg-slate-900/50 p-3 rounded-lg hover:bg-slate-800/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent hover:border-yellow-500/50"
                       >
-                        <div className="text-yellow-300 text-2xl font-bold">{srs.stats.learning}</div>
+                        <div className="text-yellow-300 text-2xl font-bold">{srs?.stats?.learning || 0}</div>
                         <div className="text-slate-400 text-xs">En apprentissage</div>
                       </button>
                       <button
@@ -4228,10 +4228,10 @@ function App() {
                           console.log('[App] Clicked on "Maîtrisées" category');
                           startSRSSessionByCategory('mastered');
                         }}
-                        disabled={srs.stats.mastered === 0}
+                        disabled={!srs || !srs.stats || srs.stats.mastered === 0}
                         className="bg-slate-900/50 p-3 rounded-lg hover:bg-slate-800/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent hover:border-green-500/50"
                       >
-                        <div className="text-green-300 text-2xl font-bold">{srs.stats.mastered}</div>
+                        <div className="text-green-300 text-2xl font-bold">{srs?.stats?.mastered || 0}</div>
                         <div className="text-slate-400 text-xs">Maîtrisées</div>
                       </button>
                       <button
@@ -4239,21 +4239,21 @@ function App() {
                           console.log('[App] Clicked on "Nouvelles" category');
                           startSRSSessionByCategory('new');
                         }}
-                        disabled={srs.stats.new === 0}
+                        disabled={!srs || !srs.stats || srs.stats.new === 0}
                         className="bg-slate-900/50 p-3 rounded-lg hover:bg-slate-800/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent hover:border-blue-500/50"
                       >
-                        <div className="text-blue-300 text-2xl font-bold">{srs.stats.new}</div>
+                        <div className="text-blue-300 text-2xl font-bold">{srs?.stats?.new || 0}</div>
                         <div className="text-slate-400 text-xs">Nouvelles</div>
                       </button>
                     </div>
                     
                     <button
                       onClick={startSRSSession}
-                      disabled={srs.stats.due === 0}
+                      disabled={!srs || !srs.stats || srs.stats.due === 0}
                       className="w-full px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-xl hover:from-red-500 hover:to-orange-500 transition-all font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Brain className="w-6 h-6" />
-                      {srs.stats.due > 0 ? '🧠 Commencer la révision SRS' : '✅ Aucune carte à réviser'}
+                      {(srs?.stats?.due || 0) > 0 ? '🧠 Commencer la révision SRS' : '✅ Aucune carte à réviser'}
                     </button>
                   </div>
                 </div>
@@ -4951,12 +4951,12 @@ function App() {
                       console.log('[App] Clicked on "À réviser" category (stats section)');
                       startSRSSessionByCategory('due');
                     }}
-                    disabled={srs.stats.due === 0}
+                    disabled={!srs || !srs.stats || srs.stats.due === 0}
                     className="p-6 bg-gradient-to-br from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-2xl hover:border-red-400/60 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-4xl">🔴</div>
-                      <div className="text-3xl font-bold text-red-300">{srs.stats.due}</div>
+                      <div className="text-3xl font-bold text-red-300">{srs?.stats?.due || 0}</div>
                     </div>
                     <p className="text-red-200 font-semibold">À réviser</p>
                     <p className="text-red-400/60 text-xs mt-1">Cartes dues aujourd'hui</p>
@@ -4967,12 +4967,12 @@ function App() {
                       console.log('[App] Clicked on "En apprentissage" category (stats section)');
                       startSRSSessionByCategory('learning');
                     }}
-                    disabled={srs.stats.learning === 0}
+                    disabled={!srs || !srs.stats || srs.stats.learning === 0}
                     className="p-6 bg-gradient-to-br from-yellow-900/30 to-amber-900/30 border border-yellow-500/30 rounded-2xl hover:border-yellow-400/60 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-4xl">🟡</div>
-                      <div className="text-3xl font-bold text-yellow-300">{srs.stats.learning}</div>
+                      <div className="text-3xl font-bold text-yellow-300">{srs?.stats?.learning || 0}</div>
                     </div>
                     <p className="text-yellow-200 font-semibold">En apprentissage</p>
                     <p className="text-yellow-400/60 text-xs mt-1">Intervalle ≤ 21 jours</p>
@@ -4983,12 +4983,12 @@ function App() {
                       console.log('[App] Clicked on "Maîtrisées" category (stats section)');
                       startSRSSessionByCategory('mastered');
                     }}
-                    disabled={srs.stats.mastered === 0}
+                    disabled={!srs || !srs.stats || srs.stats.mastered === 0}
                     className="p-6 bg-gradient-to-br from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-2xl hover:border-green-400/60 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-4xl">🟢</div>
-                      <div className="text-3xl font-bold text-green-300">{srs.stats.mastered}</div>
+                      <div className="text-3xl font-bold text-green-300">{srs?.stats?.mastered || 0}</div>
                     </div>
                     <p className="text-green-200 font-semibold">Maîtrisées</p>
                     <p className="text-green-400/60 text-xs mt-1">Intervalle &gt; 21 jours</p>
@@ -4999,12 +4999,12 @@ function App() {
                       console.log('[App] Clicked on "Nouvelles" category (stats section)');
                       startSRSSessionByCategory('new');
                     }}
-                    disabled={srs.stats.new === 0}
+                    disabled={!srs || !srs.stats || srs.stats.new === 0}
                     className="p-6 bg-gradient-to-br from-blue-900/30 to-cyan-900/30 border border-blue-500/30 rounded-2xl hover:border-blue-400/60 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-4xl">🔵</div>
-                      <div className="text-3xl font-bold text-blue-300">{srs.stats.new}</div>
+                      <div className="text-3xl font-bold text-blue-300">{srs?.stats?.new || 0}</div>
                     </div>
                     <p className="text-blue-200 font-semibold">Nouvelles</p>
                     <p className="text-blue-400/60 text-xs mt-1">Jamais révisées</p>
@@ -5020,13 +5020,13 @@ function App() {
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-slate-300">Total des cartes</span>
                         <span className="text-white font-bold">
-                          {srs.stats.due + srs.stats.learning + srs.stats.mastered + srs.stats.new}
+                          {(srs?.stats?.due || 0) + (srs?.stats?.learning || 0) + (srs?.stats?.mastered || 0) + (srs?.stats?.new || 0)}
                         </span>
                       </div>
                     </div>
 
                     {/* Mastery rate */}
-                    {(srs.stats.due + srs.stats.learning + srs.stats.mastered) > 0 && (
+                    {srs && srs.stats && ((srs.stats.due + srs.stats.learning + srs.stats.mastered) > 0) && (
                       <div>
                         <div className="flex justify-between text-sm mb-2">
                           <span className="text-slate-300">Taux de maîtrise</span>
@@ -5049,7 +5049,7 @@ function App() {
                     <div>
                       <p className="text-sm text-slate-400 mb-2">Répartition</p>
                       <div className="flex gap-2 h-6 rounded-full overflow-hidden">
-                        {srs.stats.due > 0 && (
+                        {srs && srs.stats && srs.stats.due > 0 && (
                           <div 
                             className="bg-red-500 flex items-center justify-center text-xs font-bold text-white"
                             style={{ 
@@ -5060,7 +5060,7 @@ function App() {
                             {srs.stats.due > 5 && srs.stats.due}
                           </div>
                         )}
-                        {srs.stats.learning > 0 && (
+                        {srs && srs.stats && srs.stats.learning > 0 && (
                           <div 
                             className="bg-yellow-500 flex items-center justify-center text-xs font-bold text-white"
                             style={{ 
@@ -5071,7 +5071,7 @@ function App() {
                             {srs.stats.learning > 5 && srs.stats.learning}
                           </div>
                         )}
-                        {srs.stats.mastered > 0 && (
+                        {srs && srs.stats && srs.stats.mastered > 0 && (
                           <div 
                             className="bg-green-500 flex items-center justify-center text-xs font-bold text-white"
                             style={{ 
@@ -5082,7 +5082,7 @@ function App() {
                             {srs.stats.mastered > 5 && srs.stats.mastered}
                           </div>
                         )}
-                        {srs.stats.new > 0 && (
+                        {srs && srs.stats && srs.stats.new > 0 && (
                           <div 
                             className="bg-blue-500 flex items-center justify-center text-xs font-bold text-white"
                             style={{ 
@@ -5179,7 +5179,7 @@ function App() {
                           <div className="animate-spin w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
                           Chargement...
                         </div>
-                      ) : quiz.quizHistory.length === 0 ? (
+                      ) : (!quiz.quizHistory || !Array.isArray(quiz.quizHistory) || quiz.quizHistory.length === 0) ? (
                         <div className="text-center py-12 text-slate-400">
                           <div className="text-6xl mb-4">📝</div>
                           <p className="text-xl">Aucun quiz complété pour le moment</p>
@@ -5233,7 +5233,7 @@ function App() {
                   </div>
 
                   {/* Statistiques globales */}
-                  {quiz.quizHistory.length > 0 && (
+                  {quiz.quizHistory && Array.isArray(quiz.quizHistory) && quiz.quizHistory.length > 0 && quiz.getQuizStats && (
                     <div className="max-w-6xl mx-auto mt-8">
                       <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-indigo-500/20 shadow-2xl p-8">
                         <h3 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
@@ -5241,20 +5241,20 @@ function App() {
                         </h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                           <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 text-center">
-                            <div className="text-3xl font-bold text-indigo-400">{quiz.getQuizStats().totalCompleted}</div>
+                            <div className="text-3xl font-bold text-indigo-400">{quiz.getQuizStats().totalCompleted || 0}</div>
                             <div className="text-slate-400 text-sm mt-2">Quiz complétés</div>
                           </div>
                           <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 text-center">
-                            <div className="text-3xl font-bold text-purple-400">{quiz.getQuizStats().averageScore}%</div>
+                            <div className="text-3xl font-bold text-purple-400">{quiz.getQuizStats().averageScore || 0}%</div>
                             <div className="text-slate-400 text-sm mt-2">Score moyen</div>
                           </div>
                           <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 text-center">
-                            <div className="text-3xl font-bold text-green-400">{quiz.getQuizStats().bestScore}%</div>
+                            <div className="text-3xl font-bold text-green-400">{quiz.getQuizStats().bestScore || 0}%</div>
                             <div className="text-slate-400 text-sm mt-2">Meilleur score</div>
                           </div>
                           <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 text-center">
                             <div className="text-3xl font-bold text-blue-400">
-                              {Math.floor(quiz.getQuizStats().totalTimeSpent / 60)}h
+                              {Math.floor((quiz.getQuizStats().totalTimeSpent || 0) / 60)}h
                             </div>
                             <div className="text-slate-400 text-sm mt-2">Temps total</div>
                           </div>
