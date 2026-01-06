@@ -1035,12 +1035,25 @@ function App() {
       
       if (error) throw error;
       
+      // Validation des données reçues
+      if (!data) {
+        console.warn('loadCourses: No data returned from database');
+        setCourses([]);
+        return;
+      }
+      
+      if (!Array.isArray(data)) {
+        console.error('loadCourses: Expected array but got:', typeof data);
+        setCourses([]);
+        return;
+      }
+      
       // Load course links
       const { data: linksData, error: linksError } = await supabase
         .from('shared_course_links')
         .select('*');
       
-      if (linksError) throw linksError;
+      if (linksError) console.error('Error loading links:', linksError);
       
       // Load user progress
       const { data: progressData, error: progressError } = await supabase
@@ -1050,36 +1063,43 @@ function App() {
       
       if (progressError) console.error('Error loading progress:', progressError);
       
-      // Merge data
-      const coursesWithData = (data || []).map(course => {
-        const courseLinks = (linksData || []).filter(link => link.course_id === course.id);
-        const progress = (progressData || []).find(p => p.course_id === course.id);
-        
-        return {
-          id: course.id,
-          subject: course.subject,
-          chapter: course.chapter,
-          content: course.content,
-          difficulty: course.difficulty || 3,
-          priority: 3,
-          dateAdded: course.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
-          oneDriveLinks: courseLinks.map(link => ({
-            id: link.id,
-            url: link.url,
-            name: link.name,
-            addedDate: link.created_at?.split('T')[0]
-          })),
-          reviewCount: progress?.review_count || 0,
-          mastery: progress?.mastery || 0,
-          lastReviewed: progress?.last_reviewed?.split('T')[0] || null,
-          reviewHistory: progress?.review_history || [],
-          estimatedHours: 3
-        };
-      });
+      // Merge data with validation
+      const coursesWithData = data
+        .filter(course => course && course.id) // Filter out invalid courses
+        .map(course => {
+          const courseLinks = Array.isArray(linksData) 
+            ? linksData.filter(link => link && link.course_id === course.id)
+            : [];
+          const progress = Array.isArray(progressData)
+            ? progressData.find(p => p && p.course_id === course.id)
+            : null;
+          
+          return {
+            id: course.id,
+            subject: course.subject || '',
+            chapter: course.chapter || '',
+            content: course.content || '',
+            difficulty: course.difficulty || 3,
+            priority: 3,
+            dateAdded: course.created_at?.split('T')[0] || new Date().toISOString().split('T')[0],
+            oneDriveLinks: courseLinks.map(link => ({
+              id: link.id,
+              url: link.url || '',
+              name: link.name || '',
+              addedDate: link.created_at?.split('T')[0] || ''
+            })),
+            reviewCount: progress?.review_count || 0,
+            mastery: progress?.mastery || 0,
+            lastReviewed: progress?.last_reviewed?.split('T')[0] || null,
+            reviewHistory: Array.isArray(progress?.review_history) ? progress.review_history : [],
+            estimatedHours: 3
+          };
+        });
       
       setCourses(coursesWithData);
     } catch (error) {
       console.error('Error loading courses:', error);
+      setCourses([]); // Ensure courses is always an array even on error
     }
   };
 
@@ -1092,6 +1112,19 @@ function App() {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
+      
+      // Validation des données reçues
+      if (!data) {
+        console.warn('loadFlashcards: No data returned from database');
+        setFlashcards([]);
+        return;
+      }
+      
+      if (!Array.isArray(data)) {
+        console.error('loadFlashcards: Expected array but got:', typeof data);
+        setFlashcards([]);
+        return;
+      }
       
       // Load user stats
       const { data: statsData, error: statsError } = await supabase
@@ -1109,30 +1142,37 @@ function App() {
       
       if (srsError) console.error('Error loading SRS data:', srsError);
       
-      // Merge data
-      const flashcardsWithStats = (data || []).map(flashcard => {
-        const stats = (statsData || []).find(s => s.flashcard_id === flashcard.id);
-        const srs = (srsData || []).find(s => s.flashcard_id === flashcard.id);
-        
-        return {
-          id: flashcard.id,
-          courseId: flashcard.course_id,
-          question: flashcard.question,
-          answer: flashcard.answer,
-          createdAt: flashcard.created_at,
-          lastReviewed: stats?.last_reviewed || null,
-          correctCount: stats?.correct_count || 0,
-          incorrectCount: stats?.incorrect_count || 0,
-          authorName: flashcard.created_by_name || 'Anonyme',
-          isImported: !!flashcard.imported_from,
-          importSource: flashcard.imported_from || null,
-          srsData: srs || null
-        };
-      });
+      // Merge data with validation
+      const flashcardsWithStats = data
+        .filter(flashcard => flashcard && flashcard.id) // Filter out invalid flashcards
+        .map(flashcard => {
+          const stats = Array.isArray(statsData)
+            ? statsData.find(s => s && s.flashcard_id === flashcard.id)
+            : null;
+          const srs = Array.isArray(srsData)
+            ? srsData.find(s => s && s.flashcard_id === flashcard.id)
+            : null;
+          
+          return {
+            id: flashcard.id,
+            courseId: flashcard.course_id || null,
+            question: flashcard.question || '',
+            answer: flashcard.answer || '',
+            createdAt: flashcard.created_at || new Date().toISOString(),
+            lastReviewed: stats?.last_reviewed || null,
+            correctCount: stats?.correct_count || 0,
+            incorrectCount: stats?.incorrect_count || 0,
+            authorName: flashcard.created_by_name || 'Anonyme',
+            isImported: !!flashcard.imported_from,
+            importSource: flashcard.imported_from || null,
+            srsData: srs || null
+          };
+        });
       
       setFlashcards(flashcardsWithStats);
     } catch (error) {
       console.error('Error loading flashcards:', error);
+      setFlashcards([]); // Ensure flashcards is always an array even on error
     }
   };
 
@@ -1147,20 +1187,36 @@ function App() {
       
       if (error) throw error;
       
-      const eventsData = (data || []).map(event => ({
-        id: event.id,
-        week: event.week,
-        day: event.day,
-        type: event.type,
-        subject: event.subject,
-        time: event.time,
-        duration: event.duration,
-        date: event.date
-      }));
+      // Validation des données reçues
+      if (!data) {
+        console.warn('loadEvents: No data returned from database');
+        setCustomEvents([]);
+        return;
+      }
+      
+      if (!Array.isArray(data)) {
+        console.error('loadEvents: Expected array but got:', typeof data);
+        setCustomEvents([]);
+        return;
+      }
+      
+      const eventsData = data
+        .filter(event => event && event.id) // Filter out invalid events
+        .map(event => ({
+          id: event.id,
+          week: event.week || null,
+          day: event.day || '',
+          type: event.type || '',
+          subject: event.subject || '',
+          time: event.time || '',
+          duration: event.duration || '',
+          date: event.date || null
+        }));
       
       setCustomEvents(eventsData);
     } catch (error) {
       console.error('Error loading events:', error);
+      setCustomEvents([]); // Ensure customEvents is always an array even on error
     }
   };
 
@@ -1195,8 +1251,8 @@ function App() {
   useEffect(() => {
     if (user && !isLoading && courses.length > 0 && notificationSettings) {
       const checkNotifications = () => {
-        // Check for due cards
-        if (srs.stats.due > 0 && notificationSettings.due_cards_reminder_enabled) {
+        // Check for due cards - Add validation for srs.stats
+        if (srs && srs.stats && typeof srs.stats.due === 'number' && srs.stats.due > 0 && notificationSettings.due_cards_reminder_enabled) {
           showInfo(`🔴 ${srs.stats.due} carte${srs.stats.due > 1 ? 's' : ''} à réviser aujourd'hui`);
         }
         
@@ -1271,20 +1327,52 @@ function App() {
         .order('name');
       
       if (error) throw error;
-      setChannels(data || []);
+      
+      // Validation des données reçues
+      if (!data) {
+        console.warn('fetchChannels: No data returned from database');
+        setChannels([]);
+        return;
+      }
+      
+      // Valider que data est un tableau
+      if (!Array.isArray(data)) {
+        console.error('fetchChannels: Expected array but got:', typeof data);
+        setChannels([]);
+        return;
+      }
+      
+      // Valider que chaque élément a les propriétés requises
+      const validatedChannels = data.filter(channel => {
+        if (!channel || typeof channel !== 'object') {
+          console.warn('fetchChannels: Invalid channel object:', channel);
+          return false;
+        }
+        if (!channel.id) {
+          console.warn('fetchChannels: Channel missing id:', channel);
+          return false;
+        }
+        return true;
+      });
+      
+      setChannels(validatedChannels);
       
       // Sélectionner le premier salon par défaut
-      if (data && data.length > 0 && !selectedChannel) {
-        setSelectedChannel(data[0]);
+      if (validatedChannels.length > 0 && !selectedChannel) {
+        setSelectedChannel(validatedChannels[0]);
       }
     } catch (error) {
       console.error('Erreur chargement salons:', error);
+      setChannels([]); // Ensure channels is always an array even on error
     }
   };
 
   // Charger les messages d'un salon
   const fetchMessages = async (channelId) => {
-    if (!channelId) return;
+    if (!channelId) {
+      console.warn('fetchMessages: channelId is required');
+      return;
+    }
     
     setIsLoadingMessages(true);
     try {
@@ -1296,7 +1384,35 @@ function App() {
         .limit(MAX_MESSAGES_PER_FETCH);
       
       if (error) throw error;
-      setMessages(data || []);
+      
+      // Validation des données reçues
+      if (!data) {
+        console.warn('fetchMessages: No data returned from database');
+        setMessages([]);
+        return;
+      }
+      
+      // Valider que data est un tableau
+      if (!Array.isArray(data)) {
+        console.error('fetchMessages: Expected array but got:', typeof data);
+        setMessages([]);
+        return;
+      }
+      
+      // Valider que chaque message a les propriétés requises
+      const validatedMessages = data.filter(message => {
+        if (!message || typeof message !== 'object') {
+          console.warn('fetchMessages: Invalid message object:', message);
+          return false;
+        }
+        if (!message.id) {
+          console.warn('fetchMessages: Message missing id:', message);
+          return false;
+        }
+        return true;
+      });
+      
+      setMessages(validatedMessages);
       
       // Scroll vers le bas après chargement
       setTimeout(() => {
@@ -1304,6 +1420,7 @@ function App() {
       }, SCROLL_DELAY_MS);
     } catch (error) {
       console.error('Erreur chargement messages:', error);
+      setMessages([]); // Ensure messages is always an array even on error
     } finally {
       setIsLoadingMessages(false);
     }
@@ -4076,7 +4193,7 @@ function App() {
                           <p className="text-red-200 text-sm">Système de répétition espacée (SRS)</p>
                         </div>
                       </div>
-                      {srs.stats.due > 0 && (
+                      {srs && srs.stats && typeof srs.stats.due === 'number' && srs.stats.due > 0 && (
                         <div className="bg-red-500 text-white px-4 py-2 rounded-full font-bold text-xl">
                           {srs.stats.due}
                         </div>
@@ -4089,10 +4206,10 @@ function App() {
                           console.log('[App] Clicked on "À réviser" category');
                           startSRSSessionByCategory('due');
                         }}
-                        disabled={srs.stats.due === 0}
+                        disabled={!srs || !srs.stats || srs.stats.due === 0}
                         className="bg-slate-900/50 p-3 rounded-lg hover:bg-slate-800/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent hover:border-red-500/50"
                       >
-                        <div className="text-red-300 text-2xl font-bold">{srs.stats.due}</div>
+                        <div className="text-red-300 text-2xl font-bold">{srs?.stats?.due || 0}</div>
                         <div className="text-slate-400 text-xs">À réviser</div>
                       </button>
                       <button
@@ -4100,10 +4217,10 @@ function App() {
                           console.log('[App] Clicked on "En apprentissage" category');
                           startSRSSessionByCategory('learning');
                         }}
-                        disabled={srs.stats.learning === 0}
+                        disabled={!srs || !srs.stats || srs.stats.learning === 0}
                         className="bg-slate-900/50 p-3 rounded-lg hover:bg-slate-800/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent hover:border-yellow-500/50"
                       >
-                        <div className="text-yellow-300 text-2xl font-bold">{srs.stats.learning}</div>
+                        <div className="text-yellow-300 text-2xl font-bold">{srs?.stats?.learning || 0}</div>
                         <div className="text-slate-400 text-xs">En apprentissage</div>
                       </button>
                       <button
@@ -4111,10 +4228,10 @@ function App() {
                           console.log('[App] Clicked on "Maîtrisées" category');
                           startSRSSessionByCategory('mastered');
                         }}
-                        disabled={srs.stats.mastered === 0}
+                        disabled={!srs || !srs.stats || srs.stats.mastered === 0}
                         className="bg-slate-900/50 p-3 rounded-lg hover:bg-slate-800/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent hover:border-green-500/50"
                       >
-                        <div className="text-green-300 text-2xl font-bold">{srs.stats.mastered}</div>
+                        <div className="text-green-300 text-2xl font-bold">{srs?.stats?.mastered || 0}</div>
                         <div className="text-slate-400 text-xs">Maîtrisées</div>
                       </button>
                       <button
@@ -4122,21 +4239,21 @@ function App() {
                           console.log('[App] Clicked on "Nouvelles" category');
                           startSRSSessionByCategory('new');
                         }}
-                        disabled={srs.stats.new === 0}
+                        disabled={!srs || !srs.stats || srs.stats.new === 0}
                         className="bg-slate-900/50 p-3 rounded-lg hover:bg-slate-800/70 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed border-2 border-transparent hover:border-blue-500/50"
                       >
-                        <div className="text-blue-300 text-2xl font-bold">{srs.stats.new}</div>
+                        <div className="text-blue-300 text-2xl font-bold">{srs?.stats?.new || 0}</div>
                         <div className="text-slate-400 text-xs">Nouvelles</div>
                       </button>
                     </div>
                     
                     <button
                       onClick={startSRSSession}
-                      disabled={srs.stats.due === 0}
+                      disabled={!srs || !srs.stats || srs.stats.due === 0}
                       className="w-full px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-xl hover:from-red-500 hover:to-orange-500 transition-all font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Brain className="w-6 h-6" />
-                      {srs.stats.due > 0 ? '🧠 Commencer la révision SRS' : '✅ Aucune carte à réviser'}
+                      {(srs?.stats?.due || 0) > 0 ? '🧠 Commencer la révision SRS' : '✅ Aucune carte à réviser'}
                     </button>
                   </div>
                 </div>
@@ -4834,12 +4951,12 @@ function App() {
                       console.log('[App] Clicked on "À réviser" category (stats section)');
                       startSRSSessionByCategory('due');
                     }}
-                    disabled={srs.stats.due === 0}
+                    disabled={!srs || !srs.stats || srs.stats.due === 0}
                     className="p-6 bg-gradient-to-br from-red-900/30 to-orange-900/30 border border-red-500/30 rounded-2xl hover:border-red-400/60 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-4xl">🔴</div>
-                      <div className="text-3xl font-bold text-red-300">{srs.stats.due}</div>
+                      <div className="text-3xl font-bold text-red-300">{srs?.stats?.due || 0}</div>
                     </div>
                     <p className="text-red-200 font-semibold">À réviser</p>
                     <p className="text-red-400/60 text-xs mt-1">Cartes dues aujourd'hui</p>
@@ -4850,12 +4967,12 @@ function App() {
                       console.log('[App] Clicked on "En apprentissage" category (stats section)');
                       startSRSSessionByCategory('learning');
                     }}
-                    disabled={srs.stats.learning === 0}
+                    disabled={!srs || !srs.stats || srs.stats.learning === 0}
                     className="p-6 bg-gradient-to-br from-yellow-900/30 to-amber-900/30 border border-yellow-500/30 rounded-2xl hover:border-yellow-400/60 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-4xl">🟡</div>
-                      <div className="text-3xl font-bold text-yellow-300">{srs.stats.learning}</div>
+                      <div className="text-3xl font-bold text-yellow-300">{srs?.stats?.learning || 0}</div>
                     </div>
                     <p className="text-yellow-200 font-semibold">En apprentissage</p>
                     <p className="text-yellow-400/60 text-xs mt-1">Intervalle ≤ 21 jours</p>
@@ -4866,12 +4983,12 @@ function App() {
                       console.log('[App] Clicked on "Maîtrisées" category (stats section)');
                       startSRSSessionByCategory('mastered');
                     }}
-                    disabled={srs.stats.mastered === 0}
+                    disabled={!srs || !srs.stats || srs.stats.mastered === 0}
                     className="p-6 bg-gradient-to-br from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-2xl hover:border-green-400/60 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-4xl">🟢</div>
-                      <div className="text-3xl font-bold text-green-300">{srs.stats.mastered}</div>
+                      <div className="text-3xl font-bold text-green-300">{srs?.stats?.mastered || 0}</div>
                     </div>
                     <p className="text-green-200 font-semibold">Maîtrisées</p>
                     <p className="text-green-400/60 text-xs mt-1">Intervalle &gt; 21 jours</p>
@@ -4882,12 +4999,12 @@ function App() {
                       console.log('[App] Clicked on "Nouvelles" category (stats section)');
                       startSRSSessionByCategory('new');
                     }}
-                    disabled={srs.stats.new === 0}
+                    disabled={!srs || !srs.stats || srs.stats.new === 0}
                     className="p-6 bg-gradient-to-br from-blue-900/30 to-cyan-900/30 border border-blue-500/30 rounded-2xl hover:border-blue-400/60 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
                   >
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-4xl">🔵</div>
-                      <div className="text-3xl font-bold text-blue-300">{srs.stats.new}</div>
+                      <div className="text-3xl font-bold text-blue-300">{srs?.stats?.new || 0}</div>
                     </div>
                     <p className="text-blue-200 font-semibold">Nouvelles</p>
                     <p className="text-blue-400/60 text-xs mt-1">Jamais révisées</p>
@@ -4903,13 +5020,13 @@ function App() {
                       <div className="flex justify-between text-sm mb-2">
                         <span className="text-slate-300">Total des cartes</span>
                         <span className="text-white font-bold">
-                          {srs.stats.due + srs.stats.learning + srs.stats.mastered + srs.stats.new}
+                          {(srs?.stats?.due || 0) + (srs?.stats?.learning || 0) + (srs?.stats?.mastered || 0) + (srs?.stats?.new || 0)}
                         </span>
                       </div>
                     </div>
 
                     {/* Mastery rate */}
-                    {(srs.stats.due + srs.stats.learning + srs.stats.mastered) > 0 && (
+                    {srs && srs.stats && ((srs.stats.due + srs.stats.learning + srs.stats.mastered) > 0) && (
                       <div>
                         <div className="flex justify-between text-sm mb-2">
                           <span className="text-slate-300">Taux de maîtrise</span>
@@ -4932,7 +5049,7 @@ function App() {
                     <div>
                       <p className="text-sm text-slate-400 mb-2">Répartition</p>
                       <div className="flex gap-2 h-6 rounded-full overflow-hidden">
-                        {srs.stats.due > 0 && (
+                        {srs && srs.stats && srs.stats.due > 0 && (
                           <div 
                             className="bg-red-500 flex items-center justify-center text-xs font-bold text-white"
                             style={{ 
@@ -4943,7 +5060,7 @@ function App() {
                             {srs.stats.due > 5 && srs.stats.due}
                           </div>
                         )}
-                        {srs.stats.learning > 0 && (
+                        {srs && srs.stats && srs.stats.learning > 0 && (
                           <div 
                             className="bg-yellow-500 flex items-center justify-center text-xs font-bold text-white"
                             style={{ 
@@ -4954,7 +5071,7 @@ function App() {
                             {srs.stats.learning > 5 && srs.stats.learning}
                           </div>
                         )}
-                        {srs.stats.mastered > 0 && (
+                        {srs && srs.stats && srs.stats.mastered > 0 && (
                           <div 
                             className="bg-green-500 flex items-center justify-center text-xs font-bold text-white"
                             style={{ 
@@ -4965,7 +5082,7 @@ function App() {
                             {srs.stats.mastered > 5 && srs.stats.mastered}
                           </div>
                         )}
-                        {srs.stats.new > 0 && (
+                        {srs && srs.stats && srs.stats.new > 0 && (
                           <div 
                             className="bg-blue-500 flex items-center justify-center text-xs font-bold text-white"
                             style={{ 
@@ -5062,7 +5179,7 @@ function App() {
                           <div className="animate-spin w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
                           Chargement...
                         </div>
-                      ) : quiz.quizHistory.length === 0 ? (
+                      ) : (!quiz.quizHistory || !Array.isArray(quiz.quizHistory) || quiz.quizHistory.length === 0) ? (
                         <div className="text-center py-12 text-slate-400">
                           <div className="text-6xl mb-4">📝</div>
                           <p className="text-xl">Aucun quiz complété pour le moment</p>
@@ -5116,7 +5233,7 @@ function App() {
                   </div>
 
                   {/* Statistiques globales */}
-                  {quiz.quizHistory.length > 0 && (
+                  {quiz.quizHistory && Array.isArray(quiz.quizHistory) && quiz.quizHistory.length > 0 && quiz.getQuizStats && (
                     <div className="max-w-6xl mx-auto mt-8">
                       <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-indigo-500/20 shadow-2xl p-8">
                         <h3 className="text-3xl font-bold text-white mb-6 flex items-center gap-3">
@@ -5124,20 +5241,20 @@ function App() {
                         </h3>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                           <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 text-center">
-                            <div className="text-3xl font-bold text-indigo-400">{quiz.getQuizStats().totalCompleted}</div>
+                            <div className="text-3xl font-bold text-indigo-400">{quiz.getQuizStats().totalCompleted || 0}</div>
                             <div className="text-slate-400 text-sm mt-2">Quiz complétés</div>
                           </div>
                           <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 text-center">
-                            <div className="text-3xl font-bold text-purple-400">{quiz.getQuizStats().averageScore}%</div>
+                            <div className="text-3xl font-bold text-purple-400">{quiz.getQuizStats().averageScore || 0}%</div>
                             <div className="text-slate-400 text-sm mt-2">Score moyen</div>
                           </div>
                           <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 text-center">
-                            <div className="text-3xl font-bold text-green-400">{quiz.getQuizStats().bestScore}%</div>
+                            <div className="text-3xl font-bold text-green-400">{quiz.getQuizStats().bestScore || 0}%</div>
                             <div className="text-slate-400 text-sm mt-2">Meilleur score</div>
                           </div>
                           <div className="bg-slate-800/50 rounded-lg p-4 border border-slate-700 text-center">
                             <div className="text-3xl font-bold text-blue-400">
-                              {Math.floor(quiz.getQuizStats().totalTimeSpent / 60)}h
+                              {Math.floor((quiz.getQuizStats().totalTimeSpent || 0) / 60)}h
                             </div>
                             <div className="text-slate-400 text-sm mt-2">Temps total</div>
                           </div>
@@ -5184,12 +5301,12 @@ function App() {
                 </>
               )}
 
-              {quizView === 'session' && quiz.currentQuiz && (
+              {quizView === 'session' && quiz.currentQuiz && quiz.questions && Array.isArray(quiz.questions) && (
                 <QuizSession
                   quiz={quiz.currentQuiz}
                   questions={quiz.questions}
-                  currentIndex={quiz.currentIndex}
-                  answers={quiz.answers}
+                  currentIndex={quiz.currentIndex || 0}
+                  answers={quiz.answers || []}
                   timeRemaining={quiz.timeRemaining}
                   onSubmitAnswer={quiz.submitAnswer}
                   onNextQuestion={quiz.nextQuestion}
@@ -5197,9 +5314,28 @@ function App() {
                     try {
                       await quiz.finishQuiz();
                       
-                      // Ajouter XP pour le quiz
-                      const correctCount = quiz.answers.filter(a => a.is_correct).length;
+                      // Validation des données du quiz
+                      if (!quiz.answers || !Array.isArray(quiz.answers)) {
+                        console.error('Quiz answers is not a valid array:', quiz.answers);
+                        setQuizView('home');
+                        return;
+                      }
+                      
+                      if (!quiz.questions || !Array.isArray(quiz.questions)) {
+                        console.error('Quiz questions is not a valid array:', quiz.questions);
+                        setQuizView('home');
+                        return;
+                      }
+                      
                       const totalQuestions = quiz.questions.length;
+                      if (totalQuestions === 0) {
+                        console.error('Quiz has no questions');
+                        setQuizView('home');
+                        return;
+                      }
+                      
+                      // Ajouter XP pour le quiz
+                      const correctCount = quiz.answers.filter(a => a && a.is_correct).length;
                       const score = Math.round((correctCount / totalQuestions) * 100);
                       
                       let xpEarned = correctCount * 5; // 5 XP par bonne réponse
@@ -5212,12 +5348,13 @@ function App() {
                       setQuizView('results');
                     } catch (error) {
                       console.error('Error finishing quiz:', error);
+                      setQuizView('home');
                     }
                   }}
                 />
               )}
 
-              {quizView === 'results' && quiz.currentQuiz && (
+              {quizView === 'results' && quiz.currentQuiz && quiz.questions && quiz.answers && (
                 <QuizResults
                   quiz={quiz.currentQuiz}
                   answers={quiz.answers}
