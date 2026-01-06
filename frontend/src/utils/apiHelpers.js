@@ -69,13 +69,19 @@ export function logApiError(context, error, response = null) {
  */
 export async function safeJsonParse(response) {
   const contentType = response.headers.get('content-type');
+  const responseUrl = response.url;
   
   // Check if response is JSON
   if (contentType && contentType.includes('application/json')) {
     try {
       return await response.json();
     } catch (error) {
-      console.error('[API] Failed to parse JSON response:', error);
+      console.error('[API] Failed to parse JSON response:', {
+        url: responseUrl,
+        status: response.status,
+        contentType,
+        error: error.message
+      });
       // Use generic error message to avoid exposing internal details
       throw new Error('Invalid JSON response from server');
     }
@@ -84,6 +90,14 @@ export async function safeJsonParse(response) {
   // If not JSON, try to get text for better error messages
   const text = await response.text();
   const trimmedText = text.trim().toLowerCase();
+  
+  // Log detailed error for debugging
+  console.error('[API] Non-JSON response received:', {
+    url: responseUrl,
+    status: response.status,
+    contentType: contentType || 'unknown',
+    responsePreview: text.substring(0, 200) // First 200 chars for debugging
+  });
   
   // Check if it's HTML error page (case-insensitive, multiple patterns)
   if (trimmedText.startsWith('<!doctype') || 
@@ -97,7 +111,7 @@ export async function safeJsonParse(response) {
     );
   }
   
-  // Don't include response preview to avoid exposing sensitive data
+  // Don't include response preview in error message to avoid exposing sensitive data
   throw new Error(
     `Unexpected response type: ${contentType || 'unknown'} (status: ${response.status}). ` +
     'Expected application/json'

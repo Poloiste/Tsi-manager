@@ -22,6 +22,17 @@ export function useChannelMessages(channelId, userId, userName) {
   
   const limit = 50;
   const typingTimeoutRef = useRef({});
+  // Track if initial load has been triggered for this channel to prevent re-loads
+  const initialLoadTriggeredRef = useRef(false);
+  const currentChannelRef = useRef(null);
+
+  // Reset initial load flag when channel changes (in useEffect to follow React best practices)
+  useEffect(() => {
+    if (currentChannelRef.current !== channelId) {
+      initialLoadTriggeredRef.current = false;
+      currentChannelRef.current = channelId;
+    }
+  }, [channelId]);
 
   // Load messages for the channel
   const loadMessages = useCallback(async (loadMore = false) => {
@@ -143,8 +154,11 @@ export function useChannelMessages(channelId, userId, userName) {
     // Join the channel
     socketService.joinChannel(channelId, userId, userName);
 
-    // Load initial messages
-    loadMessages(false);
+    // Load initial messages only once per channel
+    if (!initialLoadTriggeredRef.current) {
+      initialLoadTriggeredRef.current = true;
+      loadMessages(false);
+    }
 
     // Listen for new messages
     const cleanupNewMessage = socketService.onNewMessage((message) => {
@@ -199,10 +213,11 @@ export function useChannelMessages(channelId, userId, userName) {
       setError(error.message || 'WebSocket error occurred');
     });
 
-    // Cleanup
+    // Cleanup function - called when channelId, userId, or userName changes, or component unmounts
     return () => {
       console.log('[useChannelMessages] Cleaning up Socket.IO for channel:', channelId);
       
+      // Leave channel and remove all event listeners
       socketService.leaveChannel(channelId);
       cleanupNewMessage();
       cleanupTyping();
@@ -212,7 +227,10 @@ export function useChannelMessages(channelId, userId, userName) {
       Object.values(typingTimeoutRef.current).forEach(timeout => clearTimeout(timeout));
       typingTimeoutRef.current = {};
     };
-  }, [channelId, userId, userName, loadMessages]);
+    // loadMessages is called once inside effect, not included in dependencies
+    // to prevent re-subscription when offset changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelId, userId, userName]);
 
   return {
     messages,
