@@ -1261,6 +1261,54 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Charger les salons
+  const fetchChannels = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('chat_channels')
+        .select('*')
+        .order('type')
+        .order('name');
+      
+      if (error) throw error;
+      setChannels(data || []);
+      
+      // Sélectionner le premier salon par défaut
+      if (data && data.length > 0 && !selectedChannel) {
+        setSelectedChannel(data[0]);
+      }
+    } catch (error) {
+      console.error('Erreur chargement salons:', error);
+    }
+  };
+
+  // Charger les messages d'un salon
+  const fetchMessages = async (channelId) => {
+    if (!channelId) return;
+    
+    setIsLoadingMessages(true);
+    try {
+      const { data, error } = await supabase
+        .from('chat_messages')
+        .select('*')
+        .eq('channel_id', channelId)
+        .order('created_at', { ascending: true })
+        .limit(MAX_MESSAGES_PER_FETCH);
+      
+      if (error) throw error;
+      setMessages(data || []);
+      
+      // Scroll vers le bas après chargement
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, SCROLL_DELAY_MS);
+    } catch (error) {
+      console.error('Erreur chargement messages:', error);
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
+
   // Charger les salons au démarrage
   useEffect(() => {
     if (user) {
@@ -2499,54 +2547,7 @@ function App() {
     return cleaned || DEFAULT_USERNAME;
   };
   
-  // Charger les salons
-  const fetchChannels = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('chat_channels')
-        .select('*')
-        .order('type')
-        .order('name');
-      
-      if (error) throw error;
-      setChannels(data || []);
-      
-      // Sélectionner le premier salon par défaut
-      if (data && data.length > 0 && !selectedChannel) {
-        setSelectedChannel(data[0]);
-      }
-    } catch (error) {
-      console.error('Erreur chargement salons:', error);
-    }
-  };
-
-  // Charger les messages d'un salon
-  const fetchMessages = async (channelId) => {
-    if (!channelId) return;
-    
-    setIsLoadingMessages(true);
-    try {
-      const { data, error } = await supabase
-        .from('chat_messages')
-        .select('*')
-        .eq('channel_id', channelId)
-        .order('created_at', { ascending: true })
-        .limit(MAX_MESSAGES_PER_FETCH);
-      
-      if (error) throw error;
-      setMessages(data || []);
-      
-      // Scroll vers le bas après chargement
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, SCROLL_DELAY_MS);
-    } catch (error) {
-      console.error('Erreur chargement messages:', error);
-    } finally {
-      setIsLoadingMessages(false);
-    }
-  };
-
+  
   // Envoyer un message
   const sendMessage = async (e) => {
     e.preventDefault();
