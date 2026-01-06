@@ -26,11 +26,13 @@ export function useChannelMessages(channelId, userId, userName) {
   const initialLoadTriggeredRef = useRef(false);
   const currentChannelRef = useRef(null);
 
-  // Reset initial load flag when channel changes
-  if (currentChannelRef.current !== channelId) {
-    initialLoadTriggeredRef.current = false;
-    currentChannelRef.current = channelId;
-  }
+  // Reset initial load flag when channel changes (in useEffect to follow React best practices)
+  useEffect(() => {
+    if (currentChannelRef.current !== channelId) {
+      initialLoadTriggeredRef.current = false;
+      currentChannelRef.current = channelId;
+    }
+  }, [channelId]);
 
   // Load messages for the channel
   const loadMessages = useCallback(async (loadMore = false) => {
@@ -225,7 +227,10 @@ export function useChannelMessages(channelId, userId, userName) {
       Object.values(typingTimeoutRef.current).forEach(timeout => clearTimeout(timeout));
       typingTimeoutRef.current = {};
     };
-  }, [channelId, userId, userName, loadMessages]);
+    // loadMessages is called once inside effect, not included in dependencies
+    // to prevent re-subscription when offset changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [channelId, userId, userName]);
 
   return {
     messages,
