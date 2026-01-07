@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Hash, Volume2, Lock, Globe } from 'lucide-react';
+import { X, Hash, Lock, Globe } from 'lucide-react';
 
 /**
  * CreateCategoryChannelModal - Modal for creating categories or channels
@@ -145,13 +145,13 @@ export function CreateCategoryChannelModal({
               `}>
                 Type de canal
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="flex">
                 <button
                   type="button"
                   onClick={() => setChannelType('text')}
                   disabled={isCreating}
                   className={`
-                    flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all font-semibold
+                    flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all font-semibold flex-1
                     ${channelType === 'text'
                       ? 'border-indigo-500 bg-indigo-600/20 text-indigo-300'
                       : isDark
@@ -163,24 +163,6 @@ export function CreateCategoryChannelModal({
                 >
                   <Hash className="w-5 h-5" />
                   Texte
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setChannelType('voice')}
-                  disabled={isCreating}
-                  className={`
-                    flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all font-semibold
-                    ${channelType === 'voice'
-                      ? 'border-indigo-500 bg-indigo-600/20 text-indigo-300'
-                      : isDark
-                        ? 'border-slate-600 hover:border-slate-500 text-slate-400'
-                        : 'border-gray-300 hover:border-gray-400 text-gray-600'
-                    }
-                    ${isCreating ? 'opacity-50 cursor-not-allowed' : ''}
-                  `}
-                >
-                  <Volume2 className="w-5 h-5" />
-                  Vocal
                 </button>
               </div>
             </div>

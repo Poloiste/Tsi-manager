@@ -787,9 +787,9 @@ app.post('/api/channels', async (req, res) => {
     }
 
     // Validate type
-    if (!['category', 'text', 'voice'].includes(type)) {
+    if (!['category', 'text'].includes(type)) {
       return res.status(400).json({ 
-        error: 'Invalid type. Must be one of: category, text, voice' 
+        error: 'Invalid type. Must be one of: category, text' 
       });
     }
 
