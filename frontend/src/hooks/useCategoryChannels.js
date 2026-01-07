@@ -205,6 +205,8 @@ export function useCategoryChannels(userId) {
     if (!userId) return;
 
     // Subscribe to chat_channels changes
+    // This monitors changes to standalone channels (not linked to study groups)
+    // where group_id is NULL, as opposed to group channels which have a group_id
     const channelsSubscription = supabase
       .channel('category-channels-changes')
       .on(

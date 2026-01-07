@@ -3740,7 +3740,9 @@ function App() {
                   <DiscordStyleChat
                     userId={user?.id}
                     userName={user?.user_metadata?.name || user?.email?.split('@')[0] || 'Utilisateur'}
-                    isAdmin={true} // For now, all users can create categories/channels
+                    // TODO: Implement proper role-based permissions from database
+                    // For now, all authenticated users can create categories/channels
+                    isAdmin={true}
                     isDark={isDark}
                   />
                 </div>

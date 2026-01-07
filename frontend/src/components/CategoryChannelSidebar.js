@@ -170,7 +170,10 @@ export function CategoryChannelSidebar({
 
         {/* Orphan Channels (channels without a category) */}
         {orphanChannels.length > 0 && (
-          <div className="mt-4 pt-4 border-t border-slate-700">
+          <div className={`
+            mt-4 pt-4 border-t
+            ${isDark ? 'border-slate-700' : 'border-gray-300'}
+          `}>
             <div className={`
               px-2 py-1 text-xs font-semibold uppercase tracking-wider mb-1
               ${isDark ? 'text-slate-400' : 'text-gray-600'}
