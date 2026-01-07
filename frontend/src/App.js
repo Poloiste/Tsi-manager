@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
-  FolderOpen, LogOut, Send, MessageCircle, Menu, Download, Copy, FileText,
-  HelpCircle, Search, Award, Target, Flame, Bell, Users, Volume2, VolumeX, BellOff
+  FolderOpen, LogOut, Download, Copy, FileText,
+  HelpCircle, Search, Award, Target, Flame, Bell, Users, Menu
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
@@ -263,12 +263,11 @@ function App() {
   const [quizView, setQuizView] = useState('home'); // 'home' | 'setup' | 'session' | 'results'
   const [quizError, setQuizError] = useState(null);
   
-  // États pour Chat/Discussions
+  // États pour Chat/Discussions (kept for groups view)
   const [channels, setChannels] = useState([]);
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  // const [newMessage, setNewMessage] = useState(''); // Unused - handled by DiscordStyleChat
   const messagesEndRef = useRef(null);
   const searchInputRef = useRef(null);
   
@@ -330,10 +329,10 @@ function App() {
   });
 
   // Constantes
-  const SCROLL_DELAY_MS = 100;
-  const DEFAULT_USERNAME = 'Anonyme';
-  const MAX_MESSAGES_PER_FETCH = 100;
-  const REALTIME_FALLBACK_DELAY_MS = 1000; // Délai avant suppression locale si Realtime échoue
+  // const SCROLL_DELAY_MS = 100; // Unused - handled by DiscordStyleChat
+  // const DEFAULT_USERNAME = 'Anonyme'; // Unused - handled by DiscordStyleChat
+  // const MAX_MESSAGES_PER_FETCH = 100; // Unused - handled by DiscordStyleChat
+  // const REALTIME_FALLBACK_DELAY_MS = 1000; // Unused - handled by DiscordStyleChat
 
   // États pour gérer l'ajout de liens OneDrive
   const [newOneDriveLink, setNewOneDriveLink] = useState('');
@@ -1368,6 +1367,9 @@ function App() {
     }
   };
 
+  // NOTE: This function is not used in the Discord-style chat
+  // It is kept for potential future use or for the groups view
+  /*
   // Charger les messages d'un salon
   const fetchMessages = async (channelId) => {
     if (!channelId) {
@@ -1375,7 +1377,6 @@ function App() {
       return;
     }
     
-    setIsLoadingMessages(true);
     try {
       const { data, error } = await supabase
         .from('chat_messages')
@@ -1422,10 +1423,9 @@ function App() {
     } catch (error) {
       console.error('Erreur chargement messages:', error);
       setMessages([]); // Ensure messages is always an array even on error
-    } finally {
-      setIsLoadingMessages(false);
     }
   };
+  */
 
   // Charger les salons au démarrage
   useEffect(() => {
@@ -1435,6 +1435,8 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // NOTE: Commented out old message loading - now handled by DiscordStyleChat
+  /*
   // Charger les messages quand le salon change
   useEffect(() => {
     if (selectedChannel) {
@@ -1442,6 +1444,7 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChannel]);
+  */
 
   // Temps réel - S'abonner aux nouveaux messages
   useEffect(() => {
@@ -2650,6 +2653,10 @@ function App() {
 
   // ==================== FONCTIONS CHAT ====================
   
+  // NOTE: The following functions are not used in the Discord-style chat
+  // They are kept for potential future use or for the groups view
+  
+  /*
   // Nettoyer et valider le nom d'utilisateur
   const sanitizeUsername = (username) => {
     if (!username) return DEFAULT_USERNAME;
@@ -2664,8 +2671,9 @@ function App() {
     
     return cleaned || DEFAULT_USERNAME;
   };
+  */
   
-  
+  /*
   // Envoyer un message
   const sendMessage = async (e) => {
     e.preventDefault();
@@ -2782,6 +2790,7 @@ function App() {
     
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
+  */
 
   const addCustomEvent = async () => {
     if (newEvent.subject && newEvent.time && (newEvent.week || newEvent.date) && user) {
