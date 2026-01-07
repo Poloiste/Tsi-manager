@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Hash, Plus, Lock, Users } from 'lucide-react';
+import { ChevronDown, ChevronRight, Hash, Plus, Lock, Users, Trash2 } from 'lucide-react';
 
 /**
  * CategoryChannelSidebar - Discord-style sidebar with collapsible categories and groups
@@ -13,6 +13,8 @@ import { ChevronDown, ChevronRight, Hash, Plus, Lock, Users } from 'lucide-react
  * @param {function} onCreateChannel - Callback to create a new channel
  * @param {function} onCreateCategory - Callback to create a new category
  * @param {function} onCreateGroup - Callback to create a new group
+ * @param {function} onDeleteChannel - Callback to delete a channel/category
+ * @param {string} userId - Current user's ID
  * @param {boolean} isAdmin - Whether the current user is an admin
  * @param {boolean} isDark - Dark mode flag
  */
@@ -27,6 +29,8 @@ export function CategoryChannelSidebar({
   onCreateChannel,
   onCreateCategory,
   onCreateGroup,
+  onDeleteChannel,
+  userId,
   isAdmin = false,
   isDark = true 
 }) {
@@ -57,29 +61,51 @@ export function CategoryChannelSidebar({
   const renderChannel = (channel) => {
     const isActive = activeChannelId === channel.id;
     const isPrivate = channel.visibility === 'private';
+    const canDelete = userId && channel.created_by === userId && channel.is_default !== true;
     
     return (
-      <button
-        key={channel.id}
-        onClick={() => onChannelSelect(channel)}
-        className={`
-          w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-left group
-          ${isActive
-            ? isDark
-              ? 'bg-indigo-600 text-white'
-              : 'bg-indigo-500 text-white'
-            : isDark
-              ? 'hover:bg-slate-700 text-slate-300'
-              : 'hover:bg-gray-200 text-gray-700'
-          }
-        `}
-      >
-        <Hash className="w-4 h-4 flex-shrink-0" />
-        <span className="truncate font-medium">{channel.name}</span>
-        {isPrivate && (
-          <Lock className="w-3 h-3 flex-shrink-0 ml-auto opacity-60" />
+      <div key={channel.id} className="relative group/channel">
+        <button
+          onClick={() => onChannelSelect(channel)}
+          className={`
+            w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all text-left
+            ${isActive
+              ? isDark
+                ? 'bg-indigo-600 text-white'
+                : 'bg-indigo-500 text-white'
+              : isDark
+                ? 'hover:bg-slate-700 text-slate-300'
+                : 'hover:bg-gray-200 text-gray-700'
+            }
+          `}
+        >
+          <Hash className="w-4 h-4 flex-shrink-0" />
+          <span className="truncate font-medium flex-1">{channel.name}</span>
+          {isPrivate && (
+            <Lock className="w-3 h-3 flex-shrink-0 opacity-60" />
+          )}
+        </button>
+        {canDelete && onDeleteChannel && (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (window.confirm(`Êtes-vous sûr de vouloir supprimer le salon "${channel.name}" ?`)) {
+                onDeleteChannel(channel.id);
+              }
+            }}
+            className={`
+              absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover/channel:opacity-100 transition-opacity
+              ${isDark 
+                ? 'hover:bg-red-600/20 text-red-400 hover:text-red-300' 
+                : 'hover:bg-red-100 text-red-600 hover:text-red-700'
+              }
+            `}
+            title="Supprimer le salon"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
         )}
-      </button>
+      </div>
     );
   };
   
@@ -192,6 +218,29 @@ export function CategoryChannelSidebar({
                     title="Créer un canal"
                   >
                     <Plus className="w-3 h-3" />
+                  </button>
+                )}
+                {userId && category.created_by === userId && onDeleteChannel && (
+                  <button
+                    onClick={() => {
+                      if (channels.length > 0) {
+                        alert('Veuillez supprimer tous les salons de cette catégorie avant de la supprimer.');
+                        return;
+                      }
+                      if (window.confirm(`Êtes-vous sûr de vouloir supprimer la catégorie "${category.name}" ?`)) {
+                        onDeleteChannel(category.id);
+                      }
+                    }}
+                    className={`
+                      p-1 rounded transition-colors
+                      ${isDark 
+                        ? 'text-red-400 hover:text-red-300 hover:bg-red-600/20' 
+                        : 'text-red-600 hover:text-red-700 hover:bg-red-100'
+                      }
+                    `}
+                    title="Supprimer la catégorie"
+                  >
+                    <Trash2 className="w-3 h-3" />
                   </button>
                 )}
               </div>

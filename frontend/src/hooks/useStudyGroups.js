@@ -409,26 +409,20 @@ export function useStudyGroups(userId) {
 
     setIsLoading(true);
     try {
-      // Vérifier que l'utilisateur est le créateur du groupe
-      const { data: group, error: groupError } = await supabase
-        .from('study_groups')
-        .select('created_by')
-        .eq('id', groupId)
-        .single();
+      // Use the API endpoint instead of direct Supabase call
+      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+      
+      const response = await fetch(`${API_URL}/groups/${groupId}?user_id=${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
 
-      if (groupError) throw groupError;
-
-      if (group.created_by !== userId) {
-        throw new Error('Seul le créateur peut supprimer ce groupe');
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete group');
       }
-
-      // Supprimer le groupe (cascade supprimera les membres, decks, activités, messages)
-      const { error } = await supabase
-        .from('study_groups')
-        .delete()
-        .eq('id', groupId);
-
-      if (error) throw error;
 
       // Recharger les groupes
       await loadMyGroups();
