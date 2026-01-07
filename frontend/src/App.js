@@ -3,7 +3,7 @@ import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
   FolderOpen, LogOut, Download, Copy, FileText,
-  HelpCircle, Search, Award, Target, Flame, Bell, Users, Menu
+  HelpCircle, Search, Award, Target, Flame, Bell, Menu
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
@@ -32,7 +32,6 @@ import { QuizSetup } from './components/QuizSetup';
 import { QuizSession } from './components/QuizSession';
 import { QuizResults } from './components/QuizResults';
 import { useStudyGroups } from './hooks/useStudyGroups';
-import { GroupCard } from './components/GroupCard';
 import { GroupDetail } from './components/GroupDetail';
 import { CreateGroupModal } from './components/CreateGroupModal';
 import { JoinGroupModal } from './components/JoinGroupModal';
@@ -41,12 +40,7 @@ import { createDebugLogger } from './utils/guardUtils';
 import { DiscordStyleChat } from './components/DiscordStyleChat';
 
 // Development logging utility
-const isDev = process.env.NODE_ENV === 'development';
 const appLogger = createDebugLogger('App');
-const log = (...args) => {
-  if (isDev) console.log(...args);
-};
-const logError = (...args) => console.error(...args); // Always log errors
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -315,7 +309,6 @@ function App() {
   const [selectedGroup, setSelectedGroup] = useState(null);
   const [showGroupDetail, setShowGroupDetail] = useState(false);
   const [groupLeaderboard, setGroupLeaderboard] = useState([]);
-  const [isLoadingGroupDetails, setIsLoadingGroupDetails] = useState(false);
   
   const [newCourse, setNewCourse] = useState({
     subject: '',
@@ -6082,19 +6075,6 @@ function App() {
 
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
-
-      {/* Loading Overlay for Group Details */}
-      {isLoadingGroupDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-800 rounded-2xl p-8 border border-indigo-500/30 shadow-2xl">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-500 mx-auto mb-4"></div>
-              <p className="text-white text-lg font-semibold">Chargement du groupe...</p>
-              <p className="text-slate-400 text-sm mt-2">Récupération des détails</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
