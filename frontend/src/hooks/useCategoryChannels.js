@@ -34,44 +34,52 @@ export function useCategoryChannels(userId) {
         'useCategoryChannels.loadChannels'
       );
 
-      // Organize data into categories with their children
-      const categoriesMap = new Map();
-      const orphans = [];
+      // The backend already returns organized data when include_children=true
+      // Response format: { categories: [...], orphan_channels: [...] }
+      // Note: Using != null to check for both null and undefined (idiomatic JS pattern)
+      if (data && data.categories != null) {
+        // Backend already organized the hierarchy with children
+        setCategories(data.categories);
+        setOrphanChannels(data.orphan_channels != null ? data.orphan_channels : []);
+      } else if (data && Array.isArray(data)) {
+        // Fallback: flat array response (when include_children is not set)
+        // Organize manually
+        const categoriesMap = new Map();
+        const orphans = [];
 
-      // First pass: collect all channels
-      const allChannels = data.channels || [];
-      
-      allChannels.forEach(channel => {
-        if (channel.channel_type === 'category') {
-          categoriesMap.set(channel.id, {
-            ...channel,
-            children: []
-          });
-        }
-      });
-
-      // Second pass: assign children to categories or mark as orphans
-      allChannels.forEach(channel => {
-        if (channel.channel_type !== 'category') {
-          if (channel.parent_id && categoriesMap.has(channel.parent_id)) {
-            categoriesMap.get(channel.parent_id).children.push(channel);
-          } else {
-            orphans.push(channel);
+        data.forEach(channel => {
+          if (channel.channel_type === 'category') {
+            categoriesMap.set(channel.id, {
+              ...channel,
+              children: []
+            });
           }
-        }
-      });
+        });
 
-      // Convert map to array and sort by position
-      const categoriesArray = Array.from(categoriesMap.values())
-        .sort((a, b) => (a.position || 0) - (b.position || 0));
+        data.forEach(channel => {
+          if (channel.channel_type !== 'category') {
+            if (channel.parent_id && categoriesMap.has(channel.parent_id)) {
+              categoriesMap.get(channel.parent_id).children.push(channel);
+            } else {
+              orphans.push(channel);
+            }
+          }
+        });
 
-      // Sort children within each category
-      categoriesArray.forEach(category => {
-        category.children.sort((a, b) => (a.position || 0) - (b.position || 0));
-      });
+        const categoriesArray = Array.from(categoriesMap.values())
+          .sort((a, b) => (a.position || 0) - (b.position || 0));
 
-      setCategories(categoriesArray);
-      setOrphanChannels(orphans);
+        categoriesArray.forEach(category => {
+          category.children.sort((a, b) => (a.position || 0) - (b.position || 0));
+        });
+
+        setCategories(categoriesArray);
+        setOrphanChannels(orphans);
+      } else {
+        // No data or unexpected format
+        setCategories([]);
+        setOrphanChannels([]);
+      }
     } catch (error) {
       console.error('[useCategoryChannels] Error loading channels:', error);
       setError(error.message || 'Failed to load channels');
