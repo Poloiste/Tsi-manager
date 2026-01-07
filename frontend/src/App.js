@@ -36,7 +36,6 @@ import { GroupDetail } from './components/GroupDetail';
 import { CreateGroupModal } from './components/CreateGroupModal';
 import { JoinGroupModal } from './components/JoinGroupModal';
 import { useChatNotifications } from './hooks/useChatNotifications';
-import { createDebugLogger } from './utils/guardUtils';
 import { DiscordStyleChat } from './components/DiscordStyleChat';
 
 // Development logging utility
@@ -296,9 +295,6 @@ function App() {
   // États pour les notifications
   const [showNotifications, setShowNotifications] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
-  
-  // Hook de groupes d'étude
-  const studyGroups = useStudyGroups(user?.id);
   
   // Hook de notifications de chat
   const chatNotifications = useChatNotifications(user?.id, selectedChannel, channels);
@@ -1215,13 +1211,11 @@ function App() {
   useEffect(() => {
     const loadData = async () => {
       if (user) {
-        appLogger.log('Initial data load started for user:', user.id);
         await Promise.all([
           loadCourses(),
           loadFlashcards(),
           loadEvents()
         ]);
-        appLogger.log('Initial data load completed');
       }
       setIsLoading(false);
     };
@@ -5980,96 +5974,6 @@ function App() {
           onClose={() => setShowNotificationSettings(false)}
           onRequestPermission={requestNotificationPermission}
           permission={notificationPermission}
-        />
-      )}
-
-      {/* Study Groups Modals */}
-      {showCreateGroup && (
-        <CreateGroupModal
-          onClose={() => setShowCreateGroup(false)}
-          onCreate={async (data) => {
-            try {
-              const newGroup = await studyGroups.createGroup(data);
-              showSuccess(`Groupe "${newGroup.name}" créé avec succès !`);
-              setShowCreateGroup(false);
-            } catch (error) {
-              showWarning(error.message || 'Erreur lors de la création du groupe');
-              throw error;
-            }
-          }}
-          isDark={isDark}
-        />
-      )}
-
-      {showJoinByCode && (
-        <JoinGroupModal
-          onClose={() => setShowJoinByCode(false)}
-          onJoin={async (code) => {
-            try {
-              const group = await studyGroups.joinByCode(code);
-              showSuccess(`Vous avez rejoint le groupe "${group.name}" !`);
-            } catch (error) {
-              throw error;
-            }
-          }}
-          isDark={isDark}
-        />
-      )}
-
-      {showGroupDetail && selectedGroup && (
-        <GroupDetail
-          group={selectedGroup}
-          onClose={() => {
-            setShowGroupDetail(false);
-            setSelectedGroup(null);
-            setGroupLeaderboard([]);
-          }}
-          onLeave={async (groupId) => {
-            try {
-              await studyGroups.leaveGroup(groupId);
-              showSuccess('Vous avez quitté le groupe');
-              setShowGroupDetail(false);
-              setSelectedGroup(null);
-            } catch (error) {
-              showWarning(error.message || 'Erreur lors de la sortie du groupe');
-            }
-          }}
-          onDelete={async (groupId) => {
-            try {
-              await studyGroups.deleteGroup(groupId);
-              showSuccess('Groupe supprimé avec succès');
-            } catch (error) {
-              showWarning(error.message || 'Erreur lors de la suppression du groupe');
-            }
-          }}
-          onGenerateCode={async (groupId) => {
-            try {
-              const newCode = await studyGroups.generateInviteCode(groupId);
-              showSuccess(`Nouveau code généré : ${newCode}`);
-              // Recharger les détails du groupe
-              const details = await studyGroups.loadGroupDetails(groupId);
-              setSelectedGroup(details);
-            } catch (error) {
-              showWarning(error.message || 'Erreur lors de la génération du code');
-            }
-          }}
-          onShareDecks={async (groupId, deckIds) => {
-            try {
-              await studyGroups.shareDecksToGroup(groupId, deckIds);
-              showSuccess(`${deckIds.length} deck(s) partagé(s) avec le groupe`);
-              // Recharger les détails du groupe
-              const details = await studyGroups.loadGroupDetails(groupId);
-              setSelectedGroup(details);
-            } catch (error) {
-              showWarning(error.message || 'Erreur lors du partage des decks');
-            }
-          }}
-          leaderboard={groupLeaderboard}
-          availableDecks={courses}
-          isDark={isDark}
-          currentUserId={user?.id}
-          currentUserName={getUserDisplayName(user)}
-          isCreator={selectedGroup?.created_by === user?.id}
         />
       )}
 
