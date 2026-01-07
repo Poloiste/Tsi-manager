@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { X, Search, UserPlus, Trash2, Crown, Shield, User } from 'lucide-react';
 
 /**
@@ -20,11 +20,7 @@ export function ManageChannelMembersModal({ channel, userId, onClose, isDark = t
   const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001';
 
   // Load channel members
-  useEffect(() => {
-    loadMembers();
-  }, [channel.id, userId]);
-
-  const loadMembers = async () => {
+  const loadMembers = useCallback(async () => {
     try {
       setIsLoading(true);
       const response = await fetch(
@@ -48,22 +44,14 @@ export function ManageChannelMembersModal({ channel, userId, onClose, isDark = t
       setError('Impossible de charger les membres');
       setIsLoading(false);
     }
-  };
+  }, [API_URL, channel.id, userId]);
+
+  useEffect(() => {
+    loadMembers();
+  }, [loadMembers]);
 
   // Search users with debouncing
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (searchQuery.length >= 2) {
-        searchUsers();
-      } else {
-        setSearchResults([]);
-      }
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchQuery]);
-
-  const searchUsers = async () => {
+  const searchUsers = useCallback(async () => {
     try {
       setIsSearching(true);
       const response = await fetch(
@@ -86,7 +74,19 @@ export function ManageChannelMembersModal({ channel, userId, onClose, isDark = t
       console.error('Error searching users:', err);
       setIsSearching(false);
     }
-  };
+  }, [API_URL, searchQuery, members]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchQuery.length >= 2) {
+        searchUsers();
+      } else {
+        setSearchResults([]);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, searchUsers]);
 
   const addMember = async (targetUserId) => {
     try {
