@@ -844,6 +844,7 @@ app.post('/api/channels', async (req, res) => {
       .from('chat_channels')
       .insert([{
         name: trimmedName,
+        type: type,
         channel_type: type,
         parent_id: parent_id || null,
         visibility: channelVisibility,
