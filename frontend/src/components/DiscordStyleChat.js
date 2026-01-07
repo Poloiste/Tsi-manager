@@ -34,7 +34,8 @@ export function DiscordStyleChat({
     isLoading, 
     error, 
     createCategory,
-    createChannel
+    createChannel,
+    deleteChannel
   } = useCategoryChannels(userId);
 
   // Auto-select first available channel when channels load
@@ -112,6 +113,8 @@ export function DiscordStyleChat({
             onCreateChannel={handleCreateChannel}
             onCreateCategory={handleCreateCategory}
             onCreateGroup={onCreateGroup}
+            onDeleteChannel={deleteChannel}
+            userId={userId}
             isAdmin={isAdmin}
             isLoading={isLoading}
             isDark={isDark}

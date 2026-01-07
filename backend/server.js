@@ -1144,12 +1144,19 @@ app.delete('/api/channels/:id', async (req, res) => {
     // Also check if user is creator
     const { data: channel, error: channelError } = await supabase
       .from('chat_channels')
-      .select('created_by, channel_type')
+      .select('created_by, channel_type, is_default')
       .eq('id', id)
       .single();
 
     if (channelError || !channel) {
       return res.status(404).json({ error: 'Channel not found' });
+    }
+
+    // Check if channel is a default channel
+    if (channel.is_default === true) {
+      return res.status(403).json({ 
+        error: 'Les salons par défaut ne peuvent pas être supprimés' 
+      });
     }
 
     const isCreator = channel.created_by === userId;
@@ -1377,6 +1384,53 @@ app.delete('/api/channels/:id/memberships/:targetUserId', async (req, res) => {
   } catch (error) {
     console.error('Error removing channel membership:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// STUDY GROUPS ENDPOINTS
+// ============================================
+
+// DELETE /api/groups/:id - Delete a study group (only by creator)
+app.delete('/api/groups/:id', async (req, res) => {
+  const { id } = req.params;
+  const { user_id } = req.query;
+
+  if (!user_id) {
+    return res.status(400).json({ error: 'User ID is required' });
+  }
+
+  try {
+    // Get the group to check ownership
+    const { data: group, error: fetchError } = await supabase
+      .from('study_groups')
+      .select('created_by')
+      .eq('id', id)
+      .single();
+
+    if (fetchError || !group) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+
+    // Check if user is the creator
+    if (group.created_by !== user_id) {
+      return res.status(403).json({ error: 'Only the group creator can delete this group' });
+    }
+
+    // Delete the group (cascade will handle related data)
+    const { error: deleteError } = await supabase
+      .from('study_groups')
+      .delete()
+      .eq('id', id);
+
+    if (deleteError) {
+      throw deleteError;
+    }
+
+    res.json({ success: true, message: 'Group deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting group:', error);
+    res.status(500).json({ error: 'Failed to delete group' });
   }
 });
 
