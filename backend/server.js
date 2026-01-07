@@ -1214,6 +1214,615 @@ app.get('/api/health', (req, res) => {
 });
 
 // ============================================
+// CATEGORY AND CHANNEL SYSTEM API
+// ============================================
+
+// POST /api/channels - Create a new category or channel
+app.post('/api/channels', async (req, res) => {
+  try {
+    const { name, type, parent_id, visibility, created_by } = req.body;
+
+    // Input validation
+    if (!name || !type || !created_by) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: name, type, created_by' 
+      });
+    }
+
+    // Validate type
+    if (!['category', 'text', 'voice'].includes(type)) {
+      return res.status(400).json({ 
+        error: 'Invalid type. Must be one of: category, text, voice' 
+      });
+    }
+
+    // Validate visibility
+    const channelVisibility = visibility || 'public';
+    if (!['public', 'private'].includes(channelVisibility)) {
+      return res.status(400).json({ 
+        error: 'Invalid visibility. Must be one of: public, private' 
+      });
+    }
+
+    // Validate name
+    if (typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ error: 'Name must be a non-empty string' });
+    }
+
+    const trimmedName = name.trim();
+    if (trimmedName.length > 100) {
+      return res.status(400).json({ 
+        error: 'Name exceeds maximum length of 100 characters' 
+      });
+    }
+
+    // Categories cannot have parent_id
+    if (type === 'category' && parent_id) {
+      return res.status(400).json({ 
+        error: 'Categories cannot have a parent' 
+      });
+    }
+
+    // If parent_id is provided, verify it's a category
+    if (parent_id) {
+      const { data: parent, error: parentError } = await supabase
+        .from('chat_channels')
+        .select('channel_type')
+        .eq('id', parent_id)
+        .single();
+
+      if (parentError || !parent) {
+        return res.status(404).json({ error: 'Parent category not found' });
+      }
+
+      if (parent.channel_type !== 'category') {
+        return res.status(400).json({ 
+          error: 'Parent must be a category' 
+        });
+      }
+    }
+
+    // Create the channel
+    const { data, error } = await supabase
+      .from('chat_channels')
+      .insert([{
+        name: trimmedName,
+        channel_type: type,
+        parent_id: parent_id || null,
+        visibility: channelVisibility,
+        created_by,
+        group_id: null, // Standalone channels don't belong to groups
+        position: 0
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    console.error('Error creating channel:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/channels - List all accessible channels/categories with hierarchy
+app.get('/api/channels', async (req, res) => {
+  try {
+    const userId = req.query.user_id; // TODO: Get from authenticated session
+    const { include_children } = req.query;
+
+    // Validate user_id is provided
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
+
+    // Get public channels
+    const { data: publicChannels, error: publicError } = await supabase
+      .from('chat_channels')
+      .select('*')
+      .eq('visibility', 'public')
+      .is('group_id', null)
+      .order('position')
+      .order('created_at');
+
+    if (publicError) throw publicError;
+
+    // Get private channels where user is a member
+    const { data: privateChannels, error: privateError } = await supabase
+      .from('chat_channels')
+      .select(`
+        *,
+        channel_memberships!inner(user_id, role)
+      `)
+      .eq('visibility', 'private')
+      .is('group_id', null)
+      .eq('channel_memberships.user_id', userId)
+      .order('position')
+      .order('created_at');
+
+    if (privateError) throw privateError;
+
+    // Combine and organize channels
+    const allChannels = [...(publicChannels || []), ...(privateChannels || [])];
+
+    // If include_children is requested, organize into hierarchy
+    if (include_children === 'true') {
+      const categories = allChannels.filter(ch => ch.channel_type === 'category');
+      const channelsOnly = allChannels.filter(ch => ch.channel_type !== 'category');
+
+      const hierarchy = categories.map(category => ({
+        ...category,
+        children: channelsOnly.filter(ch => ch.parent_id === category.id)
+      }));
+
+      // Include orphan channels (no parent)
+      const orphans = channelsOnly.filter(ch => !ch.parent_id);
+
+      res.json({
+        categories: hierarchy,
+        orphan_channels: orphans
+      });
+    } else {
+      res.json(allChannels);
+    }
+  } catch (error) {
+    console.error('Error fetching channels:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/channels/:id - Get a specific channel with details
+app.get('/api/channels/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.query.user_id; // TODO: Get from authenticated session
+
+    // Validate user_id is provided
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
+
+    // Get channel
+    const { data: channel, error: channelError } = await supabase
+      .from('chat_channels')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (channelError || !channel) {
+      return res.status(404).json({ error: 'Channel not found' });
+    }
+
+    // Check access rights
+    if (channel.visibility === 'private' && !channel.group_id) {
+      const { data: membership, error: memberError } = await supabase
+        .from('channel_memberships')
+        .select('role')
+        .eq('channel_id', id)
+        .eq('user_id', userId)
+        .single();
+
+      if (memberError || !membership) {
+        return res.status(403).json({ 
+          error: 'You do not have access to this channel' 
+        });
+      }
+
+      channel.user_role = membership.role;
+    }
+
+    res.json(channel);
+  } catch (error) {
+    console.error('Error fetching channel:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/channels/:id/children - Get child channels of a category
+app.get('/api/channels/:id/children', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.query.user_id; // TODO: Get from authenticated session
+
+    // Validate user_id is provided
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
+
+    // Verify the parent is a category
+    const { data: parent, error: parentError } = await supabase
+      .from('chat_channels')
+      .select('channel_type')
+      .eq('id', id)
+      .single();
+
+    if (parentError || !parent) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+
+    if (parent.channel_type !== 'category') {
+      return res.status(400).json({ error: 'Specified channel is not a category' });
+    }
+
+    // Get public child channels
+    const { data: publicChildren, error: publicError } = await supabase
+      .from('chat_channels')
+      .select('*')
+      .eq('parent_id', id)
+      .eq('visibility', 'public')
+      .order('position')
+      .order('created_at');
+
+    if (publicError) throw publicError;
+
+    // Get private child channels where user is a member
+    const { data: privateChildren, error: privateError } = await supabase
+      .from('chat_channels')
+      .select(`
+        *,
+        channel_memberships!inner(user_id, role)
+      `)
+      .eq('parent_id', id)
+      .eq('visibility', 'private')
+      .eq('channel_memberships.user_id', userId)
+      .order('position')
+      .order('created_at');
+
+    if (privateError) throw privateError;
+
+    const children = [...(publicChildren || []), ...(privateChildren || [])];
+    res.json(children);
+  } catch (error) {
+    console.error('Error fetching child channels:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/channels/:id - Update a channel
+app.put('/api/channels/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user_id, name, visibility, position } = req.body;
+
+    // Validate user_id is provided
+    if (!user_id) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
+
+    // Verify user has permission (owner or moderator)
+    const { data: membership, error: memberError } = await supabase
+      .from('channel_memberships')
+      .select('role')
+      .eq('channel_id', id)
+      .eq('user_id', user_id)
+      .single();
+
+    // Also check if user is creator
+    const { data: channel, error: channelError } = await supabase
+      .from('chat_channels')
+      .select('created_by')
+      .eq('id', id)
+      .single();
+
+    if (channelError || !channel) {
+      return res.status(404).json({ error: 'Channel not found' });
+    }
+
+    const isCreator = channel.created_by === user_id;
+    const isOwnerOrMod = membership && ['owner', 'moderator'].includes(membership.role);
+
+    if (!isCreator && !isOwnerOrMod) {
+      return res.status(403).json({ 
+        error: 'You do not have permission to update this channel' 
+      });
+    }
+
+    // Prepare update data
+    const updateData = {};
+    if (name !== undefined) {
+      if (typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ error: 'Name must be a non-empty string' });
+      }
+      const trimmedName = name.trim();
+      if (trimmedName.length > 100) {
+        return res.status(400).json({ 
+          error: 'Name exceeds maximum length of 100 characters' 
+        });
+      }
+      updateData.name = trimmedName;
+    }
+    if (visibility !== undefined) {
+      if (!['public', 'private'].includes(visibility)) {
+        return res.status(400).json({ 
+          error: 'Invalid visibility. Must be one of: public, private' 
+        });
+      }
+      updateData.visibility = visibility;
+    }
+    if (position !== undefined) {
+      if (!Number.isInteger(position) || position < 0) {
+        return res.status(400).json({ 
+          error: 'Position must be a non-negative integer' 
+        });
+      }
+      updateData.position = position;
+    }
+
+    // Update the channel
+    const { data, error } = await supabase
+      .from('chat_channels')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('Error updating channel:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/channels/:id - Delete a channel
+app.delete('/api/channels/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.query.user_id; // TODO: Get from authenticated session
+
+    // Validate user_id is provided
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
+
+    // Verify user is the owner
+    const { data: membership } = await supabase
+      .from('channel_memberships')
+      .select('role')
+      .eq('channel_id', id)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    // Also check if user is creator
+    const { data: channel, error: channelError } = await supabase
+      .from('chat_channels')
+      .select('created_by, channel_type')
+      .eq('id', id)
+      .single();
+
+    if (channelError || !channel) {
+      return res.status(404).json({ error: 'Channel not found' });
+    }
+
+    const isCreator = channel.created_by === userId;
+    const isOwner = membership && membership.role === 'owner';
+
+    if (!isCreator && !isOwner) {
+      return res.status(403).json({ 
+        error: 'Only channel owners can delete channels' 
+      });
+    }
+
+    // If it's a category, check if it has children
+    if (channel.channel_type === 'category') {
+      const { data: children, error: childError } = await supabase
+        .from('chat_channels')
+        .select('id')
+        .eq('parent_id', id);
+
+      if (childError) throw childError;
+
+      if (children && children.length > 0) {
+        return res.status(400).json({ 
+          error: 'Cannot delete category with channels. Delete channels first.' 
+        });
+      }
+    }
+
+    // Delete the channel
+    const { error } = await supabase
+      .from('chat_channels')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    res.json({ message: 'Channel deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting channel:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/channels/:id/memberships - Add a user to a channel with a role
+app.post('/api/channels/:id/memberships', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { user_id, target_user_id, role } = req.body;
+
+    // Input validation
+    if (!user_id || !target_user_id) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: user_id, target_user_id' 
+      });
+    }
+
+    // Validate role
+    const memberRole = role || 'member';
+    if (!['owner', 'moderator', 'member'].includes(memberRole)) {
+      return res.status(400).json({ 
+        error: 'Invalid role. Must be one of: owner, moderator, member' 
+      });
+    }
+
+    // Verify channel exists and is private
+    const { data: channel, error: channelError } = await supabase
+      .from('chat_channels')
+      .select('visibility, channel_type')
+      .eq('id', id)
+      .single();
+
+    if (channelError || !channel) {
+      return res.status(404).json({ error: 'Channel not found' });
+    }
+
+    if (channel.channel_type === 'category') {
+      return res.status(400).json({ 
+        error: 'Cannot add members to categories' 
+      });
+    }
+
+    if (channel.visibility !== 'private') {
+      return res.status(400).json({ 
+        error: 'Can only add members to private channels' 
+      });
+    }
+
+    // Verify user has permission to add members (owner or moderator)
+    const { data: membership, error: memberError } = await supabase
+      .from('channel_memberships')
+      .select('role')
+      .eq('channel_id', id)
+      .eq('user_id', user_id)
+      .single();
+
+    if (memberError || !membership || !['owner', 'moderator'].includes(membership.role)) {
+      return res.status(403).json({ 
+        error: 'Only channel owners and moderators can add members' 
+      });
+    }
+
+    // Add the user to the channel
+    const { data, error } = await supabase
+      .from('channel_memberships')
+      .insert([{
+        channel_id: id,
+        user_id: target_user_id,
+        role: memberRole
+      }])
+      .select()
+      .single();
+
+    if (error) {
+      // Check if it's a duplicate key error
+      if (error.code === '23505') {
+        return res.status(409).json({ 
+          error: 'User is already a member of this channel' 
+        });
+      }
+      throw error;
+    }
+
+    res.status(201).json(data);
+  } catch (error) {
+    console.error('Error adding channel membership:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/channels/:id/memberships - Get members of a channel
+app.get('/api/channels/:id/memberships', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.query.user_id; // TODO: Get from authenticated session
+
+    // Validate user_id is provided
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
+
+    // Verify user has access to the channel
+    const { data: membership, error: memberError } = await supabase
+      .from('channel_memberships')
+      .select('id')
+      .eq('channel_id', id)
+      .eq('user_id', userId)
+      .single();
+
+    if (memberError || !membership) {
+      return res.status(403).json({ 
+        error: 'You do not have access to this channel' 
+      });
+    }
+
+    // Get all members
+    const { data, error } = await supabase
+      .from('channel_memberships')
+      .select('*')
+      .eq('channel_id', id)
+      .order('role')
+      .order('joined_at');
+
+    if (error) throw error;
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error fetching channel memberships:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/channels/:id/memberships/:targetUserId - Remove a user from a channel
+app.delete('/api/channels/:id/memberships/:targetUserId', async (req, res) => {
+  try {
+    const { id, targetUserId } = req.params;
+    const userId = req.query.user_id; // TODO: Get from authenticated session
+
+    // Validate user_id is provided
+    if (!userId) {
+      return res.status(401).json({ error: 'User authentication required' });
+    }
+
+    // Check if user is removing themselves or has permission
+    const isSelfRemoval = userId === targetUserId;
+
+    if (!isSelfRemoval) {
+      // Verify user has permission to remove others (owner or moderator)
+      const { data: membership, error: memberError } = await supabase
+        .from('channel_memberships')
+        .select('role')
+        .eq('channel_id', id)
+        .eq('user_id', userId)
+        .single();
+
+      if (memberError || !membership || !['owner', 'moderator'].includes(membership.role)) {
+        return res.status(403).json({ 
+          error: 'Only channel owners and moderators can remove members' 
+        });
+      }
+
+      // Prevent moderators from removing owners
+      const { data: targetMembership } = await supabase
+        .from('channel_memberships')
+        .select('role')
+        .eq('channel_id', id)
+        .eq('user_id', targetUserId)
+        .maybeSingle();
+
+      if (targetMembership && 
+          membership.role === 'moderator' && targetMembership.role === 'owner') {
+        return res.status(403).json({ 
+          error: 'Moderators cannot remove owners' 
+        });
+      }
+    }
+
+    // Remove the membership
+    const { error } = await supabase
+      .from('channel_memberships')
+      .delete()
+      .eq('channel_id', id)
+      .eq('user_id', targetUserId);
+
+    if (error) throw error;
+
+    res.json({ message: 'User removed from channel successfully' });
+  } catch (error) {
+    console.error('Error removing channel membership:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
 // SOCKET.IO REAL-TIME MESSAGING
 // ============================================
 
