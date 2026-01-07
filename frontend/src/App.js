@@ -31,11 +31,6 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { QuizSetup } from './components/QuizSetup';
 import { QuizSession } from './components/QuizSession';
 import { QuizResults } from './components/QuizResults';
-import { useStudyGroups } from './hooks/useStudyGroups';
-import { GroupCard } from './components/GroupCard';
-import { GroupDetail } from './components/GroupDetail';
-import { CreateGroupModal } from './components/CreateGroupModal';
-import { JoinGroupModal } from './components/JoinGroupModal';
 import { useChatNotifications } from './hooks/useChatNotifications';
 import { createDebugLogger } from './utils/guardUtils';
 import { DiscordStyleChat } from './components/DiscordStyleChat';
@@ -231,7 +226,6 @@ function App() {
   
   // États pour les sous-sections des onglets fusionnés
   const [showSuggestions, setShowSuggestions] = useState(true);
-  const [discussionsView, setDiscussionsView] = useState('channels'); // 'channels' | 'groups'
   
   // États pour la recherche globale
   const [searchQuery, setSearchQuery] = useState('');
@@ -304,19 +298,8 @@ function App() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = useState(false);
   
-  // Hook de groupes d'étude
-  const studyGroups = useStudyGroups(user?.id);
-  
   // Hook de notifications de chat
   const chatNotifications = useChatNotifications(user?.id, selectedChannel, channels);
-  
-  // États pour les groupes d'étude
-  const [showCreateGroup, setShowCreateGroup] = useState(false);
-  const [showJoinByCode, setShowJoinByCode] = useState(false);
-  const [selectedGroup, setSelectedGroup] = useState(null);
-  const [showGroupDetail, setShowGroupDetail] = useState(false);
-  const [groupLeaderboard, setGroupLeaderboard] = useState([]);
-  const [isLoadingGroupDetails, setIsLoadingGroupDetails] = useState(false);
   
   const [newCourse, setNewCourse] = useState({
     subject: '',
@@ -3710,166 +3693,17 @@ function App() {
                 <p className="text-indigo-300 text-lg">Entraide entre étudiants TSI</p>
               </div>
 
-              {/* Toggle between Channels and Groups */}
-              <div className="flex items-center justify-center gap-4 mb-8">
-                <button
-                  onClick={() => setDiscussionsView('channels')}
-                  className={`px-6 py-3 rounded-xl transition-all font-semibold ${
-                    discussionsView === 'channels'
-                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
-                  }`}
-                >
-                  💬 Salons
-                </button>
-                <button
-                  onClick={() => setDiscussionsView('groups')}
-                  className={`px-6 py-3 rounded-xl transition-all font-semibold ${
-                    discussionsView === 'groups'
-                      ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                      : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
-                  }`}
-                >
-                  👥 Groupes
-                </button>
-              </div>
-
               {/* Channels View - Discord Style */}
-              {discussionsView === 'channels' && (
-                <div className="max-w-7xl mx-auto h-[700px]">
-                  <DiscordStyleChat
-                    userId={user?.id}
-                    userName={user?.user_metadata?.name || user?.email?.split('@')[0] || 'Utilisateur'}
-                    // TODO: Implement proper role-based permissions from database
-                    // For now, all authenticated users can create categories/channels
-                    isAdmin={true}
-                    isDark={isDark}
-                  />
-                </div>
-              )}
-
-              {/* Groups View - merged from old 'groups' tab */}
-              {discussionsView === 'groups' && (
-                <div className="w-full">
-                  {/* Boutons d'action principaux */}
-                  <div className="flex flex-wrap gap-4 justify-center mb-8">
-                    <button
-                      onClick={() => setShowCreateGroup(true)}
-                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-500 hover:to-purple-500 transition-all font-semibold shadow-lg shadow-indigo-500/25"
-                    >
-                      <Plus className="w-5 h-5" />
-                      Créer un groupe
-                    </button>
-                    <button
-                      onClick={() => setShowJoinByCode(true)}
-                      className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-500 hover:to-pink-500 transition-all font-semibold shadow-lg shadow-purple-500/25"
-                    >
-                      🔗 Rejoindre par code
-                    </button>
-                  </div>
-
-                  {/* Mes Groupes */}
-                  <div className="mb-12">
-                    <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                      📌 Mes Groupes
-                      {studyGroups.myGroups.length > 0 && (
-                        <span className="text-lg text-indigo-400">({studyGroups.myGroups.length})</span>
-                      )}
-                    </h3>
-                    
-                    {studyGroups.isLoading ? (
-                      <div className="text-center py-12">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto"></div>
-                        <p className="text-slate-400 mt-4">Chargement...</p>
-                      </div>
-                    ) : studyGroups.myGroups.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {studyGroups.myGroups.map(group => (
-                          <GroupCard
-                            key={group.id}
-                            group={group}
-                            onAction={async () => {
-                              log('[GroupDetail] Loading details for group:', group.id, group.name);
-                              setIsLoadingGroupDetails(true);
-                              try {
-                                log('[GroupDetail] Fetching group details...');
-                                const details = await studyGroups.loadGroupDetails(group.id);
-                                log('[GroupDetail] Details loaded:', details);
-                                
-                                log('[GroupDetail] Fetching leaderboard...');
-                                const leaderboard = await studyGroups.loadGroupLeaderboard(group.id);
-                                log('[GroupDetail] Leaderboard loaded:', leaderboard);
-                                
-                                setSelectedGroup(details);
-                                setGroupLeaderboard(leaderboard);
-                                setShowGroupDetail(true);
-                                log('[GroupDetail] Modal opened successfully');
-                              } catch (error) {
-                                logError('[GroupDetail] Error loading group details:', error);
-                                showWarning(error.message || 'Erreur lors du chargement des détails du groupe');
-                              } finally {
-                                setIsLoadingGroupDetails(false);
-                              }
-                            }}
-                            actionLabel="Voir"
-                            isDark={isDark}
-                            currentUserId={user?.id}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-12 bg-slate-800/50 rounded-2xl border border-slate-700">
-                        <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                        <p className="text-slate-400 text-lg mb-2">Vous n'êtes membre d'aucun groupe</p>
-                        <p className="text-slate-500 text-sm">Créez votre premier groupe ou rejoignez-en un !</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Groupes Publics */}
-                  <div>
-                    <h3 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
-                      🌐 Groupes Publics
-                      {studyGroups.availableGroups.length > 0 && (
-                        <span className="text-lg text-indigo-400">({studyGroups.availableGroups.length})</span>
-                      )}
-                    </h3>
-                    
-                    {studyGroups.isLoading ? (
-                      <div className="text-center py-12">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-500 mx-auto"></div>
-                        <p className="text-slate-400 mt-4">Chargement...</p>
-                      </div>
-                    ) : studyGroups.availableGroups.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {studyGroups.availableGroups.map(group => (
-                          <GroupCard
-                            key={group.id}
-                            group={group}
-                            onAction={async () => {
-                              try {
-                                await studyGroups.joinGroup(group.id);
-                                showSuccess('Groupe rejoint avec succès !');
-                              } catch (error) {
-                                showWarning(error.message || 'Erreur lors de la tentative de rejoindre le groupe');
-                              }
-                            }}
-                            actionLabel="Rejoindre"
-                            isDark={isDark}
-                            currentUserId={user?.id}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-center py-12 bg-slate-800/50 rounded-2xl border border-slate-700">
-                        <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                        <p className="text-slate-400 text-lg mb-2">Aucun groupe public disponible</p>
-                        <p className="text-slate-500 text-sm">Soyez le premier à créer un groupe public !</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+              <div className="max-w-7xl mx-auto h-[700px]">
+                <DiscordStyleChat
+                  userId={user?.id}
+                  userName={user?.user_metadata?.name || user?.email?.split('@')[0] || 'Utilisateur'}
+                  // TODO: Implement proper role-based permissions from database
+                  // For now, all authenticated users can create categories/channels
+                  isAdmin={true}
+                  isDark={isDark}
+                />
+              </div>
             </div>
           )}
 
@@ -6128,111 +5962,8 @@ function App() {
         />
       )}
 
-      {/* Study Groups Modals */}
-      {showCreateGroup && (
-        <CreateGroupModal
-          onClose={() => setShowCreateGroup(false)}
-          onCreate={async (data) => {
-            try {
-              const newGroup = await studyGroups.createGroup(data);
-              showSuccess(`Groupe "${newGroup.name}" créé avec succès !`);
-              setShowCreateGroup(false);
-            } catch (error) {
-              showWarning(error.message || 'Erreur lors de la création du groupe');
-              throw error;
-            }
-          }}
-          isDark={isDark}
-        />
-      )}
-
-      {showJoinByCode && (
-        <JoinGroupModal
-          onClose={() => setShowJoinByCode(false)}
-          onJoin={async (code) => {
-            try {
-              const group = await studyGroups.joinByCode(code);
-              showSuccess(`Vous avez rejoint le groupe "${group.name}" !`);
-            } catch (error) {
-              throw error;
-            }
-          }}
-          isDark={isDark}
-        />
-      )}
-
-      {showGroupDetail && selectedGroup && (
-        <GroupDetail
-          group={selectedGroup}
-          onClose={() => {
-            setShowGroupDetail(false);
-            setSelectedGroup(null);
-            setGroupLeaderboard([]);
-          }}
-          onLeave={async (groupId) => {
-            try {
-              await studyGroups.leaveGroup(groupId);
-              showSuccess('Vous avez quitté le groupe');
-              setShowGroupDetail(false);
-              setSelectedGroup(null);
-            } catch (error) {
-              showWarning(error.message || 'Erreur lors de la sortie du groupe');
-            }
-          }}
-          onDelete={async (groupId) => {
-            try {
-              await studyGroups.deleteGroup(groupId);
-              showSuccess('Groupe supprimé avec succès');
-            } catch (error) {
-              showWarning(error.message || 'Erreur lors de la suppression du groupe');
-            }
-          }}
-          onGenerateCode={async (groupId) => {
-            try {
-              const newCode = await studyGroups.generateInviteCode(groupId);
-              showSuccess(`Nouveau code généré : ${newCode}`);
-              // Recharger les détails du groupe
-              const details = await studyGroups.loadGroupDetails(groupId);
-              setSelectedGroup(details);
-            } catch (error) {
-              showWarning(error.message || 'Erreur lors de la génération du code');
-            }
-          }}
-          onShareDecks={async (groupId, deckIds) => {
-            try {
-              await studyGroups.shareDecksToGroup(groupId, deckIds);
-              showSuccess(`${deckIds.length} deck(s) partagé(s) avec le groupe`);
-              // Recharger les détails du groupe
-              const details = await studyGroups.loadGroupDetails(groupId);
-              setSelectedGroup(details);
-            } catch (error) {
-              showWarning(error.message || 'Erreur lors du partage des decks');
-            }
-          }}
-          leaderboard={groupLeaderboard}
-          availableDecks={courses}
-          isDark={isDark}
-          currentUserId={user?.id}
-          currentUserName={getUserDisplayName(user)}
-          isCreator={selectedGroup?.created_by === user?.id}
-        />
-      )}
-
       {/* Toast Container */}
       <ToastContainer toasts={toasts} onRemove={removeToast} />
-
-      {/* Loading Overlay for Group Details */}
-      {isLoadingGroupDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-slate-800 rounded-2xl p-8 border border-indigo-500/30 shadow-2xl">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-indigo-500 mx-auto mb-4"></div>
-              <p className="text-white text-lg font-semibold">Chargement du groupe...</p>
-              <p className="text-slate-400 text-sm mt-2">Récupération des détails</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
