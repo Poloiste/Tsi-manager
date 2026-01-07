@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
-  FolderOpen, LogOut, Send, MessageCircle, Menu, Download, Copy, FileText,
-  HelpCircle, Search, Award, Target, Flame, Bell, Users, Volume2, VolumeX, BellOff
+  FolderOpen, LogOut, Download, Copy, FileText,
+  HelpCircle, Search, Award, Target, Flame, Bell, Users, Menu
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
@@ -38,6 +38,7 @@ import { CreateGroupModal } from './components/CreateGroupModal';
 import { JoinGroupModal } from './components/JoinGroupModal';
 import { useChatNotifications } from './hooks/useChatNotifications';
 import { createDebugLogger } from './utils/guardUtils';
+import { DiscordStyleChat } from './components/DiscordStyleChat';
 
 // Development logging utility
 const isDev = process.env.NODE_ENV === 'development';
@@ -262,12 +263,11 @@ function App() {
   const [quizView, setQuizView] = useState('home'); // 'home' | 'setup' | 'session' | 'results'
   const [quizError, setQuizError] = useState(null);
   
-  // États pour Chat/Discussions
+  // États pour Chat/Discussions (kept for groups view)
   const [channels, setChannels] = useState([]);
   const [selectedChannel, setSelectedChannel] = useState(null);
   const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  // const [newMessage, setNewMessage] = useState(''); // Unused - handled by DiscordStyleChat
   const messagesEndRef = useRef(null);
   const searchInputRef = useRef(null);
   
@@ -329,10 +329,10 @@ function App() {
   });
 
   // Constantes
-  const SCROLL_DELAY_MS = 100;
-  const DEFAULT_USERNAME = 'Anonyme';
-  const MAX_MESSAGES_PER_FETCH = 100;
-  const REALTIME_FALLBACK_DELAY_MS = 1000; // Délai avant suppression locale si Realtime échoue
+  // const SCROLL_DELAY_MS = 100; // Unused - handled by DiscordStyleChat
+  // const DEFAULT_USERNAME = 'Anonyme'; // Unused - handled by DiscordStyleChat
+  // const MAX_MESSAGES_PER_FETCH = 100; // Unused - handled by DiscordStyleChat
+  // const REALTIME_FALLBACK_DELAY_MS = 1000; // Unused - handled by DiscordStyleChat
 
   // États pour gérer l'ajout de liens OneDrive
   const [newOneDriveLink, setNewOneDriveLink] = useState('');
@@ -1367,6 +1367,9 @@ function App() {
     }
   };
 
+  // NOTE: This function is not used in the Discord-style chat
+  // It is kept for potential future use or for the groups view
+  /*
   // Charger les messages d'un salon
   const fetchMessages = async (channelId) => {
     if (!channelId) {
@@ -1374,7 +1377,6 @@ function App() {
       return;
     }
     
-    setIsLoadingMessages(true);
     try {
       const { data, error } = await supabase
         .from('chat_messages')
@@ -1421,10 +1423,9 @@ function App() {
     } catch (error) {
       console.error('Erreur chargement messages:', error);
       setMessages([]); // Ensure messages is always an array even on error
-    } finally {
-      setIsLoadingMessages(false);
     }
   };
+  */
 
   // Charger les salons au démarrage
   useEffect(() => {
@@ -1434,6 +1435,8 @@ function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
+  // NOTE: Commented out old message loading - now handled by DiscordStyleChat
+  /*
   // Charger les messages quand le salon change
   useEffect(() => {
     if (selectedChannel) {
@@ -1441,6 +1444,7 @@ function App() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedChannel]);
+  */
 
   // Temps réel - S'abonner aux nouveaux messages
   useEffect(() => {
@@ -2649,6 +2653,10 @@ function App() {
 
   // ==================== FONCTIONS CHAT ====================
   
+  // NOTE: The following functions are not used in the Discord-style chat
+  // They are kept for potential future use or for the groups view
+  
+  /*
   // Nettoyer et valider le nom d'utilisateur
   const sanitizeUsername = (username) => {
     if (!username) return DEFAULT_USERNAME;
@@ -2663,8 +2671,9 @@ function App() {
     
     return cleaned || DEFAULT_USERNAME;
   };
+  */
   
-  
+  /*
   // Envoyer un message
   const sendMessage = async (e) => {
     e.preventDefault();
@@ -2781,6 +2790,7 @@ function App() {
     
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
   };
+  */
 
   const addCustomEvent = async () => {
     if (newEvent.subject && newEvent.time && (newEvent.week || newEvent.date) && user) {
@@ -3724,178 +3734,17 @@ function App() {
                 </button>
               </div>
 
-              {/* Channels View */}
+              {/* Channels View - Discord Style */}
               {discussionsView === 'channels' && (
-                <div className="max-w-6xl mx-auto">
-                {/* Sélecteur de salon */}
-                <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-                  {channels.map(channel => {
-                    const unreadCount = chatNotifications.unreadMessages[channel.id] || 0;
-                    return (
-                      <button
-                        key={channel.id}
-                        onClick={() => setSelectedChannel(channel)}
-                        className={`px-4 py-2 rounded-lg whitespace-nowrap font-semibold transition-all relative ${
-                          selectedChannel?.id === channel.id
-                            ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg'
-                            : 'bg-slate-800/50 text-slate-300 hover:bg-slate-700/50 border border-slate-700/50'
-                        }`}
-                      >
-                        {channel.name}
-                        {unreadCount > 0 && (
-                          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5 font-bold animate-pulse">
-                            {unreadCount > 9 ? '9+' : unreadCount}
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {selectedChannel ? (
-                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl overflow-hidden">
-                    {/* En-tête du salon */}
-                    <div className="p-4 bg-slate-900/50 border-b border-slate-700/50">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <MessageCircle className="w-5 h-5 text-indigo-400" />
-                          <h3 className="text-xl font-bold text-white">{selectedChannel.name}</h3>
-                          {selectedChannel.subject && (
-                            <span className="px-2 py-1 bg-indigo-900/50 text-indigo-300 rounded text-xs">
-                              {selectedChannel.type === 'subject' ? 'Matière' : selectedChannel.type}
-                            </span>
-                          )}
-                        </div>
-                        
-                        {/* Notification controls */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={chatNotifications.toggleSound}
-                            className={`p-2 rounded-lg transition-all ${
-                              chatNotifications.soundEnabled
-                                ? 'bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600/50'
-                                : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
-                            }`}
-                            title={chatNotifications.soundEnabled ? 'Son activé' : 'Son désactivé'}
-                          >
-                            {chatNotifications.soundEnabled ? (
-                              <Volume2 className="w-4 h-4" />
-                            ) : (
-                              <VolumeX className="w-4 h-4" />
-                            )}
-                          </button>
-                          
-                          <button
-                            onClick={chatNotifications.toggleBrowserNotifications}
-                            className={`p-2 rounded-lg transition-all ${
-                              chatNotifications.browserNotificationsEnabled
-                                ? 'bg-purple-600/30 text-purple-300 hover:bg-purple-600/50'
-                                : 'bg-slate-700/50 text-slate-400 hover:bg-slate-700'
-                            }`}
-                            title={chatNotifications.browserNotificationsEnabled ? 'Notifications navigateur activées' : 'Notifications navigateur désactivées'}
-                          >
-                            {chatNotifications.browserNotificationsEnabled ? (
-                              <Bell className="w-4 h-4" />
-                            ) : (
-                              <BellOff className="w-4 h-4" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Zone de messages */}
-                    <div className="h-[500px] overflow-y-auto p-4 space-y-3">
-                      {isLoadingMessages ? (
-                        <div className="flex items-center justify-center h-full">
-                          <div className="text-center">
-                            <div className="animate-spin mb-4">
-                              <MessageCircle className="w-8 h-8 text-indigo-400 mx-auto" />
-                            </div>
-                            <p className="text-slate-400">Chargement des messages...</p>
-                          </div>
-                        </div>
-                      ) : messages.length === 0 ? (
-                        <div className="flex items-center justify-center h-full">
-                          <div className="text-center">
-                            <MessageCircle className="w-12 h-12 text-slate-600 mx-auto mb-4" />
-                            <p className="text-slate-400">Aucun message pour le moment</p>
-                            <p className="text-slate-500 text-sm mt-2">Soyez le premier à démarrer la conversation !</p>
-                          </div>
-                        </div>
-                      ) : (
-                        <>
-                          {messages.map(msg => (
-                            <div
-                              key={msg.id}
-                              className={`p-4 rounded-xl ${
-                                msg.user_id === user?.id
-                                  ? 'bg-indigo-900/30 border border-indigo-500/30 ml-12'
-                                  : 'bg-slate-900/50 border border-slate-700/50 mr-12'
-                              }`}
-                            >
-                              <div className="flex items-start justify-between mb-2">
-                                <div className="flex-1">
-                                  <div className="flex items-center gap-2 mb-1">
-                                    <span className={`font-semibold ${
-                                      msg.user_id === user?.id ? 'text-indigo-300' : 'text-purple-300'
-                                    }`}>
-                                      {msg.user_name}
-                                      {msg.user_id === user?.id && (
-                                        <span className="ml-2 text-xs text-indigo-400">(vous)</span>
-                                      )}
-                                    </span>
-                                    <span className="text-xs text-slate-500">
-                                      {formatTime(msg.created_at)}
-                                    </span>
-                                  </div>
-                                  <p className="text-white whitespace-pre-wrap break-words">{msg.content}</p>
-                                </div>
-                                {msg.user_id === user?.id && (
-                                  <button
-                                    onClick={() => deleteMessage(msg.id)}
-                                    className="ml-2 p-1 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded transition-all"
-                                    title="Supprimer"
-                                  >
-                                    <Trash2 className="w-4 h-4" />
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                          <div ref={messagesEndRef} />
-                        </>
-                      )}
-                    </div>
-
-                    {/* Zone de saisie */}
-                    <div className="p-4 bg-slate-900/50 border-t border-slate-700/50">
-                      <form onSubmit={sendMessage} className="flex gap-2">
-                        <input
-                          type="text"
-                          value={newMessage}
-                          onChange={(e) => setNewMessage(e.target.value)}
-                          placeholder="Écrire un message..."
-                          className="flex-1 px-4 py-3 bg-slate-800 border border-slate-700 rounded-lg text-white placeholder-slate-400 focus:border-indigo-500 focus:outline-none"
-                          disabled={!user}
-                        />
-                        <button
-                          type="submit"
-                          disabled={!newMessage.trim() || !user}
-                          className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                        >
-                          <Send className="w-5 h-5" />
-                          Envoyer
-                        </button>
-                      </form>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-12">
-                    <MessageCircle className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                    <p className="text-slate-400 text-lg">Sélectionnez un salon pour commencer</p>
-                  </div>
-                )}
+                <div className="max-w-7xl mx-auto h-[700px]">
+                  <DiscordStyleChat
+                    userId={user?.id}
+                    userName={user?.user_metadata?.name || user?.email?.split('@')[0] || 'Utilisateur'}
+                    // TODO: Implement proper role-based permissions from database
+                    // For now, all authenticated users can create categories/channels
+                    isAdmin={true}
+                    isDark={isDark}
+                  />
                 </div>
               )}
 

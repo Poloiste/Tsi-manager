@@ -1,0 +1,142 @@
+import React, { useState } from 'react';
+import { CategoryChannelSidebar } from './CategoryChannelSidebar';
+import { ChannelChat } from './ChannelChat';
+import { CreateCategoryChannelModal } from './CreateCategoryChannelModal';
+import { useCategoryChannels } from '../hooks/useCategoryChannels';
+
+/**
+ * DiscordStyleChat - Main Discord-style chat interface with categories and channels
+ * @param {string} userId - ID of the current user
+ * @param {string} userName - Name of the current user
+ * @param {boolean} isAdmin - Whether the current user is an admin
+ * @param {boolean} isDark - Dark mode flag
+ */
+export function DiscordStyleChat({ userId, userName, isAdmin = false, isDark = true }) {
+  const [activeChannel, setActiveChannel] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [createMode, setCreateMode] = useState('category'); // 'category' or 'channel'
+  const [parentCategoryId, setParentCategoryId] = useState(null);
+  
+  const { 
+    categories, 
+    orphanChannels,
+    isLoading, 
+    error, 
+    createCategory,
+    createChannel
+  } = useCategoryChannels(userId);
+
+  // Auto-select first available channel when channels load
+  React.useEffect(() => {
+    if (!activeChannel && categories.length > 0) {
+      // Try to find first channel in first category
+      const firstCategory = categories[0];
+      if (firstCategory.children && firstCategory.children.length > 0) {
+        setActiveChannel(firstCategory.children[0]);
+      }
+    } else if (!activeChannel && orphanChannels.length > 0) {
+      // Fallback to first orphan channel
+      setActiveChannel(orphanChannels[0]);
+    }
+  }, [categories, orphanChannels, activeChannel]);
+
+  const handleChannelSelect = (channel) => {
+    setActiveChannel(channel);
+  };
+
+  const handleCreateCategory = () => {
+    setCreateMode('category');
+    setParentCategoryId(null);
+    setShowCreateModal(true);
+  };
+
+  const handleCreateChannel = (categoryId) => {
+    setCreateMode('channel');
+    setParentCategoryId(categoryId);
+    setShowCreateModal(true);
+  };
+
+  const handleCreate = async ({ name, type, visibility, parentId }) => {
+    if (createMode === 'category') {
+      await createCategory(name, visibility);
+    } else {
+      await createChannel(name, type, parentId, visibility);
+    }
+  };
+
+  if (error) {
+    return (
+      <div className={`
+        p-6 text-center
+        ${isDark ? 'text-slate-400' : 'text-gray-600'}
+      `}>
+        <p className="text-red-500 mb-2">Erreur</p>
+        <p className="text-sm">{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <div className="flex h-full">
+        {/* Category/Channel sidebar */}
+        <div className={`
+          w-64 flex-shrink-0 border-r
+          ${isDark ? 'border-slate-700' : 'border-gray-300'}
+        `}>
+          <CategoryChannelSidebar
+            categories={categories}
+            orphanChannels={orphanChannels}
+            activeChannelId={activeChannel?.id}
+            onChannelSelect={handleChannelSelect}
+            onCreateChannel={handleCreateChannel}
+            onCreateCategory={handleCreateCategory}
+            isAdmin={isAdmin}
+            isLoading={isLoading}
+            isDark={isDark}
+          />
+        </div>
+
+        {/* Chat area */}
+        <div className="flex-1">
+          {activeChannel ? (
+            <ChannelChat
+              key={activeChannel.id} // Force remount when channel changes
+              channelId={activeChannel.id}
+              channelName={activeChannel.name}
+              userId={userId}
+              userName={userName}
+              isDark={isDark}
+            />
+          ) : (
+            <div className={`
+              flex flex-col items-center justify-center h-full
+              ${isDark ? 'text-slate-400' : 'text-gray-600'}
+            `}>
+              <div className="text-6xl mb-4">💬</div>
+              <p className="text-lg font-semibold mb-2">Aucun canal sélectionné</p>
+              <p className="text-sm">
+                {categories.length === 0 && orphanChannels.length === 0
+                  ? isAdmin 
+                    ? 'Créez une catégorie pour commencer'
+                    : 'Aucun canal disponible'
+                  : 'Sélectionnez un canal pour commencer à chatter'
+                }
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Create Category/Channel Modal */}
+      <CreateCategoryChannelModal
+        show={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={handleCreate}
+        mode={createMode}
+        parentCategoryId={parentCategoryId}
+        isDark={isDark}
+      />
+    </>
+  );
+}
