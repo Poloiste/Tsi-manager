@@ -2,6 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../supabaseClient';
 import { createDebugLogger } from '../utils/guardUtils';
 
+// Get API URL from environment or use default
+const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+
 // Development logging utility
 const isDev = process.env.NODE_ENV === 'development';
 const logger = createDebugLogger('useStudyGroups');
@@ -410,8 +413,6 @@ export function useStudyGroups(userId) {
     setIsLoading(true);
     try {
       // Use the API endpoint instead of direct Supabase call
-      const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
-      
       const response = await fetch(`${API_URL}/groups/${groupId}?user_id=${userId}`, {
         method: 'DELETE',
         headers: {
