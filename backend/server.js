@@ -1413,10 +1413,17 @@ app.get('/api/users/search', async (req, res) => {
       return res.json([]);
     }
     
+    // Sanitize query: remove special SQL characters and limit length
+    const sanitizedQuery = query.trim().substring(0, 100).replace(/[%_]/g, '');
+    
+    if (sanitizedQuery.length < 2) {
+      return res.json([]);
+    }
+    
     const { data, error } = await supabase
       .from('profiles')
       .select('id, email, full_name, avatar_url')
-      .or(`email.ilike.%${query}%,full_name.ilike.%${query}%`)
+      .or(`email.ilike.%${sanitizedQuery}%,full_name.ilike.%${sanitizedQuery}%`)
       .limit(10);
       
     if (error) {

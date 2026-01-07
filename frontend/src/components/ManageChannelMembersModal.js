@@ -166,6 +166,12 @@ export function ManageChannelMembersModal({ channel, userId, onClose, isDark = t
     }
   };
 
+  const getUserInitials = (userId) => {
+    // Try to get first 2 characters from user ID as fallback
+    if (!userId || userId.length < 2) return '??';
+    return userId.substring(0, 2).toUpperCase();
+  };
+
   const canManageMembers = currentUserRole === 'owner' || currentUserRole === 'moderator';
   const canRemoveMember = (memberRole) => {
     if (currentUserRole === 'owner') return memberRole !== 'owner';
@@ -363,7 +369,7 @@ export function ManageChannelMembersModal({ channel, userId, onClose, isDark = t
                         w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold
                         ${isDark ? 'bg-slate-600 text-white' : 'bg-gray-200 text-gray-700'}
                       `}>
-                        {member.user_id.substring(0, 2).toUpperCase()}
+                        {getUserInitials(member.user_id)}
                       </div>
                       <div className="flex-1">
                         <div className={`

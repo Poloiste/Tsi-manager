@@ -393,7 +393,7 @@ export function HelpPage({ isDark = true }) {
           Besoin d'aide supplémentaire ? Contactez-nous dans le canal #support ou par email.
         </p>
         <p className="mt-4 text-sm">
-          © 2024 TSI Manager - Tous droits réservés
+          © {new Date().getFullYear()} TSI Manager - Tous droits réservés
         </p>
       </div>
     </div>
