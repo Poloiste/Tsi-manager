@@ -3,7 +3,7 @@ import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
   FolderOpen, LogOut, Download, Copy, FileText,
-  HelpCircle, Search, Award, Target, Flame, Bell, Users, Menu
+  HelpCircle, Search, Award, Target, Flame, Bell, Menu
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
@@ -32,16 +32,7 @@ import { QuizSetup } from './components/QuizSetup';
 import { QuizSession } from './components/QuizSession';
 import { QuizResults } from './components/QuizResults';
 import { useChatNotifications } from './hooks/useChatNotifications';
-import { createDebugLogger } from './utils/guardUtils';
 import { DiscordStyleChat } from './components/DiscordStyleChat';
-
-// Development logging utility
-const isDev = process.env.NODE_ENV === 'development';
-const appLogger = createDebugLogger('App');
-const log = (...args) => {
-  if (isDev) console.log(...args);
-};
-const logError = (...args) => console.error(...args); // Always log errors
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -1206,13 +1197,11 @@ function App() {
   useEffect(() => {
     const loadData = async () => {
       if (user) {
-        appLogger.log('Initial data load started for user:', user.id);
         await Promise.all([
           loadCourses(),
           loadFlashcards(),
           loadEvents()
         ]);
-        appLogger.log('Initial data load completed');
       }
       setIsLoading(false);
     };
