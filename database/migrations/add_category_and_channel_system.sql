@@ -253,7 +253,7 @@ CREATE POLICY "Members can leave and owners can remove members" ON public.channe
 CREATE OR REPLACE FUNCTION add_channel_creator_as_owner() RETURNS TRIGGER AS $$
 BEGIN
   -- Only add membership for standalone channels (not group channels and not categories)
-  IF NEW.group_id IS NULL AND NEW.visibility = 'private' AND NEW.channel_type != 'category' THEN
+  IF NEW.group_id IS NULL AND NEW.visibility = 'private' AND NOT (NEW.channel_type = 'category') THEN
     INSERT INTO public.channel_memberships (channel_id, user_id, role)
     VALUES (NEW.id, NEW.created_by, 'owner')
     ON CONFLICT (channel_id, user_id) DO NOTHING;

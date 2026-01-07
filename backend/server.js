@@ -1249,7 +1249,8 @@ app.post('/api/channels', async (req, res) => {
       return res.status(400).json({ error: 'Name must be a non-empty string' });
     }
 
-    if (name.length > 100) {
+    const trimmedName = name.trim();
+    if (trimmedName.length > 100) {
       return res.status(400).json({ 
         error: 'Name exceeds maximum length of 100 characters' 
       });
@@ -1285,7 +1286,7 @@ app.post('/api/channels', async (req, res) => {
     const { data, error } = await supabase
       .from('chat_channels')
       .insert([{
-        name: name.trim(),
+        name: trimmedName,
         channel_type: type,
         parent_id: parent_id || null,
         visibility: channelVisibility,
@@ -1522,12 +1523,13 @@ app.put('/api/channels/:id', async (req, res) => {
       if (typeof name !== 'string' || name.trim().length === 0) {
         return res.status(400).json({ error: 'Name must be a non-empty string' });
       }
-      if (name.length > 100) {
+      const trimmedName = name.trim();
+      if (trimmedName.length > 100) {
         return res.status(400).json({ 
           error: 'Name exceeds maximum length of 100 characters' 
         });
       }
-      updateData.name = name.trim();
+      updateData.name = trimmedName;
     }
     if (visibility !== undefined) {
       if (!['public', 'private'].includes(visibility)) {
@@ -1574,12 +1576,12 @@ app.delete('/api/channels/:id', async (req, res) => {
     }
 
     // Verify user is the owner
-    const { data: membership, error: memberError } = await supabase
+    const { data: membership } = await supabase
       .from('channel_memberships')
       .select('role')
       .eq('channel_id', id)
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
     // Also check if user is creator
     const { data: channel, error: channelError } = await supabase
@@ -1789,14 +1791,14 @@ app.delete('/api/channels/:id/memberships/:targetUserId', async (req, res) => {
       }
 
       // Prevent moderators from removing owners
-      const { data: targetMembership, error: targetError } = await supabase
+      const { data: targetMembership } = await supabase
         .from('channel_memberships')
         .select('role')
         .eq('channel_id', id)
         .eq('user_id', targetUserId)
-        .single();
+        .maybeSingle();
 
-      if (!targetError && targetMembership && 
+      if (targetMembership && 
           membership.role === 'moderator' && targetMembership.role === 'owner') {
         return res.status(403).json({ 
           error: 'Moderators cannot remove owners' 
