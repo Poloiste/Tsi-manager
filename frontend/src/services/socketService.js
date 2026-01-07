@@ -18,7 +18,9 @@ class SocketService {
       return this.socket;
     }
 
-    const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+    let API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+    // Remove /api suffix for WebSocket connection (Socket.IO connects to server root, not /api path)
+    API_URL = API_URL.replace(/\/api\/?$/, '');
     
     this.socket = io(API_URL, {
       transports: ['websocket', 'polling'],

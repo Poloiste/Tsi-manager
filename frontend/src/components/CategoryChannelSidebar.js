@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Hash, Volume2, Plus, Lock, Users } from 'lucide-react';
+import { ChevronDown, ChevronRight, Hash, Plus, Lock, Users } from 'lucide-react';
 
 /**
  * CategoryChannelSidebar - Discord-style sidebar with collapsible categories and groups
@@ -57,7 +57,6 @@ export function CategoryChannelSidebar({
   const renderChannel = (channel) => {
     const isActive = activeChannelId === channel.id;
     const isPrivate = channel.visibility === 'private';
-    const isVoice = channel.channel_type === 'voice';
     
     return (
       <button
@@ -75,11 +74,7 @@ export function CategoryChannelSidebar({
           }
         `}
       >
-        {isVoice ? (
-          <Volume2 className="w-4 h-4 flex-shrink-0" />
-        ) : (
-          <Hash className="w-4 h-4 flex-shrink-0" />
-        )}
+        <Hash className="w-4 h-4 flex-shrink-0" />
         <span className="truncate font-medium">{channel.name}</span>
         {isPrivate && (
           <Lock className="w-3 h-3 flex-shrink-0 ml-auto opacity-60" />
