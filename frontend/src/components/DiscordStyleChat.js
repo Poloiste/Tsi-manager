@@ -133,7 +133,6 @@ export function DiscordStyleChat({
             <GroupChatWithChannels
               key={activeGroup.id} // Force remount when group changes
               groupId={activeGroup.id}
-              groupName={activeGroup.name}
               userId={userId}
               userName={userName}
               isDark={isDark}

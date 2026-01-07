@@ -110,14 +110,16 @@ export function CategoryChannelSidebar({
       >
         <Users className="w-4 h-4 flex-shrink-0" />
         <span className="truncate font-medium">{group.name}</span>
-        {isPrivate && (
-          <Lock className="w-3 h-3 flex-shrink-0 ml-auto opacity-60" />
-        )}
-        {group.memberCount !== undefined && (
-          <span className={`text-xs ml-auto ${isActive ? 'text-white' : 'text-slate-400'}`}>
-            {group.memberCount}
-          </span>
-        )}
+        <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+          {isPrivate && (
+            <Lock className="w-3 h-3 opacity-60" />
+          )}
+          {group.memberCount !== undefined && (
+            <span className={`text-xs ${isActive ? 'text-white' : 'text-slate-400'}`}>
+              {group.memberCount}
+            </span>
+          )}
+        </div>
       </button>
     );
   };
