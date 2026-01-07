@@ -36,9 +36,9 @@ export function useCategoryChannels(userId) {
 
       // The backend already returns organized data when include_children=true
       // Response format: { categories: [...], orphan_channels: [...] }
-      if (data && data.categories != null) {
+      if (data && data.categories !== undefined && data.categories !== null) {
         // Backend already organized the hierarchy with children
-        setCategories(data.categories || []);
+        setCategories(data.categories);
         setOrphanChannels(data.orphan_channels || []);
       } else if (data && Array.isArray(data)) {
         // Fallback: flat array response (when include_children is not set)
