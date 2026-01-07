@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, Hash, Plus, Lock, Users, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Hash, Plus, Lock, Users, Trash2, UserCog } from 'lucide-react';
+import { ManageChannelMembersModal } from './ManageChannelMembersModal';
 
 /**
  * CategoryChannelSidebar - Discord-style sidebar with collapsible categories and groups
@@ -41,6 +42,9 @@ export function CategoryChannelSidebar({
   
   // Track if groups section is expanded (default: true)
   const [groupsExpanded, setGroupsExpanded] = useState(true);
+  
+  // Track channel members modal
+  const [manageMembersChannel, setManageMembersChannel] = useState(null);
 
   const toggleCategory = (categoryId) => {
     setExpandedCategories(prev => {
@@ -62,6 +66,8 @@ export function CategoryChannelSidebar({
     const isActive = activeChannelId === channel.id;
     const isPrivate = channel.visibility === 'private';
     const canDelete = userId && channel.created_by === userId && channel.is_default !== true;
+    // Check if user can manage members (owner or moderator of private channel)
+    const canManageMembers = isPrivate && userId && channel.created_by === userId;
     
     return (
       <div key={channel.id} className="relative group/channel">
@@ -85,26 +91,48 @@ export function CategoryChannelSidebar({
             <Lock className="w-3 h-3 flex-shrink-0 opacity-60" />
           )}
         </button>
-        {canDelete && onDeleteChannel && (
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              if (window.confirm(`Êtes-vous sûr de vouloir supprimer le salon "${channel.name}" ?`)) {
-                onDeleteChannel(channel.id);
-              }
-            }}
-            className={`
-              absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded opacity-0 group-hover/channel:opacity-100 transition-opacity
-              ${isDark 
-                ? 'hover:bg-red-600/20 text-red-400 hover:text-red-300' 
-                : 'hover:bg-red-100 text-red-600 hover:text-red-700'
-              }
-            `}
-            title="Supprimer le salon"
-          >
-            <Trash2 className="w-3.5 h-3.5" />
-          </button>
-        )}
+        
+        {/* Action buttons container */}
+        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover/channel:opacity-100 transition-opacity">
+          {canManageMembers && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setManageMembersChannel(channel);
+              }}
+              className={`
+                p-1 rounded transition-colors
+                ${isDark 
+                  ? 'hover:bg-indigo-600/20 text-indigo-400 hover:text-indigo-300' 
+                  : 'hover:bg-indigo-100 text-indigo-600 hover:text-indigo-700'
+                }
+              `}
+              title="Gérer les membres"
+            >
+              <UserCog className="w-3.5 h-3.5" />
+            </button>
+          )}
+          {canDelete && onDeleteChannel && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                if (window.confirm(`Êtes-vous sûr de vouloir supprimer le salon "${channel.name}" ?`)) {
+                  onDeleteChannel(channel.id);
+                }
+              }}
+              className={`
+                p-1 rounded transition-colors
+                ${isDark 
+                  ? 'hover:bg-red-600/20 text-red-400 hover:text-red-300' 
+                  : 'hover:bg-red-100 text-red-600 hover:text-red-700'
+                }
+              `}
+              title="Supprimer le salon"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </div>
     );
   };
@@ -347,6 +375,16 @@ export function CategoryChannelSidebar({
           </div>
         )}
       </div>
+      
+      {/* Manage Members Modal */}
+      {manageMembersChannel && (
+        <ManageChannelMembersModal
+          channel={manageMembersChannel}
+          userId={userId}
+          onClose={() => setManageMembersChannel(null)}
+          isDark={isDark}
+        />
+      )}
     </div>
   );
 }

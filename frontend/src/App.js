@@ -34,6 +34,8 @@ import { QuizResults } from './components/QuizResults';
 import { useChatNotifications } from './hooks/useChatNotifications';
 import { DiscordStyleChat } from './components/DiscordStyleChat';
 import { createDebugLogger } from './utils/guardUtils';
+import { HelpPage } from './components/HelpPage';
+import { Tooltip } from './components/Tooltip';
 
 // Development logging utility
 // eslint-disable-next-line no-unused-vars
@@ -219,6 +221,9 @@ function App() {
   
   // État pour le tutoriel d'onboarding
   const [showOnboarding, setShowOnboarding] = useState(false);
+  
+  // État pour la page d'aide
+  const [showHelpPage, setShowHelpPage] = useState(false);
   
   // États pour les sous-sections des onglets fusionnés
   const [showSuggestions, setShowSuggestions] = useState(true);
@@ -3045,29 +3050,33 @@ function App() {
               </button>
               
               {/* Help button */}
-              <button
-                onClick={() => setShowOnboarding(true)}
-                className="hidden sm:flex px-3 sm:px-4 py-2 bg-indigo-600/30 border border-indigo-500/50 text-indigo-300 rounded-lg hover:bg-indigo-600/50 transition-all font-semibold items-center gap-2 text-sm"
-                title="Revoir le tutoriel"
-              >
-                <HelpCircle className="w-4 h-4" />
-                <span className="hidden md:inline">Aide</span>
-              </button>
+              <Tooltip content="Afficher le guide d'utilisation complet" position="bottom">
+                <button
+                  onClick={() => setShowHelpPage(true)}
+                  className="hidden sm:flex px-3 sm:px-4 py-2 bg-indigo-600/30 border border-indigo-500/50 text-indigo-300 rounded-lg hover:bg-indigo-600/50 transition-all font-semibold items-center gap-2 text-sm"
+                  title="Afficher le guide d'utilisation"
+                >
+                  <HelpCircle className="w-4 h-4" />
+                  <span className="hidden md:inline">Aide</span>
+                </button>
+              </Tooltip>
               
               {/* Notification button */}
               <div className="relative">
-                <button
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="hidden sm:flex px-3 sm:px-4 py-2 bg-indigo-600/30 border border-indigo-500/50 text-indigo-300 rounded-lg hover:bg-indigo-600/50 transition-all font-semibold items-center gap-2 text-sm relative"
-                  title="Notifications"
-                >
-                  <Bell className="w-4 h-4" />
-                  {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full font-bold min-w-[20px] text-center">
-                      {unreadCount > 9 ? '9+' : unreadCount}
-                    </span>
-                  )}
-                </button>
+                <Tooltip content="Afficher les notifications et rappels" position="bottom">
+                  <button
+                    onClick={() => setShowNotifications(!showNotifications)}
+                    className="hidden sm:flex px-3 sm:px-4 py-2 bg-indigo-600/30 border border-indigo-500/50 text-indigo-300 rounded-lg hover:bg-indigo-600/50 transition-all font-semibold items-center gap-2 text-sm relative"
+                    title="Notifications"
+                  >
+                    <Bell className="w-4 h-4" />
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-red-500 text-white text-xs rounded-full font-bold min-w-[20px] text-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                </Tooltip>
                 
                 {/* Notification Center Dropdown */}
                 {showNotifications && (
@@ -3092,7 +3101,9 @@ function App() {
               </div>
               
               {/* Theme toggle button */}
-              <ThemeToggle theme={theme} onToggle={toggleTheme} />
+              <Tooltip content={isDark ? "Passer en mode clair ☀️" : "Passer en mode sombre 🌙"} position="bottom">
+                <ThemeToggle theme={theme} onToggle={toggleTheme} />
+              </Tooltip>
               
               {/* Logout button - Hidden on small mobile */}
               <button
@@ -3159,13 +3170,13 @@ function App() {
                 </div>
                 <button
                   onClick={() => {
-                    setShowOnboarding(true);
+                    setShowHelpPage(true);
                     setIsMobileMenuOpen(false);
                   }}
                   className="w-full px-4 py-3 mb-2 bg-indigo-600/30 border border-indigo-500/50 text-indigo-300 rounded-lg hover:bg-indigo-600/50 transition-all font-semibold flex items-center justify-center gap-2"
                 >
                   <HelpCircle className="w-4 h-4" />
-                  Aide / Tutoriel
+                  Guide d'utilisation
                 </button>
                 <button
                   onClick={signOut}
@@ -5934,6 +5945,37 @@ function App() {
       {/* Onboarding Tutorial */}
       {showOnboarding && (
         <Onboarding onClose={() => setShowOnboarding(false)} />
+      )}
+
+      {/* Help Page Modal */}
+      {showHelpPage && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 overflow-y-auto"
+          onClick={() => setShowHelpPage(false)}
+        >
+          <div 
+            className="w-full max-w-4xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative">
+              <button
+                onClick={() => setShowHelpPage(false)}
+                className={`
+                  sticky top-4 right-4 float-right z-10 p-2 rounded-lg transition-colors
+                  ${isDark 
+                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-300' 
+                    : 'bg-white hover:bg-gray-100 text-gray-700'
+                  }
+                  shadow-lg
+                `}
+                title="Fermer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <HelpPage isDark={isDark} />
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Badge Unlock Modal */}

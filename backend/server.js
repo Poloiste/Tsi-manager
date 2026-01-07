@@ -856,6 +856,23 @@ app.post('/api/channels', async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // If it's a private channel, automatically add the creator as owner
+    if (channelVisibility === 'private' && data && type === 'text') {
+      const { error: membershipError } = await supabase
+        .from('channel_memberships')
+        .insert({
+          channel_id: data.id,
+          user_id: created_by,
+          role: 'owner'
+        });
+
+      if (membershipError) {
+        console.error('Error adding creator as owner:', membershipError);
+        // Don't fail the request, just log the error
+      }
+    }
+
     res.status(201).json(data);
   } catch (error) {
     console.error('Error creating channel:', error);
@@ -1383,6 +1400,39 @@ app.delete('/api/channels/:id/memberships/:targetUserId', async (req, res) => {
     res.json({ message: 'User removed from channel successfully' });
   } catch (error) {
     console.error('Error removing channel membership:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/users/search - Search for users by name or email
+app.get('/api/users/search', async (req, res) => {
+  try {
+    const { query } = req.query;
+    
+    if (!query || query.length < 2) {
+      return res.json([]);
+    }
+    
+    // Sanitize query: remove special SQL characters and limit length
+    const sanitizedQuery = query.trim().substring(0, 100).replace(/[%_]/g, '');
+    
+    if (sanitizedQuery.length < 2) {
+      return res.json([]);
+    }
+    
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, avatar_url')
+      .or(`email.ilike.%${sanitizedQuery}%,full_name.ilike.%${sanitizedQuery}%`)
+      .limit(10);
+      
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+    
+    res.json(data || []);
+  } catch (error) {
+    console.error('Error searching users:', error);
     res.status(500).json({ error: error.message });
   }
 });
