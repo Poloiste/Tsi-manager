@@ -1,18 +1,29 @@
 import React, { useState } from 'react';
 import { CategoryChannelSidebar } from './CategoryChannelSidebar';
 import { ChannelChat } from './ChannelChat';
+import { GroupChatWithChannels } from './GroupChatWithChannels';
 import { CreateCategoryChannelModal } from './CreateCategoryChannelModal';
 import { useCategoryChannels } from '../hooks/useCategoryChannels';
 
 /**
- * DiscordStyleChat - Main Discord-style chat interface with categories and channels
+ * DiscordStyleChat - Main Discord-style chat interface with categories, channels, and groups
  * @param {string} userId - ID of the current user
  * @param {string} userName - Name of the current user
+ * @param {Array} groups - List of study groups
+ * @param {function} onCreateGroup - Callback to create a new group
  * @param {boolean} isAdmin - Whether the current user is an admin
  * @param {boolean} isDark - Dark mode flag
  */
-export function DiscordStyleChat({ userId, userName, isAdmin = false, isDark = true }) {
+export function DiscordStyleChat({ 
+  userId, 
+  userName, 
+  groups = [], 
+  onCreateGroup,
+  isAdmin = false, 
+  isDark = true 
+}) {
   const [activeChannel, setActiveChannel] = useState(null);
+  const [activeGroup, setActiveGroup] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createMode, setCreateMode] = useState('category'); // 'category' or 'channel'
   const [parentCategoryId, setParentCategoryId] = useState(null);
@@ -28,20 +39,26 @@ export function DiscordStyleChat({ userId, userName, isAdmin = false, isDark = t
 
   // Auto-select first available channel when channels load
   React.useEffect(() => {
-    if (!activeChannel && categories.length > 0) {
+    if (!activeChannel && !activeGroup && categories.length > 0) {
       // Try to find first channel in first category
       const firstCategory = categories[0];
       if (firstCategory.children && firstCategory.children.length > 0) {
         setActiveChannel(firstCategory.children[0]);
       }
-    } else if (!activeChannel && orphanChannels.length > 0) {
+    } else if (!activeChannel && !activeGroup && orphanChannels.length > 0) {
       // Fallback to first orphan channel
       setActiveChannel(orphanChannels[0]);
     }
-  }, [categories, orphanChannels, activeChannel]);
+  }, [categories, orphanChannels, activeChannel, activeGroup]);
 
   const handleChannelSelect = (channel) => {
     setActiveChannel(channel);
+    setActiveGroup(null); // Deselect any active group
+  };
+  
+  const handleGroupSelect = (group) => {
+    setActiveGroup(group);
+    setActiveChannel(null); // Deselect any active channel
   };
 
   const handleCreateCategory = () => {
@@ -79,7 +96,7 @@ export function DiscordStyleChat({ userId, userName, isAdmin = false, isDark = t
   return (
     <>
       <div className="flex h-full">
-        {/* Category/Channel sidebar */}
+        {/* Category/Channel/Group sidebar */}
         <div className={`
           w-64 flex-shrink-0 border-r
           ${isDark ? 'border-slate-700' : 'border-gray-300'}
@@ -87,10 +104,14 @@ export function DiscordStyleChat({ userId, userName, isAdmin = false, isDark = t
           <CategoryChannelSidebar
             categories={categories}
             orphanChannels={orphanChannels}
+            groups={groups}
             activeChannelId={activeChannel?.id}
+            activeGroupId={activeGroup?.id}
             onChannelSelect={handleChannelSelect}
+            onGroupSelect={handleGroupSelect}
             onCreateChannel={handleCreateChannel}
             onCreateCategory={handleCreateCategory}
+            onCreateGroup={onCreateGroup}
             isAdmin={isAdmin}
             isLoading={isLoading}
             isDark={isDark}
@@ -108,19 +129,27 @@ export function DiscordStyleChat({ userId, userName, isAdmin = false, isDark = t
               userName={userName}
               isDark={isDark}
             />
+          ) : activeGroup ? (
+            <GroupChatWithChannels
+              key={activeGroup.id} // Force remount when group changes
+              groupId={activeGroup.id}
+              userId={userId}
+              userName={userName}
+              isDark={isDark}
+            />
           ) : (
             <div className={`
               flex flex-col items-center justify-center h-full
               ${isDark ? 'text-slate-400' : 'text-gray-600'}
             `}>
               <div className="text-6xl mb-4">💬</div>
-              <p className="text-lg font-semibold mb-2">Aucun canal sélectionné</p>
+              <p className="text-lg font-semibold mb-2">Aucune discussion sélectionnée</p>
               <p className="text-sm">
-                {categories.length === 0 && orphanChannels.length === 0
+                {categories.length === 0 && orphanChannels.length === 0 && groups.length === 0
                   ? isAdmin 
-                    ? 'Créez une catégorie pour commencer'
-                    : 'Aucun canal disponible'
-                  : 'Sélectionnez un canal pour commencer à chatter'
+                    ? 'Créez une catégorie ou un groupe pour commencer'
+                    : 'Aucune discussion disponible'
+                  : 'Sélectionnez un salon ou un groupe pour commencer'
                 }
               </p>
             </div>

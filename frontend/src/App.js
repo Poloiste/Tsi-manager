@@ -31,8 +31,15 @@ import { ThemeToggle } from './components/ThemeToggle';
 import { QuizSetup } from './components/QuizSetup';
 import { QuizSession } from './components/QuizSession';
 import { QuizResults } from './components/QuizResults';
+import { useStudyGroups } from './hooks/useStudyGroups';
+import { GroupDetail } from './components/GroupDetail';
+import { CreateGroupModal } from './components/CreateGroupModal';
+import { JoinGroupModal } from './components/JoinGroupModal';
 import { useChatNotifications } from './hooks/useChatNotifications';
 import { DiscordStyleChat } from './components/DiscordStyleChat';
+
+// Development logging utility
+const appLogger = createDebugLogger('App');
 
 // Composant pour rendre les équations LaTeX avec KaTeX
 const MathText = ({ children, className = "" }) => {
@@ -291,6 +298,13 @@ function App() {
   
   // Hook de notifications de chat
   const chatNotifications = useChatNotifications(user?.id, selectedChannel, channels);
+  
+  // États pour les groupes d'étude
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [showJoinByCode, setShowJoinByCode] = useState(false);
+  const [selectedGroup, setSelectedGroup] = useState(null);
+  const [showGroupDetail, setShowGroupDetail] = useState(false);
+  const [groupLeaderboard, setGroupLeaderboard] = useState([]);
   
   const [newCourse, setNewCourse] = useState({
     subject: '',
@@ -3679,19 +3693,31 @@ function App() {
             <div className="w-full">
               <div className="mb-12 text-center">
                 <h2 className="text-5xl font-bold text-white mb-3">💬 Discussions</h2>
-                <p className="text-indigo-300 text-lg">Entraide entre étudiants TSI</p>
+                <p className="text-indigo-300 text-lg">Salons et groupes d'étude</p>
               </div>
 
-              {/* Channels View - Discord Style */}
+              {/* Discord Style Chat with unified channels and groups */}
               <div className="max-w-7xl mx-auto h-[700px]">
                 <DiscordStyleChat
                   userId={user?.id}
                   userName={user?.user_metadata?.name || user?.email?.split('@')[0] || 'Utilisateur'}
+                  groups={studyGroups.myGroups}
+                  onCreateGroup={() => setShowCreateGroup(true)}
                   // TODO: Implement proper role-based permissions from database
                   // For now, all authenticated users can create categories/channels
                   isAdmin={true}
                   isDark={isDark}
                 />
+              </div>
+              
+              {/* Additional action buttons below the chat */}
+              <div className="flex flex-wrap gap-4 justify-center mt-8">
+                <button
+                  onClick={() => setShowJoinByCode(true)}
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-500 hover:to-pink-500 transition-all font-semibold shadow-lg shadow-purple-500/25"
+                >
+                  🔗 Rejoindre un groupe par code
+                </button>
               </div>
             </div>
           )}
