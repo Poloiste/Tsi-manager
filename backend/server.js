@@ -1653,23 +1653,57 @@ io.on('connection', (socket) => {
 // PROXY ICS — Emploi du temps universitaire
 // ============================================
 
-// Simple in-memory cache: { data, fetchedAt }
-let icsCache = null;
+// Allowed ICS source hosts (prevent SSRF to internal/private resources)
+const ICS_ALLOWED_HOSTS = ['edt.univ-angers.fr'];
+
+function validateICSUrl(rawUrl) {
+  const normalized = rawUrl.replace(/^webcal:\/\//i, 'https://');
+  let parsed;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    throw new Error('URL invalide');
+  }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
+    throw new Error('Seuls les protocoles http/https sont autorisés');
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  if (!ICS_ALLOWED_HOSTS.some(h => hostname === h || hostname.endsWith('.' + h))) {
+    throw new Error(`Hôte non autorisé. Seuls ces domaines sont acceptés : ${ICS_ALLOWED_HOSTS.join(', ')}`);
+  }
+  return normalized;
+}
+
+// Per-URL cache: Map<url, { data, fetchedAt }>
+const icsCacheMap = new Map();
 const ICS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+// Default ICS URL (fallback when no user URL is provided)
+const DEFAULT_ICS_URL = (process.env.ICS_URL || 'webcal://edt.univ-angers.fr/edt/ics?id=G9F8A5BD6AB5F88EDE0530100007FD17D')
+  .replace(/^webcal:\/\//i, 'https://');
 
 app.get('/api/ics-proxy', async (req, res) => {
   try {
-    // Serve from cache if still fresh
-    if (icsCache && Date.now() - icsCache.fetchedAt < ICS_CACHE_TTL_MS) {
-      res.set('Content-Type', 'text/calendar; charset=utf-8');
-      res.set('X-Cache', 'HIT');
-      return res.send(icsCache.data);
+    let targetUrl;
+    if (req.query.url) {
+      try {
+        targetUrl = validateICSUrl(req.query.url);
+      } catch (validationError) {
+        return res.status(400).json({ error: validationError.message });
+      }
+    } else {
+      targetUrl = DEFAULT_ICS_URL;
     }
 
-    const ICS_URL = (process.env.ICS_URL || 'webcal://edt.univ-angers.fr/edt/ics?id=G9F8A5BD6AB5F88EDE0530100007FD17D')
-      .replace(/^webcal:\/\//i, 'https://');
+    // Serve from per-URL cache if still fresh
+    const cached = icsCacheMap.get(targetUrl);
+    if (cached && Date.now() - cached.fetchedAt < ICS_CACHE_TTL_MS) {
+      res.set('Content-Type', 'text/calendar; charset=utf-8');
+      res.set('X-Cache', 'HIT');
+      return res.send(cached.data);
+    }
 
-    const response = await fetch(ICS_URL, {
+    const response = await fetch(targetUrl, {
       headers: { 'User-Agent': 'TSI-Manager/1.0' },
       signal: AbortSignal.timeout(10000)
     });
@@ -1685,7 +1719,7 @@ app.get('/api/ics-proxy', async (req, res) => {
       throw new Error('Response does not appear to be a valid ICS file');
     }
 
-    icsCache = { data: text, fetchedAt: Date.now() };
+    icsCacheMap.set(targetUrl, { data: text, fetchedAt: Date.now() });
 
     res.set('Content-Type', 'text/calendar; charset=utf-8');
     res.set('X-Cache', 'MISS');
