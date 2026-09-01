@@ -3097,7 +3097,7 @@ function App() {
               </div>
 
               {/* Week Overview */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4 mb-8">
+              <div className="flex gap-3 sm:gap-4 mb-8 overflow-x-auto pb-2">
                 {days.map(day => {
                   const schedule = getDaySchedule(currentWeek, day);
                   const hasCustomEvents = customEvents.some(e => e.week === currentWeek && e.day === day);
@@ -3108,7 +3108,7 @@ function App() {
                     <div
                       key={day}
                       onClick={() => setSelectedDay(day)}
-                      className={`p-3 sm:p-4 rounded-xl border-2 transition-all cursor-pointer min-h-[80px] sm:min-h-[auto] ${
+                      className={`min-w-[160px] sm:min-w-[170px] p-3 sm:p-4 rounded-xl border-2 transition-all cursor-pointer min-h-[80px] ${
                         selectedDay === day
                           ? 'bg-indigo-600/30 border-indigo-500'
                           : hasCustomEvents
@@ -3133,21 +3133,18 @@ function App() {
                 })}
               </div>
 
-              {/* Detailed Weekly Schedule */}
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 mb-8">
-                {days.map(day => {
-                  const schedule = getDaySchedule(currentWeek, day);
-                  const isToday = day === getDayName() && currentWeek === getCurrentISOWeek().week && currentYear === getCurrentISOWeek().year;
+              {/* Detailed Schedule for selected day */}
+              <div className="mb-8">
+                {(() => {
+                  const schedule = getDaySchedule(currentWeek, selectedDay);
+                  const isToday = selectedDay === getDayName() && currentWeek === getCurrentISOWeek().week && currentYear === getCurrentISOWeek().year;
 
                   return (
-                    <div
-                      key={day}
-                      className={`bg-slate-800/50 border rounded-2xl p-4 sm:p-5 ${isToday ? 'border-green-500/50' : 'border-slate-700/50'}`}
-                    >
+                    <div className={`bg-slate-800/50 border rounded-2xl p-4 sm:p-5 ${isToday ? 'border-green-500/50' : 'border-slate-700/50'}`}>
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
                           <Clock className="w-5 h-5 text-indigo-400" />
-                          {day}
+                          {selectedDay}
                           {isToday && <span className="text-green-400 text-sm">●</span>}
                         </h3>
                         <span className="text-xs text-indigo-300">{schedule.length} cours</span>
@@ -3200,7 +3197,7 @@ function App() {
                       </div>
                     </div>
                   );
-                })}
+                })()}
               </div>
 
               {/* Suggestions View - merged from old 'suggestions' tab */}
@@ -3260,20 +3257,30 @@ function App() {
                         </div>
                       )}
 
-                      {/* Suggestions par jour */}
+                      {/* Suggestions du jour sélectionné */}
                       <div className="grid grid-cols-1 gap-6">
-                        {days.map(day => {
-                          const suggestionsBySubject = getSuggestedReviews(day, currentWeek);
-                          if (suggestionsBySubject.length === 0) return null;
+                        {(() => {
+                          const suggestionsBySubject = getSuggestedReviews(selectedDay, currentWeek);
+                          if (suggestionsBySubject.length === 0) {
+                            return (
+                              <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 text-center">
+                                <h3 className="text-2xl font-bold text-white mb-2 flex items-center justify-center gap-3">
+                                  <Calendar className="w-6 h-6 text-indigo-400" />
+                                  {selectedDay}
+                                </h3>
+                                <p className="text-slate-400">Aucune suggestion de révision pour ce jour.</p>
+                              </div>
+                            );
+                          }
 
                           const totalChapters = suggestionsBySubject.reduce((sum, s) => sum + s.chapters.length, 0);
 
                           return (
-                            <div key={day} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
+                            <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6">
                               <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-2xl font-bold text-white flex items-center gap-3">
                                   <Calendar className="w-6 h-6 text-indigo-400" />
-                                  {day}
+                                  {selectedDay}
                                 </h3>
                                 <div className="flex items-center gap-3">
                                   <span className="px-4 py-2 bg-indigo-900/50 text-indigo-300 rounded-full text-sm font-semibold">
@@ -3402,7 +3409,7 @@ function App() {
 
                             </div>
                           );
-                        })}
+                        })()}
                       </div>
 
                       {/* Cours urgents à réviser */}
