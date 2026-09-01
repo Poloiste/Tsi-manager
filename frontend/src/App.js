@@ -3643,14 +3643,6 @@ function App() {
                   <Plus className="w-6 h-6" />
                   Ajouter un cours
                 </button>
-                <button
-                  onClick={replaceCoursesWithSchedule}
-                  disabled={isReplacingCourses || icsLoading}
-                  className="px-6 py-4 bg-slate-800 border border-indigo-500/50 text-indigo-300 rounded-xl hover:bg-slate-700/70 transition-all font-semibold text-sm disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <Upload className="w-4 h-4" />
-                  {isReplacingCourses ? 'Remplacement en cours…' : 'Remplacer avec l\'emploi du temps'}
-                </button>
               </div>
 
               {courses.length === 0 ? (
