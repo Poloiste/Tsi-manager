@@ -28,20 +28,24 @@ describe('useICSSchedule', () => {
   it('uses the ICS proxy path once when REACT_APP_API_URL already ends with /api', async () => {
     process.env.REACT_APP_API_URL = 'https://example.com/api';
 
-    renderHook(() => useICSSchedule());
+    const { result } = renderHook(() => useICSSchedule());
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('https://example.com/api/ics-proxy');
+      expect(result.current.isLoading).toBe(false);
     });
+
+    expect(global.fetch).toHaveBeenCalledWith('https://example.com/api/ics-proxy');
   });
 
   it('adds the /api prefix when REACT_APP_API_URL does not include it', async () => {
     process.env.REACT_APP_API_URL = 'https://example.com';
 
-    renderHook(() => useICSSchedule());
+    const { result } = renderHook(() => useICSSchedule());
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith('https://example.com/api/ics-proxy');
+      expect(result.current.isLoading).toBe(false);
     });
+
+    expect(global.fetch).toHaveBeenCalledWith('https://example.com/api/ics-proxy');
   });
 });
