@@ -568,6 +568,12 @@ function App() {
     
     // Get all upcoming tests (extend window to catch preparation period)
     const upcomingTests = getUpcomingTests(weekNum, 14);
+
+    // Get today's ICS schedule events to boost subjects taught that day
+    const dayScheduleEvents = getICSBaseSchedule(currentYear, weekNum, day);
+    const scheduledSubjects = dayScheduleEvents.map(e => e.subject.toLowerCase());
+    const isScheduledToday = (subject) =>
+      scheduledSubjects.some(s => s.includes(subject.toLowerCase()) || subject.toLowerCase().includes(s));
     
     // Calculate priority scores for each subject based on the specific day
     const subjectScores = {};
@@ -623,7 +629,12 @@ function App() {
         score += Math.min(oldestReview * 2, 30);
       }
       
-      subjectScores[subject] = { score, tests: relevantTests };
+      // Bonus if the subject has a class on this day (post-course review)
+      if (isScheduledToday(subject)) {
+        score += 25;
+      }
+      
+      subjectScores[subject] = { score, tests: relevantTests, hasClassToday: isScheduledToday(subject) };
     });
     
     // Build week context for compatibility
@@ -720,6 +731,9 @@ function App() {
               urgency = 'low';
               reasonText = `🎯 ${test.type} dans ${daysUntil} jours - Préparation progressive`;
             }
+          } else if (subjectData?.hasClassToday) {
+            urgency = 'medium';
+            reasonText = '🏫 Cours aujourd\'hui - Consolidez ce que vous avez appris';
           } else if (course.priority > 80) {
             urgency = 'medium';
             reasonText = 'Révision urgente';
@@ -728,7 +742,8 @@ function App() {
           return {
             ...course,
             reason: reasonText,
-            urgency: urgency
+            urgency: urgency,
+            fromTodayCourse: !hasTest && !!subjectData?.hasClassToday
           };
         });
 
@@ -736,6 +751,7 @@ function App() {
           subject: subject,
           subjectScore: subjectData?.score || 0,
           relevantTests: subjectData?.tests || [],
+          hasClassToday: !!subjectData?.hasClassToday,
           chapters: enrichedChapters
         });
 
@@ -3257,6 +3273,38 @@ function App() {
                         </div>
                       )}
 
+                      {/* Cours du jour (emploi du temps) */}
+                      {(() => {
+                        const todayEvents = getICSBaseSchedule(currentYear, currentWeek, selectedDay);
+                        if (todayEvents.length === 0) return null;
+                        return (
+                          <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-blue-500/30 rounded-2xl p-6">
+                            <h3 className="text-xl font-bold text-blue-300 mb-4 flex items-center gap-2">
+                              🏫 Cours du jour — {selectedDay}
+                              <span className="text-xs font-normal text-blue-400 bg-blue-900/40 px-2 py-1 rounded-full">
+                                Révisions suggérées en priorité
+                              </span>
+                            </h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {todayEvents.map((event, idx) => (
+                                <div key={idx} className="flex items-start gap-3 p-3 bg-slate-900/50 rounded-lg border border-blue-500/20">
+                                  <span className={`px-2 py-1 rounded text-xs font-bold shrink-0 ${getTypeColor(event.type)}`}>
+                                    {event.type}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <p className="font-semibold text-white text-sm truncate">{event.subject}</p>
+                                    <p className="text-xs text-slate-400">{event.time}{event.room ? ` · ${event.room}` : ''}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                            <p className="mt-3 text-xs text-blue-300/70">
+                              💡 Les matières enseignées aujourd'hui sont prioritaires dans les suggestions ci-dessous.
+                            </p>
+                          </div>
+                        );
+                      })()}
+
                       {/* Suggestions du jour sélectionné */}
                       <div className="grid grid-cols-1 gap-6">
                         {(() => {
@@ -3307,6 +3355,11 @@ function App() {
                                               🎯 {subjectGroup.relevantTests[0].type} dans {subjectGroup.relevantTests[0].daysUntilFromThisDay}j
                                             </span>
                                           )}
+                                          {subjectGroup.hasClassToday && (
+                                            <span className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-lg text-xs font-semibold border border-blue-500/30">
+                                              🏫 Cours aujourd'hui
+                                            </span>
+                                          )}
                                         </div>
                                         <span className="text-xs text-slate-400">
                                           {subjectGroup.chapters.length} chapitre{subjectGroup.chapters.length > 1 ? 's' : ''} à réviser
@@ -3336,6 +3389,11 @@ function App() {
                                                 {course.urgency === 'medium' && (
                                                   <span className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded text-xs font-semibold">
                                                     ⚠️ BIENTÔT
+                                                  </span>
+                                                )}
+                                                {course.fromTodayCourse && (
+                                                  <span className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs font-semibold">
+                                                    🏫 Cours aujourd'hui
                                                   </span>
                                                 )}
                                               </div>
