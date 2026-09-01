@@ -18,9 +18,10 @@ import { ToastContainer, useToast } from './components/Toast';
 import { useGamification } from './hooks/useGamification';
 import { useNotifications } from './hooks/useNotifications';
 import { ONBOARDING_COMPLETED_KEY } from './constants';
-import { getCurrentSchoolWeek } from './utils/schoolWeek';
 import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './utils/dateUtils';
 import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
+import { getISOWeek, getCurrentISOWeek, formatWeekLabel, isoWeeksInYear } from './utils/weekUtils';
+import { useICSSchedule } from './hooks/useICSSchedule';
 import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType } from './utils/suggestionHelpers';
 import { useSRS } from './hooks/useSRS';
 import { useQuiz } from './hooks/useQuiz';
@@ -122,7 +123,8 @@ function App() {
   const themeClasses = getThemeClasses(isDark ? 'dark' : 'light');
   
   // États pour Planning  ← DOIT ÊTRE ICI, À L'INTÉRIEUR DE function App()
-  const [currentWeek, setCurrentWeek] = useState(() => getCurrentSchoolWeek());
+  const [currentYear, setCurrentYear] = useState(() => getCurrentISOWeek().year);
+  const [currentWeek, setCurrentWeek] = useState(() => getCurrentISOWeek().week);
   const [selectedDay, setSelectedDay] = useState(() => getDayName());
   const [customEvents, setCustomEvents] = useState([]);
   const [showAddEvent, setShowAddEvent] = useState(false);
@@ -138,50 +140,8 @@ function App() {
     date: ''
   });
 
-  // Calendrier des semaines TSI 2025-2026 (dates réelles, vacances exclues)
-  // Format d'affichage: { dates: 'jour-jour mois', label: 'Sxx' }
-  // Note: Ces dates affichent les jours de classe (Lundi-Vendredi) pour l'interface utilisateur.
-  // Le calendrier sous-jacent (schoolWeek.js) couvre Lundi-Dimanche pour le calcul des semaines.
-  // Les dates complètes au format YYYY-MM-DD sont définies dans schoolWeek.js
-  const weekCalendar = {
-    1: { dates: '1-5 sept', label: 'S1' },           // 2025-09-01 to 2025-09-05
-    2: { dates: '8-12 sept', label: 'S2' },          // 2025-09-08 to 2025-09-12
-    3: { dates: '15-19 sept', label: 'S3' },         // 2025-09-15 to 2025-09-19
-    4: { dates: '22-26 sept', label: 'S4' },         // 2025-09-22 to 2025-09-26
-    5: { dates: '29 sept-3 oct', label: 'S5' },      // 2025-09-29 to 2025-10-03
-    6: { dates: '6-10 oct', label: 'S6' },           // 2025-10-06 to 2025-10-10
-    7: { dates: '13-17 oct', label: 'S7' },          // 2025-10-13 to 2025-10-17
-    // VACANCES TOUSSAINT: 19 oct - 3 nov
-    8: { dates: '3-7 nov', label: 'S8' },            // 2025-11-03 to 2025-11-07
-    9: { dates: '10-14 nov', label: 'S9' },          // 2025-11-10 to 2025-11-14
-    10: { dates: '17-21 nov', label: 'S10' },        // 2025-11-17 to 2025-11-21
-    11: { dates: '24-28 nov', label: 'S11' },        // 2025-11-24 to 2025-11-28
-    12: { dates: '1-5 déc', label: 'S12' },          // 2025-12-01 to 2025-12-05
-    13: { dates: '8-12 déc', label: 'S13' },         // 2025-12-08 to 2025-12-12
-    14: { dates: '15-19 déc', label: 'S14' },        // 2025-12-15 to 2025-12-19
-    // VACANCES NOËL: 21 déc - 5 jan
-    15: { dates: '5-9 jan', label: 'S15' },          // 2026-01-05 to 2026-01-09
-    16: { dates: '12-16 jan', label: 'S16' },        // 2026-01-12 to 2026-01-16
-    17: { dates: '19-23 jan', label: 'S17' },        // 2026-01-19 to 2026-01-23
-    18: { dates: '26-30 jan', label: 'S18' },        // 2026-01-26 to 2026-01-30
-    19: { dates: '2-6 fév', label: 'S19' },          // 2026-02-02 to 2026-02-06
-    20: { dates: '9-13 fév', label: 'S20' },         // 2026-02-09 to 2026-02-13
-    // VACANCES HIVER: 15 fév - 2 mars (zone B)
-    21: { dates: '2-6 mars', label: 'S21' },         // 2026-03-02 to 2026-03-06
-    22: { dates: '9-13 mars', label: 'S22' },        // 2026-03-09 to 2026-03-13
-    23: { dates: '16-20 mars', label: 'S23' },       // 2026-03-16 to 2026-03-20
-    24: { dates: '23-27 mars', label: 'S24' },       // 2026-03-23 to 2026-03-27
-    25: { dates: '30 mars-3 avr', label: 'S25' },    // 2026-03-30 to 2026-04-03
-    26: { dates: '6-10 avr', label: 'S26' },         // 2026-04-06 to 2026-04-10
-    // VACANCES PRINTEMPS: 12 avr - 27 avr
-    27: { dates: '27 avr-1 mai', label: 'S27' },     // 2026-04-27 to 2026-05-01
-    28: { dates: '4-8 mai', label: 'S28' },          // 2026-05-04 to 2026-05-08
-    29: { dates: '11-15 mai', label: 'S29' },        // 2026-05-11 to 2026-05-15
-    30: { dates: '18-22 mai', label: 'S30' },        // 2026-05-18 to 2026-05-22
-    31: { dates: '25-29 mai', label: 'S31' },        // 2026-05-25 to 2026-05-29
-    32: { dates: '1-5 juin', label: 'S32' },         // 2026-06-01 to 2026-06-05
-    33: { dates: '8-12 juin', label: 'S33' }         // 2026-06-08 to 2026-06-12
-  };
+  // ICS schedule from university calendar
+  const { getBaseSchedule: getICSBaseSchedule, isLoading: icsLoading, error: icsError, refresh: refreshICS } = useICSSchedule();
 
   // États pour Cours et Flashcards
   const [courses, setCourses] = useState([]);
@@ -334,157 +294,6 @@ function App() {
       restDays: ['Vendredi', 'Samedi']
     };
   });
-
-  // Emploi du temps de base
-  const baseSchedule = {
-    'Lundi': [
-      { time: '8h-10h', subject: 'Méca', type: 'cours', room: 'D123 TSI1' },
-      { time: '10h-13h', subject: 'Elec', type: 'TD', room: 'D123 TSI1' },
-      { time: '14h-15h', subject: 'Français', type: 'cours', room: 'D123 TSI1' },
-      { time: '16h-18h', subject: 'Anglais', type: 'cours', room: 'D123 TSI1' }
-    ],
-    'Mardi': [
-      { time: '8h-10h', subject: 'Maths', type: 'cours', room: 'D123 TSI1' },
-      { time: '10h-12h', subject: 'Physique', type: 'cours', room: 'D123 TSI1' },
-      { time: '13h-14h', subject: 'Informatique', type: 'cours', room: 'B121' },
-      { time: '14h-16h', subject: 'Maths', type: 'TD', room: 'D123 TSI1' },
-      { time: '16h-18h', subject: 'Physique', type: 'TD', room: 'D123 TSI1' }
-    ],
-    'Mercredi': [
-      { time: '8h-11h', subject: 'Maths', type: 'cours', room: 'D123 TSI1' },
-      { time: '11h-12h', subject: 'T.I.P.E.', type: 'TP', room: 'Atelier SI'},
-      { time: '14h-16h', subject: 'Maths', type: 'cours', room: 'D123 TSI1' },
-      { time: '16h-18h', subject: 'Physique', type: 'cours', room: 'B121' },
-      
-    ],
-    'Jeudi': [
-      { time: '8h-10h', subject: 'Maths', type: 'cours', room: 'D123 TSI1' },
-      { time: '10h-12h', subject: 'E.P.S.', type: 'cours', room: 'Gymnase' },
-      { time: '13h30-18h', subject: 'TP', type: 'TP', room: 'Atelier SI' }
-    ],
-    'Vendredi': [
-      { time: '9h-10h', subject: 'Anglais', type: 'cours', room: 'D123 TSI1' },
-      { time: '10h-12h', subject: 'Physique', type: 'cours', room: 'D123 TSI1' },
-      { time: '14h-15h', subject: 'Physique', type: 'TD', room: 'D123 TSI1' },
-      { time: '15h-16h', subject: 'Français', type: 'TD', room: 'D123 TSI1' }
-    ]
-  };
-
-  const eveningSchedule = {
-    'Lundi': [
-      { subject: 'Maths', duration: '30 min - 1h', tasks: [
-        'Reprise des cours de la semaine précédente',
-        'Préparation des exercices pour le mardi',
-        'Noter toutes les questions pour les poser le lendemain',
-        'Répertorier les exercices de colles pertinents ou difficiles'
-      ]},
-      { subject: 'SII', duration: '1h30', tasks: [
-        'Revoir et assimiler le cours',
-        'Reprise des TD du jour'
-      ]}
-    ],
-    'Mardi': [
-      { subject: 'Maths', duration: '30 min - 1h', tasks: [
-        'Compréhension et apprentissage du cours du jour',
-        'Préparation des exercices pour le mercredi',
-        'Noter toutes les questions pour les poser aux prochains cours'
-      ]},
-      { subject: 'Physique', duration: '30 - 45 min', tasks: [
-        'Apprentissage du cours du jour (faire des cartes Anki ou une carte mentale)',
-        'Reprise des exercices du jour (EC en priorité)'
-      ]},
-      { subject: 'Anglais', duration: '10 min', tasks: [
-        'Exercices sur test-english.com'
-      ]}
-    ],
-    'Mercredi': [
-      { subject: 'Physique', duration: '30 - 45 min', tasks: [
-        'Reprise du cours du mardi (réviser ses cartes Anki ou sa carte mentale)',
-        'Reprise des exercices du jour',
-        'Ou finalisation du compte-rendu de TP'
-      ]},
-      { subject: 'Maths', duration: '30 min', tasks: [
-        'Compréhension et apprentissage du cours du jour',
-        'Noter toutes les questions pour les poser aux prochains cours',
-        'Préparation des exercices pour le jeudi'
-      ]},
-      { subject: 'SII', duration: '1h', tasks: [
-        'Refaire les TD'
-      ]},
-      { subject: 'Français', duration: '30 min', tasks: [
-        'Relire le cours',
-        'Lister les questions sur les points jugés difficiles'
-      ]},
-      { subject: 'Anglais', duration: '10 min', tasks: [
-        'Exercices sur test-english.com'
-      ]}
-    ],
-    'Jeudi': [
-      { subject: 'Maths', duration: '30 min - 1h', tasks: [
-        'Compréhension et apprentissage du cours du jour',
-        'Préparation des exercices pour le mardi',
-        'Pointer tous les items du programme de colle de la semaine suivante'
-      ]},
-      { subject: 'SII', duration: '1h', tasks: [
-        'Finir la présentation et la synthèse des TP',
-        'Ou comprendre et savoir refaire les parties théoriques des TP'
-      ]},
-      { subject: 'Physique', duration: '30 - 45 min', tasks: [
-        'Reprise du cours du mardi (réviser ses cartes Anki ou sa carte mentale)',
-        'Noter les questions à poser le vendredi',
-        'Préparation des exercices pour le vendredi'
-      ]},
-      { subject: 'Info', duration: '15 min', tasks: [
-        'Apprentissage du cours en vue de l\'évaluation du jeudi'
-      ]},
-      { subject: 'Français', duration: '30 min', tasks: [
-        'Relire le cours',
-        'Lister les questions sur les points jugés difficiles'
-      ]},
-      { subject: 'Anglais', duration: '10 min', tasks: [
-        'Exercices sur test-english.com'
-      ]}
-    ],
-    'Vendredi': [
-      { subject: 'Maths', duration: '1h30 - 2h', tasks: [
-        'Rédiger à nouveau les exemples du cours et les exercices de base des TD pour préparer les colles',
-        'Noter toutes les questions à poser'
-      ]},
-      { subject: 'Physique', duration: '15 - 30 min', tasks: [
-        'Reprise du cours du vendredi (réviser ses cartes Anki ou sa carte mentale)',
-        'Noter les questions à poser le mardi'
-      ]},
-      { subject: 'Anglais', duration: '20 min', tasks: [
-        'Exercices sur test-english.com',
-        'Relire le cours'
-      ]}
-    ],
-    'Samedi': [
-      { subject: 'Préparation DM', duration: '3h', tasks: [
-        'Préparation des devoirs maison'
-      ]},
-      { subject: 'Préparation colles', duration: '2h', tasks: [
-        'Préparation des colles'
-      ]}
-    ],
-    'Dimanche': [
-      { subject: 'Physique', duration: '1h30', tasks: [
-        'Apprentissage du cours du vendredi et assimilation des cours de la semaine',
-        'Faire et réviser ses cartes Anki ou une carte mentale',
-        'Préparation des exercices pour le mardi',
-        'Préparation du TP de la semaine suivante'
-      ]},
-      { subject: 'Anglais', duration: '1h', tasks: [
-        'Relire le cours'
-      ]},
-      { subject: 'Français', duration: '1h', tasks: [
-        'Travail personnel'
-      ]},
-      { subject: 'Info', duration: '1h', tasks: [
-        'Travail personnel'
-      ]}
-    ]
-  };
 
   const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   const subjects = ['Maths', 'Physique', 'Méca', 'Elec', 'Anglais', 'Français', 'Informatique'];
@@ -969,21 +778,6 @@ function App() {
       'Informatique': 'from-slate-600 to-gray-600'
     };
     return colors[subject] || 'from-slate-600 to-slate-700';
-  };
-
-  // Get evening schedule subject colors with text and background
-  const getEveningSubjectColors = (subject) => {
-    const colors = {
-      'Maths': { text: 'text-blue-400', bg: 'bg-blue-900/30' },
-      'Physique': { text: 'text-green-400', bg: 'bg-green-900/30' },
-      'SII': { text: 'text-orange-400', bg: 'bg-orange-900/30' },
-      'Info': { text: 'text-cyan-400', bg: 'bg-cyan-900/30' },
-      'Français': { text: 'text-pink-400', bg: 'bg-pink-900/30' },
-      'Anglais': { text: 'text-purple-400', bg: 'bg-purple-900/30' },
-      'Préparation DM': { text: 'text-yellow-400', bg: 'bg-yellow-900/30' },
-      'Préparation colles': { text: 'text-yellow-400', bg: 'bg-yellow-900/30' }
-    };
-    return colors[subject] || { text: 'text-slate-400', bg: 'bg-slate-900/30' };
   };
 
   // Get user's display name from user object
@@ -2785,8 +2579,8 @@ function App() {
           const dayName = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'][selectedDate.getDay()];
           eventToAdd.day = dayName;
           
-          // Utiliser la fonction qui vérifie le vrai calendrier TSI
-          eventToAdd.week = getCurrentSchoolWeek(selectedDate);
+          // Utiliser la semaine ISO
+          eventToAdd.week = getISOWeek(selectedDate).week;
         }
         
         // Insert into Supabase
@@ -2846,7 +2640,7 @@ function App() {
   };
 
   const getDaySchedule = (week, day) => {
-    const base = baseSchedule[day] || [];
+    const base = getICSBaseSchedule(currentYear, week, day);
     return getDayScheduleUtil(base, customEvents, week, day);
   };
 
@@ -2887,7 +2681,7 @@ function App() {
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
                 <Sparkles className="w-6 h-6 text-white" />
               </div>
-              <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">TSI1 Manager</h1>
+              <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">Uni Manager</h1>
             </div>
             
             {/* Desktop Navigation - Hidden on mobile */}
@@ -3199,30 +2993,68 @@ function App() {
           {activeTab === 'planning' && (
             <div className="w-full">
               <div className="mb-12 text-center">
-                <h2 className={`text-5xl font-bold mb-3 ${themeClasses.text.primary}`}>Planning TSI1</h2>
-                <p className={`text-lg ${themeClasses.text.accent}`}>Emploi du temps adaptatif avec planning du soir</p>
+                <h2 className={`text-5xl font-bold mb-3 ${themeClasses.text.primary}`}>Planning Universitaire</h2>
+                <p className={`text-lg ${themeClasses.text.accent}`}>Emploi du temps synchronisé avec l'université</p>
               </div>
+
+              {/* ICS sync status */}
+              {(icsLoading || icsError) && (
+                <div className={`flex items-center justify-center gap-2 mb-4 px-4 py-2 rounded-lg text-sm ${
+                  icsError
+                    ? 'bg-red-900/30 border border-red-500/40 text-red-300'
+                    : 'bg-indigo-900/30 border border-indigo-500/40 text-indigo-300'
+                }`}>
+                  {icsLoading ? (
+                    <>
+                      <div className="animate-spin w-4 h-4 border-2 border-indigo-400 border-t-transparent rounded-full" />
+                      Synchronisation de l'emploi du temps…
+                    </>
+                  ) : (
+                    <>
+                      <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                      Impossible de charger l'EDT : {icsError}
+                      <button
+                        onClick={refreshICS}
+                        className="ml-2 underline hover:no-underline"
+                      >Réessayer</button>
+                    </>
+                  )}
+                </div>
+              )}
 
               {/* Sélecteur de semaine */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-8">
                 <div className="flex items-center gap-2 sm:gap-4">
                   <button
-                    onClick={() => setCurrentWeek(Math.max(1, currentWeek - 1))}
-                    disabled={currentWeek === 1}
-                    className={`p-3 rounded-lg disabled:opacity-30 transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover} min-w-[44px] min-h-[44px] flex items-center justify-center`}
+                    onClick={() => {
+                      if (currentWeek === 1) {
+                        setCurrentYear(y => y - 1);
+                        setCurrentWeek(isoWeeksInYear(currentYear - 1));
+                      } else {
+                        setCurrentWeek(w => w - 1);
+                      }
+                    }}
+                    className={`p-3 rounded-lg transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover} min-w-[44px] min-h-[44px] flex items-center justify-center`}
                   >
                     <ChevronLeft className="w-5 h-5" />
                   </button>
                   
                   <div className="px-6 sm:px-8 py-3 sm:py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-center">
-                    <div className="text-xl sm:text-2xl font-bold">{weekCalendar[currentWeek]?.label || `S${currentWeek}`}</div>
-                    <div className="text-xs sm:text-sm opacity-90">{weekCalendar[currentWeek]?.dates || ''}</div>
+                    <div className="text-xl sm:text-2xl font-bold">S{currentWeek}</div>
+                    <div className="text-xs sm:text-sm opacity-90">{formatWeekLabel(currentYear, currentWeek)}</div>
                   </div>
 
                   <button
-                    onClick={() => setCurrentWeek(Math.min(33, currentWeek + 1))}
-                    disabled={currentWeek === 33}
-                    className={`p-3 rounded-lg disabled:opacity-30 transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover} min-w-[44px] min-h-[44px] flex items-center justify-center`}
+                    onClick={() => {
+                      const maxWeek = isoWeeksInYear(currentYear);
+                      if (currentWeek === maxWeek) {
+                        setCurrentYear(y => y + 1);
+                        setCurrentWeek(1);
+                      } else {
+                        setCurrentWeek(w => w + 1);
+                      }
+                    }}
+                    className={`p-3 rounded-lg transition-all ${themeClasses.bg.card} ${themeClasses.text.secondary} ${themeClasses.hover} min-w-[44px] min-h-[44px] flex items-center justify-center`}
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
@@ -3231,7 +3063,9 @@ function App() {
                 <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
                   <button
                     onClick={() => {
-                      setCurrentWeek(getCurrentSchoolWeek());
+                      const { year, week } = getCurrentISOWeek();
+                      setCurrentYear(year);
+                      setCurrentWeek(week);
                       setSelectedDay(getDayName());
                     }}
                     className="flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center gap-2 transition-all min-h-[44px]"
@@ -3267,7 +3101,8 @@ function App() {
                 {days.map(day => {
                   const schedule = getDaySchedule(currentWeek, day);
                   const hasCustomEvents = customEvents.some(e => e.week === currentWeek && e.day === day);
-                  const isToday = day === getDayName() && currentWeek === getCurrentSchoolWeek();
+                  const { year: todayYear, week: todayWeek } = getCurrentISOWeek();
+                  const isToday = day === getDayName() && currentWeek === todayWeek && currentYear === todayYear;
                   
                   return (
                     <div
@@ -3369,43 +3204,22 @@ function App() {
                     </div>
                   </div>
 
-                  {/* Soirée */}
+                  {/* Infos soirée */}
                   <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4 sm:p-6">
                     <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2 mb-4 sm:mb-6">
                       <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
-                      Travail du soir
+                      Conseils de révision
                     </h2>
-
-                    <div className="space-y-3 sm:space-y-4">
-                      {eveningSchedule[selectedDay] ? (
-                        eveningSchedule[selectedDay].map((item, idx) => {
-                          const colors = getEveningSubjectColors(item.subject);
-                          return (
-                            <div
-                              key={idx}
-                              className={`p-3 sm:p-4 ${colors.bg} border border-slate-700/50 rounded-lg`}
-                            >
-                              <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
-                                <h3 className={`font-bold text-base sm:text-lg ${colors.text} truncate`}>
-                                  {item.subject}
-                                </h3>
-                                <span className="text-xs sm:text-sm text-slate-400 font-semibold whitespace-nowrap">
-                                  {item.duration}
-                                </span>
-                              </div>
-                              <ul className="space-y-1.5 sm:space-y-2">
-                                {item.tasks.map((task, taskIdx) => (
-                                  <li key={taskIdx} className="flex items-start gap-2 text-xs sm:text-sm text-slate-300">
-                                    <span className="text-indigo-400 mt-0.5 sm:mt-1 flex-shrink-0">•</span>
-                                    <span className="break-words">{task}</span>
-                                  </li>
-                                ))}
-                              </ul>
-                            </div>
-                          );
-                        })
+                    <div className="space-y-3">
+                      {getDaySchedule(currentWeek, selectedDay).length > 0 ? (
+                        getDaySchedule(currentWeek, selectedDay).map((item, idx) => (
+                          <div key={idx} className="p-3 bg-indigo-900/20 border border-indigo-500/20 rounded-lg">
+                            <p className="text-sm font-semibold text-indigo-300 mb-1">{item.subject}</p>
+                            <p className="text-xs text-slate-400">Revoir les notes de ce cours et préparer les exercices associés.</p>
+                          </div>
+                        ))
                       ) : (
-                        <p className="text-center text-slate-400 py-6 sm:py-8">Pas de planning</p>
+                        <p className="text-center text-slate-400 py-6 sm:py-8">Aucun cours ce jour — profitez pour réviser les matières en retard.</p>
                       )}
                     </div>
                   </div>
@@ -3609,27 +3423,6 @@ function App() {
                                 ))}
                               </div>
 
-                              {/* Temps de travail suggéré */}
-                              {eveningSchedule[day] && eveningSchedule[day].length > 0 && (
-                                <div className="mt-6 p-4 bg-indigo-900/30 border border-indigo-500/30 rounded-lg">
-                                  <h4 className="text-sm font-bold text-indigo-300 mb-3">⏱️ Planning de travail du soir:</h4>
-                                  <div className="space-y-2">
-                                    {eveningSchedule[day].map((slot, idx) => {
-                                      const colors = getEveningSubjectColors(slot.subject);
-                                      return (
-                                        <div key={idx} className="flex items-center gap-2">
-                                          <span className={`px-2 py-1 ${colors.bg} ${colors.text} rounded text-xs font-semibold`}>
-                                            {slot.subject}
-                                          </span>
-                                          <span className="text-xs text-slate-400">
-                                            ({slot.duration})
-                                          </span>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                </div>
-                              )}
                             </div>
                           );
                         })}
@@ -5128,9 +4921,9 @@ function App() {
                       disabled={newEvent.date !== ''}
                       className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none disabled:opacity-50"
                     >
-                      {Object.keys(weekCalendar).map(week => (
+                      {Array.from({ length: isoWeeksInYear(currentYear) }, (_, i) => i + 1).map(week => (
                         <option key={week} value={week}>
-                          {weekCalendar[week].label} ({weekCalendar[week].dates})
+                          {formatWeekLabel(currentYear, week)}
                         </option>
                       ))}
                     </select>

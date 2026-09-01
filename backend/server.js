@@ -1649,6 +1649,53 @@ io.on('connection', (socket) => {
   });
 });
 
+// ============================================
+// PROXY ICS — Emploi du temps universitaire
+// ============================================
+
+// Simple in-memory cache: { data, fetchedAt }
+let icsCache = null;
+const ICS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+app.get('/api/ics-proxy', async (req, res) => {
+  try {
+    // Serve from cache if still fresh
+    if (icsCache && Date.now() - icsCache.fetchedAt < ICS_CACHE_TTL_MS) {
+      res.set('Content-Type', 'text/calendar; charset=utf-8');
+      res.set('X-Cache', 'HIT');
+      return res.send(icsCache.data);
+    }
+
+    const ICS_URL = (process.env.ICS_URL || 'webcal://edt.univ-angers.fr/edt/ics?id=G9F8A5BD6AB5F88EDE0530100007FD17D')
+      .replace(/^webcal:\/\//i, 'https://');
+
+    const response = await fetch(ICS_URL, {
+      headers: { 'User-Agent': 'TSI-Manager/1.0' },
+      signal: AbortSignal.timeout(10000)
+    });
+
+    if (!response.ok) {
+      throw new Error(`ICS server responded with ${response.status}`);
+    }
+
+    const text = await response.text();
+
+    // Validate minimal ICS structure
+    if (!text.includes('BEGIN:VCALENDAR')) {
+      throw new Error('Response does not appear to be a valid ICS file');
+    }
+
+    icsCache = { data: text, fetchedAt: Date.now() };
+
+    res.set('Content-Type', 'text/calendar; charset=utf-8');
+    res.set('X-Cache', 'MISS');
+    res.send(text);
+  } catch (error) {
+    console.error('Error fetching ICS:', error.message);
+    res.status(502).json({ error: 'Failed to fetch calendar: ' + error.message });
+  }
+});
+
 // Démarrage du serveur
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
