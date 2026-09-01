@@ -569,8 +569,12 @@ function App() {
     // Get all upcoming tests (extend window to catch preparation period)
     const upcomingTests = getUpcomingTests(weekNum, 14);
 
-    // Get today's ICS schedule events to boost subjects taught that day
-    const dayScheduleEvents = getICSBaseSchedule(currentYear, weekNum, day);
+    // Get next day's ICS schedule events to boost subjects taught the next day
+    // (so suggestions for Monday are based on Tuesday's courses, etc.)
+    const nextDayIndex = (days.indexOf(day) + 1) % days.length;
+    const nextDay = days[nextDayIndex];
+    const nextDayWeekNum = nextDayIndex === 0 ? weekNum + 1 : weekNum;
+    const dayScheduleEvents = getICSBaseSchedule(currentYear, nextDayWeekNum, nextDay);
     const scheduledSubjects = dayScheduleEvents.map(e => e.subject.toLowerCase());
     const isScheduledToday = (subject) =>
       scheduledSubjects.some(s => s.includes(subject.toLowerCase()) || subject.toLowerCase().includes(s));
@@ -3299,7 +3303,7 @@ function App() {
                               ))}
                             </div>
                             <p className="mt-3 text-xs text-blue-300/70">
-                              💡 Les matières enseignées aujourd'hui sont prioritaires dans les suggestions ci-dessous.
+                              💡 Les matières enseignées demain sont prioritaires dans les suggestions ci-dessous.
                             </p>
                           </div>
                         );
