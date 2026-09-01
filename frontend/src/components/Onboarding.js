@@ -64,7 +64,7 @@ const Onboarding = ({ onClose }) => {
         <div className="space-y-4 text-left">
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">
             <p className="text-slate-300 text-base">
-              → Triés par matière (Maths, Physique, SII...)
+              → Triés par matière (Anglais, Electronique, S.A.E...)
             </p>
           </div>
           <div className="p-4 bg-slate-800/50 rounded-lg border border-slate-700">

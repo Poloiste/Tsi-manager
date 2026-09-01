@@ -299,7 +299,7 @@ function App() {
   });
 
   const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
-  const subjects = ['Maths', 'Physique', 'Méca', 'Elec', 'Anglais', 'Français', 'Informatique'];
+  const subjects = ['Anglais', 'Culture et communication', 'Vie de l\'entreprise', 'Outils mathématiques et logiciels', 'PPP', 'Systèmes d\'information numériques', 'Informatique', 'Electronique', 'Energie', 'S.A.E'];
   const daysUntil = Math.floor((new Date('2027-04-15') - new Date()) / (1000 * 60 * 60 * 24));
 
   // Fonction de recherche globale
@@ -792,13 +792,16 @@ function App() {
 
   const getSubjectColor = (subject) => {
     const colors = {
-      'Maths': 'from-blue-600 to-cyan-600',
-      'Physique': 'from-purple-600 to-pink-600',
-      'Méca': 'from-green-600 to-emerald-600',
-      'Elec': 'from-yellow-600 to-orange-600',
       'Anglais': 'from-red-600 to-rose-600',
-      'Français': 'from-indigo-600 to-violet-600',
-      'Informatique': 'from-slate-600 to-gray-600'
+      'Culture et communication': 'from-purple-600 to-pink-600',
+      'Vie de l\'entreprise': 'from-green-600 to-emerald-600',
+      'Outils mathématiques et logiciels': 'from-blue-600 to-cyan-600',
+      'PPP': 'from-orange-600 to-amber-600',
+      'Systèmes d\'information numériques': 'from-teal-600 to-cyan-600',
+      'Informatique': 'from-slate-600 to-gray-600',
+      'Electronique': 'from-yellow-600 to-orange-600',
+      'Energie': 'from-lime-600 to-green-600',
+      'S.A.E': 'from-indigo-600 to-violet-600'
     };
     return colors[subject] || 'from-slate-600 to-slate-700';
   };
@@ -4995,7 +4998,7 @@ function App() {
                   value={newEvent.subject}
                   onChange={(e) => setNewEvent({...newEvent, subject: e.target.value})}
                   className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
-                  placeholder="Maths, Physique..."
+                  placeholder="Anglais, Electronique..."
                 />
               </div>
 
