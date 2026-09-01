@@ -1448,6 +1448,7 @@ function App() {
     }
   };
 
+  // eslint-disable-next-line no-unused-vars
   const replaceCoursesWithSchedule = async () => {
     if (!user || isReplacingCourses) return;
 
