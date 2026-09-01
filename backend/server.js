@@ -1653,23 +1653,74 @@ io.on('connection', (socket) => {
 // PROXY ICS — Emploi du temps universitaire
 // ============================================
 
-// Simple in-memory cache: { data, fetchedAt }
-let icsCache = null;
+// ICS schedule URL base (only edt.univ-angers.fr is accepted)
+const ICS_BASE_URL = 'https://edt.univ-angers.fr/edt/ics';
+
+/**
+ * Extracts and validates the ICS calendar `id` from a user-supplied URL.
+ * Returns the sanitized id string so the caller can build the fetch URL
+ * from the constant ICS_BASE_URL, fully breaking SSRF taint flow.
+ *
+ * Accepted input formats:
+ *   webcal://edt.univ-angers.fr/edt/ics?id=XXXX
+ *   https://edt.univ-angers.fr/edt/ics?id=XXXX
+ */
+function extractICSCalendarId(rawUrl) {
+  const normalized = rawUrl.replace(/^webcal:\/\//i, 'https://');
+  let parsed;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    throw new Error('URL invalide');
+  }
+  const hostname = parsed.hostname.toLowerCase();
+  if (hostname !== 'edt.univ-angers.fr') {
+    throw new Error('Seul le domaine edt.univ-angers.fr est accepté');
+  }
+  const id = parsed.searchParams.get('id');
+  if (!id) {
+    throw new Error('Paramètre id manquant dans l\'URL');
+  }
+  // Allow only alphanumeric characters in the id to prevent any injection
+  if (!/^[A-Za-z0-9]+$/.test(id)) {
+    throw new Error('Identifiant de calendrier invalide');
+  }
+  return id;
+}
+
+// Per-URL cache: Map<url, { data, fetchedAt }>
+const icsCacheMap = new Map();
 const ICS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+
+// Default ICS URL (fallback when no user URL is provided)
+const DEFAULT_ICS_URL = (process.env.ICS_URL || 'webcal://edt.univ-angers.fr/edt/ics?id=G9F8A5BD6AB5F88EDE0530100007FD17D')
+  .replace(/^webcal:\/\//i, 'https://');
 
 app.get('/api/ics-proxy', async (req, res) => {
   try {
-    // Serve from cache if still fresh
-    if (icsCache && Date.now() - icsCache.fetchedAt < ICS_CACHE_TTL_MS) {
-      res.set('Content-Type', 'text/calendar; charset=utf-8');
-      res.set('X-Cache', 'HIT');
-      return res.send(icsCache.data);
+    let targetUrl;
+    if (req.query.url) {
+      let calendarId;
+      try {
+        calendarId = extractICSCalendarId(req.query.url);
+      } catch (validationError) {
+        return res.status(400).json({ error: validationError.message });
+      }
+      // Build the final URL entirely from a constant base + sanitized id
+      targetUrl = `${ICS_BASE_URL}?id=${calendarId}`;
+    } else {
+      targetUrl = DEFAULT_ICS_URL;
     }
 
-    const ICS_URL = (process.env.ICS_URL || 'webcal://edt.univ-angers.fr/edt/ics?id=G9F8A5BD6AB5F88EDE0530100007FD17D')
-      .replace(/^webcal:\/\//i, 'https://');
+    // Serve from per-URL cache if still fresh
+    const cached = icsCacheMap.get(targetUrl);
+    if (cached && Date.now() - cached.fetchedAt < ICS_CACHE_TTL_MS) {
+      res.set('Content-Type', 'text/calendar; charset=utf-8');
+      res.set('X-Cache', 'HIT');
+      return res.send(cached.data);
+    }
 
-    const response = await fetch(ICS_URL, {
+    const response = await fetch(targetUrl, {
       headers: { 'User-Agent': 'TSI-Manager/1.0' },
       signal: AbortSignal.timeout(10000)
     });
@@ -1685,7 +1736,7 @@ app.get('/api/ics-proxy', async (req, res) => {
       throw new Error('Response does not appear to be a valid ICS file');
     }
 
-    icsCache = { data: text, fetchedAt: Date.now() };
+    icsCacheMap.set(targetUrl, { data: text, fetchedAt: Date.now() });
 
     res.set('Content-Type', 'text/calendar; charset=utf-8');
     res.set('X-Cache', 'MISS');

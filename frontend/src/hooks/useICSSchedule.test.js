@@ -48,4 +48,19 @@ describe('useICSSchedule', () => {
 
     expect(global.fetch).toHaveBeenCalledWith('https://example.com/api/ics-proxy');
   });
+
+  it('appends the custom ICS URL as a query parameter when provided', async () => {
+    process.env.REACT_APP_API_URL = 'https://example.com';
+    const customUrl = 'webcal://edt.univ-angers.fr/edt/ics?id=MYID123';
+
+    const { result } = renderHook(() => useICSSchedule(customUrl));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      `https://example.com/api/ics-proxy?url=${encodeURIComponent(customUrl)}`
+    );
+  });
 });

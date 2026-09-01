@@ -1,15 +1,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { parseICS } from '../utils/icsParser';
 
-export function getICSProxyUrl() {
+export function getICSProxyUrl(customIcsUrl) {
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
   const normalizedApiUrl = apiUrl.replace(/\/api\/?$/, '');
-
-  return `${normalizedApiUrl}/api/ics-proxy`;
+  const base = `${normalizedApiUrl}/api/ics-proxy`;
+  if (customIcsUrl) {
+    return `${base}?url=${encodeURIComponent(customIcsUrl)}`;
+  }
+  return base;
 }
 
 /**
  * Hook that fetches and parses the university ICS calendar from the backend proxy.
+ *
+ * @param {string|null} [customIcsUrl] - Optional personal ICS URL to use instead of the default.
  *
  * Returns:
  *  - getBaseSchedule(isoYear, isoWeek, dayName) → Array of course objects for that day/week
@@ -17,7 +22,7 @@ export function getICSProxyUrl() {
  *  - error: string | null
  *  - refresh(): re-fetch the ICS
  */
-export function useICSSchedule() {
+export function useICSSchedule(customIcsUrl) {
   const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,7 +31,7 @@ export function useICSSchedule() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(getICSProxyUrl());
+      const response = await fetch(getICSProxyUrl(customIcsUrl));
       if (!response.ok) {
         const text = await response.text();
         let msg;
@@ -46,7 +51,7 @@ export function useICSSchedule() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [customIcsUrl]);
 
   useEffect(() => {
     fetchICS();

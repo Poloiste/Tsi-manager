@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
   FolderOpen, LogOut, Download, Copy, FileText,
-  HelpCircle, Search, Award, Target, Flame, Bell, Menu
+  HelpCircle, Search, Award, Target, Flame, Bell, Menu, Link, Settings, CheckCircle
 } from 'lucide-react';
 import { useAuth } from './AuthContext';
 import Login from './Login';
@@ -142,8 +142,41 @@ function App() {
     date: ''
   });
 
+  // Per-user ICS URL stored in localStorage
+  const [userICSUrl, setUserICSUrl] = useState(() => {
+    if (user?.id) {
+      return localStorage.getItem(`ics_url_${user.id}`) || '';
+    }
+    return '';
+  });
+  const [showICSSettings, setShowICSSettings] = useState(false);
+  const [icsUrlInput, setICSUrlInput] = useState('');
+
+  // Sync userICSUrl when user changes (login/logout)
+  useEffect(() => {
+    if (user?.id) {
+      setUserICSUrl(localStorage.getItem(`ics_url_${user.id}`) || '');
+    } else {
+      setUserICSUrl('');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const saveUserICSUrl = useCallback((url) => {
+    const trimmed = url.trim();
+    if (user?.id) {
+      if (trimmed) {
+        localStorage.setItem(`ics_url_${user.id}`, trimmed);
+      } else {
+        localStorage.removeItem(`ics_url_${user.id}`);
+      }
+    }
+    setUserICSUrl(trimmed);
+    setShowICSSettings(false);
+  }, [user?.id]);
+
   // ICS schedule from university calendar
-  const { getBaseSchedule: getICSBaseSchedule, isLoading: icsLoading, error: icsError, refresh: refreshICS } = useICSSchedule();
+  const { getBaseSchedule: getICSBaseSchedule, isLoading: icsLoading, error: icsError, refresh: refreshICS } = useICSSchedule(userICSUrl || null);
 
   // États pour Cours et Flashcards
   const [courses, setCourses] = useState([]);
@@ -3125,6 +3158,72 @@ function App() {
                   )}
                 </div>
               )}
+
+              {/* Personal ICS URL configuration */}
+              <div className="flex justify-center mb-6">
+                {!showICSSettings ? (
+                  <button
+                    onClick={() => { setICSUrlInput(userICSUrl); setShowICSSettings(true); }}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border transition-colors ${
+                      userICSUrl
+                        ? 'border-emerald-500/40 text-emerald-400 bg-emerald-900/20 hover:bg-emerald-900/30'
+                        : 'border-indigo-500/30 text-indigo-400 bg-indigo-900/20 hover:bg-indigo-900/30'
+                    }`}
+                    title="Configurer mon lien ICS personnel"
+                  >
+                    {userICSUrl ? <CheckCircle className="w-3.5 h-3.5" /> : <Link className="w-3.5 h-3.5" />}
+                    {userICSUrl ? 'Lien ICS personnel configuré' : 'Configurer mon lien ICS personnel'}
+                    <Settings className="w-3.5 h-3.5" />
+                  </button>
+                ) : (
+                  <div className={`w-full max-w-xl p-4 rounded-xl border ${themeClasses.bg.card} ${themeClasses.border.default} shadow-lg`}>
+                    <h3 className={`text-sm font-semibold mb-2 flex items-center gap-2 ${themeClasses.text.primary}`}>
+                      <Link className="w-4 h-4 text-indigo-400" />
+                      Lien ICS personnel
+                    </h3>
+                    <p className={`text-xs mb-3 ${themeClasses.text.secondary}`}>
+                      Collez ici votre lien ICS personnel depuis{' '}
+                      <a
+                        href="https://edt.univ-angers.fr"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-indigo-400 underline hover:no-underline"
+                      >edt.univ-angers.fr</a>
+                      {' '}(ex&nbsp;: <code className="text-xs bg-black/20 px-1 rounded">webcal://edt.univ-angers.fr/edt/ics?id=…</code>).
+                      Laissez vide pour utiliser l'emploi du temps par défaut.
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="url"
+                        value={icsUrlInput}
+                        onChange={e => setICSUrlInput(e.target.value)}
+                        placeholder="webcal://edt.univ-angers.fr/edt/ics?id=…"
+                        className={`flex-1 px-3 py-2 text-sm rounded-lg border ${themeClasses.bg.secondary} ${themeClasses.border.default} ${themeClasses.text.primary} focus:outline-none focus:ring-2 focus:ring-indigo-500`}
+                      />
+                      <button
+                        onClick={() => saveUserICSUrl(icsUrlInput)}
+                        className="px-3 py-2 text-sm rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-medium transition-colors"
+                      >
+                        Enregistrer
+                      </button>
+                      <button
+                        onClick={() => setShowICSSettings(false)}
+                        className={`px-3 py-2 text-sm rounded-lg border ${themeClasses.border.default} ${themeClasses.text.secondary} ${themeClasses.bg.card} hover:opacity-80 transition-colors`}
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                    {userICSUrl && (
+                      <button
+                        onClick={() => saveUserICSUrl('')}
+                        className="mt-2 text-xs text-red-400 hover:text-red-300 underline hover:no-underline"
+                      >
+                        Supprimer mon lien personnel (utiliser l'EDT par défaut)
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Sélecteur de semaine */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-8">
