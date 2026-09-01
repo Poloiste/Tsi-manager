@@ -5,7 +5,8 @@
 import { 
   getPreparationDays, 
   getUrgencyMultiplier, 
-  getSuggestedDuration 
+  getSuggestedDuration,
+  buildFallbackSuggestionsFromSchedule
 } from './suggestionHelpers';
 
 describe('Suggestion System Helper Functions', () => {
@@ -203,6 +204,43 @@ describe('Suggestion System Helper Functions', () => {
     test('should handle negative days (past tests)', () => {
       // Tests that have already passed - still treated as urgent
       expect(getUrgencyMultiplier(-1, 'DS')).toBe(2.5);
+    });
+  });
+
+  describe('buildFallbackSuggestionsFromSchedule', () => {
+    test('should create a virtual suggestion when no chapter exists for tomorrow subject', () => {
+      const suggestions = buildFallbackSuggestionsFromSchedule(
+        [{ subject: 'Maths' }],
+        [],
+        2
+      );
+
+      expect(suggestions).toHaveLength(1);
+      expect(suggestions[0].subject).toBe('Maths');
+      expect(suggestions[0].chapters).toHaveLength(1);
+      expect(suggestions[0].chapters[0].isVirtual).toBe(true);
+      expect(suggestions[0].chapters[0].chapter).toBe('Préparer le cours de demain');
+    });
+
+    test('should reuse existing chapters when they exist for tomorrow subject', () => {
+      const suggestions = buildFallbackSuggestionsFromSchedule(
+        [{ subject: 'Physique' }],
+        [{
+          id: 'course-1',
+          subject: 'Physique',
+          chapter: 'Optique géométrique',
+          priority: 12,
+          mastery: 50,
+          reviewCount: 1
+        }],
+        2
+      );
+
+      expect(suggestions).toHaveLength(1);
+      expect(suggestions[0].chapters).toHaveLength(1);
+      expect(suggestions[0].chapters[0].id).toBe('course-1');
+      expect(suggestions[0].chapters[0].isVirtual).toBeUndefined();
+      expect(suggestions[0].chapters[0].fromTomorrowCourse).toBe(true);
     });
   });
 });

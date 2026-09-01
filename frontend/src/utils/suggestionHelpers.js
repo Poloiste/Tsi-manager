@@ -91,3 +91,90 @@ export const baseScoreByType = {
   'Colle': 35,
   'TP Noté': 30
 };
+
+const normalizeSubject = (subject = '') => subject.trim().toLowerCase();
+
+const subjectsMatch = (left, right) => {
+  const normalizedLeft = normalizeSubject(left);
+  const normalizedRight = normalizeSubject(right);
+
+  return normalizedLeft && normalizedRight && (
+    normalizedLeft.includes(normalizedRight) ||
+    normalizedRight.includes(normalizedLeft)
+  );
+};
+
+/**
+ * Build fallback suggestions from the next day's schedule when no urgent review exists.
+ *
+ * @param {Array} scheduleEvents - Schedule events for the next day
+ * @param {Array} courses - Existing courses, optionally enriched with priority data
+ * @param {number} totalSlots - Maximum number of suggestions to return
+ * @returns {Array} - Suggestions grouped by subject
+ */
+export const buildFallbackSuggestionsFromSchedule = (scheduleEvents = [], courses = [], totalSlots = 0) => {
+  if (!Array.isArray(scheduleEvents) || scheduleEvents.length === 0 || totalSlots <= 0) {
+    return [];
+  }
+
+  const uniqueSubjects = scheduleEvents.reduce((acc, event) => {
+    const subject = event?.subject?.trim();
+    if (!subject) return acc;
+
+    if (!acc.some(existingSubject => subjectsMatch(existingSubject, subject))) {
+      acc.push(subject);
+    }
+
+    return acc;
+  }, []);
+
+  const suggestions = [];
+  let usedSlots = 0;
+
+  uniqueSubjects.forEach((subject, subjectIndex) => {
+    if (usedSlots >= totalSlots) return;
+
+    const matchingCourses = courses
+      .filter(course => subjectsMatch(course?.subject, subject))
+      .sort((a, b) => (b?.priority || 0) - (a?.priority || 0));
+
+    const chapters = matchingCourses.length > 0
+      ? matchingCourses
+          .slice(0, Math.min(2, totalSlots - usedSlots))
+          .map(course => ({
+            ...course,
+            reason: '🏫 Cours demain - Anticipez pour arriver prêt en classe',
+            urgency: 'low',
+            fromTomorrowCourse: true,
+            suggestedDuration: course?.suggestedDuration || '20min - 30min',
+            isFallbackSuggestion: true
+          }))
+      : [{
+          id: `schedule-fallback-${subjectIndex}`,
+          subject,
+          chapter: 'Préparer le cours de demain',
+          mastery: 0,
+          reviewCount: 0,
+          priority: 35,
+          reason: '🏫 Cours demain - Relisez rapidement les bases avant le cours',
+          urgency: 'low',
+          fromTomorrowCourse: true,
+          suggestedDuration: '20min - 30min',
+          oneDriveLinks: [],
+          isFallbackSuggestion: true,
+          isVirtual: true
+        }];
+
+    suggestions.push({
+      subject,
+      subjectScore: matchingCourses[0]?.priority || 25,
+      relevantTests: [],
+      hasClassToday: false,
+      chapters
+    });
+
+    usedSlots += chapters.length;
+  });
+
+  return suggestions;
+};
