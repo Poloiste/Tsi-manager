@@ -1653,10 +1653,19 @@ io.on('connection', (socket) => {
 // PROXY ICS — Emploi du temps universitaire
 // ============================================
 
-// Allowed ICS source hosts (prevent SSRF to internal/private resources)
-const ICS_ALLOWED_HOSTS = ['edt.univ-angers.fr'];
+// ICS schedule URL base (only edt.univ-angers.fr is accepted)
+const ICS_BASE_URL = 'https://edt.univ-angers.fr/edt/ics';
 
-function validateICSUrl(rawUrl) {
+/**
+ * Extracts and validates the ICS calendar `id` from a user-supplied URL.
+ * Returns the sanitized id string so the caller can build the fetch URL
+ * from the constant ICS_BASE_URL, fully breaking SSRF taint flow.
+ *
+ * Accepted input formats:
+ *   webcal://edt.univ-angers.fr/edt/ics?id=XXXX
+ *   https://edt.univ-angers.fr/edt/ics?id=XXXX
+ */
+function extractICSCalendarId(rawUrl) {
   const normalized = rawUrl.replace(/^webcal:\/\//i, 'https://');
   let parsed;
   try {
@@ -1664,14 +1673,19 @@ function validateICSUrl(rawUrl) {
   } catch {
     throw new Error('URL invalide');
   }
-  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') {
-    throw new Error('Seuls les protocoles http/https sont autorisés');
-  }
   const hostname = parsed.hostname.toLowerCase();
-  if (!ICS_ALLOWED_HOSTS.some(h => hostname === h || hostname.endsWith('.' + h))) {
-    throw new Error(`Hôte non autorisé. Seuls ces domaines sont acceptés : ${ICS_ALLOWED_HOSTS.join(', ')}`);
+  if (hostname !== 'edt.univ-angers.fr') {
+    throw new Error('Seul le domaine edt.univ-angers.fr est accepté');
   }
-  return normalized;
+  const id = parsed.searchParams.get('id');
+  if (!id) {
+    throw new Error('Paramètre id manquant dans l\'URL');
+  }
+  // Allow only alphanumeric characters in the id to prevent any injection
+  if (!/^[A-Za-z0-9]+$/.test(id)) {
+    throw new Error('Identifiant de calendrier invalide');
+  }
+  return id;
 }
 
 // Per-URL cache: Map<url, { data, fetchedAt }>
@@ -1686,11 +1700,14 @@ app.get('/api/ics-proxy', async (req, res) => {
   try {
     let targetUrl;
     if (req.query.url) {
+      let calendarId;
       try {
-        targetUrl = validateICSUrl(req.query.url);
+        calendarId = extractICSCalendarId(req.query.url);
       } catch (validationError) {
         return res.status(400).json({ error: validationError.message });
       }
+      // Build the final URL entirely from a constant base + sanitized id
+      targetUrl = `${ICS_BASE_URL}?id=${calendarId}`;
     } else {
       targetUrl = DEFAULT_ICS_URL;
     }
