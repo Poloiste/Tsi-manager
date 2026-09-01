@@ -3133,98 +3133,75 @@ function App() {
                 })}
               </div>
 
-              {/* Detailed Schedule */}
-              {selectedDay && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                  {/* Journée */}
-                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4 sm:p-6">
-                    <div className="flex items-center justify-between mb-4 sm:mb-6">
-                      <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
-                        <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-indigo-400" />
-                        <span className="truncate">Journée - {selectedDay}</span>
-                      </h2>
-                      <button
-                        onClick={() => setSelectedDay(null)}
-                        className="text-slate-400 hover:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                      >
-                        <X className="w-5 h-5" />
-                      </button>
-                    </div>
+              {/* Detailed Weekly Schedule */}
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 mb-8">
+                {days.map(day => {
+                  const schedule = getDaySchedule(currentWeek, day);
+                  const isToday = day === getDayName() && currentWeek === getCurrentISOWeek().week && currentYear === getCurrentISOWeek().year;
 
-                    <div className="space-y-2 sm:space-y-3">
-                      {getDaySchedule(currentWeek, selectedDay).map((item, idx) => {
-                        const isCustom = item.id !== undefined;
-                        
-                        return (
-                          <div
-                            key={idx}
-                            className={`p-3 sm:p-4 rounded-lg border-2 ${getTypeColor(item.type)} relative`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center flex-wrap gap-1.5 sm:gap-2 mb-2">
-                                  <span className="text-xs font-bold uppercase tracking-wider opacity-80">
-                                    {item.type}
-                                  </span>
+                  return (
+                    <div
+                      key={day}
+                      className={`bg-slate-800/50 border rounded-2xl p-4 sm:p-5 ${isToday ? 'border-green-500/50' : 'border-slate-700/50'}`}
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+                          <Clock className="w-5 h-5 text-indigo-400" />
+                          {day}
+                          {isToday && <span className="text-green-400 text-sm">●</span>}
+                        </h3>
+                        <span className="text-xs text-indigo-300">{schedule.length} cours</span>
+                      </div>
+
+                      <div className="space-y-2">
+                        {schedule.length > 0 ? (
+                          schedule.map((item, idx) => {
+                            const isCustom = item.id !== undefined;
+
+                            return (
+                              <div key={idx} className={`p-3 rounded-lg border ${getTypeColor(item.type)}`}>
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center flex-wrap gap-1.5 mb-1">
+                                      <span className="text-xs font-bold uppercase tracking-wider opacity-80">{item.type}</span>
+                                      {isCustom && (
+                                        <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded">
+                                          Personnalisé
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className="font-semibold text-sm sm:text-base truncate">{item.subject}</p>
+                                    <div className="flex flex-wrap items-center gap-2 text-xs opacity-80 mt-1">
+                                      <span className="whitespace-nowrap">🕐 {item.time}</span>
+                                      {item.room && <span className="whitespace-nowrap">📍 {item.room}</span>}
+                                      {item.duration && <span className="whitespace-nowrap">⏱️ {item.duration}</span>}
+                                    </div>
+                                  </div>
                                   {isCustom && (
-                                    <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-0.5 rounded">
-                                      Personnalisé
-                                    </span>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (window.confirm('Supprimer cet événement ?')) {
+                                          deleteCustomEvent(item.id);
+                                        }
+                                      }}
+                                      className="p-2 text-red-400 min-w-[36px] min-h-[36px] flex items-center justify-center flex-shrink-0 hover:bg-red-900/30 rounded-lg transition-all"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
                                   )}
-                                  {item.date && (
-                                    <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded whitespace-nowrap">
-                                      📅 {new Date(item.date).toLocaleDateString('fr-FR')}
-                                    </span>
-                                  )}
-                                </div>
-                                <h3 className="font-bold text-base sm:text-lg mb-1 truncate">{item.subject}</h3>
-                                <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs sm:text-sm opacity-80">
-                                  <span className="whitespace-nowrap">🕐 {item.time}</span>
-                                  {item.room && <span className="whitespace-nowrap">📍 {item.room}</span>}
-                                  {item.duration && <span className="whitespace-nowrap">â±ï¸ {item.duration}</span>}
                                 </div>
                               </div>
-                              {isCustom && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    if (window.confirm('Supprimer cet événement ?')) {
-                                      deleteCustomEvent(item.id);
-                                    }
-                                  }}
-                                  className="p-2 text-red-400 min-w-[44px] min-h-[44px] flex items-center justify-center flex-shrink-0 hover:bg-red-900/30 rounded-lg transition-all"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        );
-                      })}
+                            );
+                          })
+                        ) : (
+                          <p className="text-sm text-slate-400 py-2">Aucun cours.</p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Infos soirée */}
-                  <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-4 sm:p-6">
-                    <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2 mb-4 sm:mb-6">
-                      <BookOpen className="w-5 h-5 sm:w-6 sm:h-6 text-purple-400" />
-                      Conseils de révision
-                    </h2>
-                    <div className="space-y-3">
-                      {getDaySchedule(currentWeek, selectedDay).length > 0 ? (
-                        getDaySchedule(currentWeek, selectedDay).map((item, idx) => (
-                          <div key={idx} className="p-3 bg-indigo-900/20 border border-indigo-500/20 rounded-lg">
-                            <p className="text-sm font-semibold text-indigo-300 mb-1">{item.subject}</p>
-                            <p className="text-xs text-slate-400">Revoir les notes de ce cours et préparer les exercices associés.</p>
-                          </div>
-                        ))
-                      ) : (
-                        <p className="text-center text-slate-400 py-6 sm:py-8">Aucun cours ce jour — profitez pour réviser les matières en retard.</p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
+                  );
+                })}
+              </div>
 
               {/* Suggestions View - merged from old 'suggestions' tab */}
               {showSuggestions && (
