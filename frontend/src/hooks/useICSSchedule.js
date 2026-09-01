@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { parseICS } from '../utils/icsParser';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+export function getICSProxyUrl() {
+  const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
+  const normalizedApiUrl = apiUrl.replace(/\/api\/?$/, '');
+
+  return `${normalizedApiUrl}/api/ics-proxy`;
+}
 
 /**
  * Hook that fetches and parses the university ICS calendar from the backend proxy.
@@ -21,7 +26,7 @@ export function useICSSchedule() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_URL}/api/ics-proxy`);
+      const response = await fetch(getICSProxyUrl());
       if (!response.ok) {
         const text = await response.text();
         let msg;
