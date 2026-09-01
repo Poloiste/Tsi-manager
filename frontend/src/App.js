@@ -22,7 +22,7 @@ import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './uti
 import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
 import { getISOWeek, getCurrentISOWeek, formatWeekLabel, isoWeeksInYear } from './utils/weekUtils';
 import { useICSSchedule } from './hooks/useICSSchedule';
-import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType } from './utils/suggestionHelpers';
+import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType, buildFallbackSuggestionsFromSchedule } from './utils/suggestionHelpers';
 import { useSRS } from './hooks/useSRS';
 import { useQuiz } from './hooks/useQuiz';
 import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } from './utils/srsAlgorithm';
@@ -766,7 +766,11 @@ function App() {
       }
     }
 
-    return suggestionsBySubject;
+    if (suggestionsBySubject.length > 0) {
+      return suggestionsBySubject;
+    }
+
+    return buildFallbackSuggestionsFromSchedule(dayScheduleEvents, coursesWithPriority, totalSlots);
   };
 
   // eslint-disable-next-line no-unused-vars
@@ -3493,14 +3497,16 @@ function App() {
                                                 )}
                                               </div>
                                             </div>
-                                            <div className="flex flex-col gap-2">
-                                              <button
-                                                onClick={() => markAsReviewed(course.id, 15)}
-                                                className="px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm whitespace-nowrap"
-                                              >
-                                                ✔ Marquer révisé
-                                              </button>
-                                            </div>
+                                            {!course.isVirtual && (
+                                              <div className="flex flex-col gap-2">
+                                                <button
+                                                  onClick={() => markAsReviewed(course.id, 15)}
+                                                  className="px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm whitespace-nowrap"
+                                                >
+                                                  ✔ Marquer révisé
+                                                </button>
+                                              </div>
+                                            )}
                                           </div>
 
                                           {/* Barre de priorité */}
