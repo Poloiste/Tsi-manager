@@ -114,6 +114,8 @@ const SRS_CATEGORY_MESSAGES = {
   'new': '✨ Aucune nouvelle carte disponible.\nToutes les cartes ont été révisées au moins une fois !'
 };
 
+const FRENCH_WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+
 // ==================== MAIN APP ====================
 function App() {
   const { user, loading, signOut } = useAuth();
@@ -147,6 +149,7 @@ function App() {
   const [courses, setCourses] = useState([]);
   const [activeTab, setActiveTab] = useState('planning');
   const [showAddCourse, setShowAddCourse] = useState(false);
+  const [isReplacingCourses, setIsReplacingCourses] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [expandedSubject, setExpandedSubject] = useState(null);
   
@@ -1435,6 +1438,79 @@ function App() {
         console.error('Error adding course:', error);
         alert('Erreur lors de l\'ajout du cours');
       }
+    }
+  };
+
+  const replaceCoursesWithSchedule = async () => {
+    if (!user || isReplacingCourses) return;
+
+    if (icsLoading) {
+      alert('L\'emploi du temps est encore en cours de synchronisation.');
+      return;
+    }
+
+    if (icsError) {
+      alert('Impossible de synchroniser les cours tant que l\'emploi du temps est indisponible.');
+      return;
+    }
+
+    if (!window.confirm('Cette action supprimera tous vos cours existants et les remplacera par ceux de l\'emploi du temps. Continuer ?')) {
+      return;
+    }
+
+    setIsReplacingCourses(true);
+    try {
+      const subjectsSet = new Set();
+
+      for (let year = currentYear - 1; year <= currentYear + 1; year += 1) {
+        const totalWeeks = isoWeeksInYear(year);
+        for (let week = 1; week <= totalWeeks; week += 1) {
+          FRENCH_WEEK_DAYS.forEach((day) => {
+            const events = getICSBaseSchedule(year, week, day);
+            events.forEach((eventItem) => {
+              const subject = (eventItem?.subject || '').trim();
+              if (subject) {
+                subjectsSet.add(subject);
+              }
+            });
+          });
+        }
+      }
+
+      const subjectsFromSchedule = Array.from(subjectsSet);
+      if (subjectsFromSchedule.length === 0) {
+        alert('Aucun cours trouvé dans l\'emploi du temps.');
+        return;
+      }
+
+      const { error: deleteError } = await supabase
+        .from('shared_courses')
+        .delete()
+        .eq('created_by', user.id);
+
+      if (deleteError) throw deleteError;
+
+      const coursesToInsert = subjectsFromSchedule.map(subject => ({
+        subject,
+        chapter: 'Cours principal',
+        content: 'Cours importé automatiquement depuis l\'emploi du temps universitaire',
+        difficulty: 3,
+        created_by: user.id
+      }));
+
+      const { error: insertError } = await supabase
+        .from('shared_courses')
+        .insert(coursesToInsert);
+
+      if (insertError) throw insertError;
+
+      await Promise.all([loadCourses(), loadFlashcards()]);
+      showSuccess(`Remplacement terminé : ${subjectsFromSchedule.length} cours importés depuis l'emploi du temps.`);
+    } catch (error) {
+      console.error('Error replacing courses from schedule:', error);
+      alert('Erreur lors du remplacement des cours avec l\'emploi du temps');
+    } finally {
+      setIsReplacingCourses(false);
     }
   };
 
@@ -3559,13 +3635,23 @@ function App() {
                 <p className="text-indigo-300 text-lg">Organisez et enrichissez vos cours avec OneDrive</p>
               </div>
 
-              <button
-                onClick={() => setShowAddCourse(true)}
-                className="mb-8 mx-auto block px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-bold text-lg flex items-center gap-2"
-              >
-                <Plus className="w-6 h-6" />
-                Ajouter un cours
-              </button>
+              <div className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  onClick={() => setShowAddCourse(true)}
+                  className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-bold text-lg flex items-center gap-2"
+                >
+                  <Plus className="w-6 h-6" />
+                  Ajouter un cours
+                </button>
+                <button
+                  onClick={replaceCoursesWithSchedule}
+                  disabled={isReplacingCourses || icsLoading}
+                  className="px-6 py-4 bg-slate-800 border border-indigo-500/50 text-indigo-300 rounded-xl hover:bg-slate-700/70 transition-all font-semibold text-sm disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Upload className="w-4 h-4" />
+                  {isReplacingCourses ? 'Remplacement en cours…' : 'Remplacer avec l\'emploi du temps'}
+                </button>
+              </div>
 
               {courses.length === 0 ? (
                 <div className="text-center text-white">
