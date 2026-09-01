@@ -3635,10 +3635,146 @@ function App() {
                 <p className="text-indigo-300 text-lg">Organisez et enrichissez vos cours avec OneDrive</p>
               </div>
 
-              <div className="text-center text-slate-400 mt-16">
-                <BookOpen className="w-16 h-16 mx-auto mb-4 opacity-30" />
-                <p className="text-lg">Aucun cours disponible</p>
+              <div className="mb-8 flex flex-col sm:flex-row items-center justify-center gap-3">
+                <button
+                  onClick={() => setShowAddCourse(true)}
+                  className="px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:shadow-lg transition-all font-bold text-lg flex items-center gap-2"
+                >
+                  <Plus className="w-6 h-6" />
+                  Ajouter un cours
+                </button>
               </div>
+
+              {courses.length === 0 ? (
+                <div className="text-center text-white">
+                  <p>Aucun cours pour le moment</p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {subjects.map(subject => {
+                    const subjectCourses = courses.filter(c => c.subject === subject);
+                    if (subjectCourses.length === 0) return null;
+                    const isExpanded = expandedSubject === subject;
+
+                    return (
+                      <div key={subject} className="bg-slate-800/50 border border-slate-700/50 rounded-2xl overflow-hidden">
+                        <button
+                          onClick={() => setExpandedSubject(isExpanded ? null : subject)}
+                          className="w-full p-6 flex items-center justify-between hover:bg-slate-700/30 transition-all"
+                        >
+                          <div className="flex items-center gap-4">
+                            {isExpanded ? <FolderOpen className="w-6 h-6 text-indigo-400" /> : <Folder className="w-6 h-6 text-slate-400" />}
+                            <h3 className={`text-2xl font-bold bg-gradient-to-r ${getSubjectColor(subject)} bg-clip-text text-transparent`}>
+                              {subject}
+                            </h3>
+                            <span className="px-3 py-1 bg-indigo-900/50 text-indigo-300 rounded-full text-sm font-semibold">
+                              {subjectCourses.length}
+                            </span>
+                          </div>
+                          <ChevronDown className={`w-6 h-6 text-slate-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                        </button>
+
+                        {isExpanded && (
+                          <div className="p-6 pt-0 space-y-4">
+                            {subjectCourses.map(course => (
+                              <div key={course.id} className="p-6 bg-slate-900/50 border border-slate-700/50 rounded-xl">
+                                <div className="flex items-start justify-between mb-4">
+                                  <div className="flex-1">
+                                    <h4 className="text-xl font-bold text-white mb-2">{course.chapter}</h4>
+                                    {course.content && (
+                                      <p className="text-sm text-slate-400 mb-3">{course.content}</p>
+                                    )}
+                                    <div className="flex items-center gap-4 text-sm">
+                                      <span className="text-indigo-300">📅 {course.dateAdded}</span>
+                                      <span className="text-purple-300">🎯 Maîtrise: {course.mastery}%</span>
+                                      <span className="text-green-300">✔ {course.reviewCount} révision(s)</span>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={() => deleteCourse(course.id)}
+                                    className="p-2 text-red-400 hover:bg-red-900/30 rounded-lg transition-all"
+                                  >
+                                    <Trash2 className="w-5 h-5" />
+                                  </button>
+                                </div>
+
+                                {course.oneDriveLinks && course.oneDriveLinks.length > 0 && (
+                                  <div className="mb-4 p-4 bg-slate-800/50 rounded-lg">
+                                    <h5 className="text-sm font-bold text-slate-300 mb-3 flex items-center gap-2">
+                                      <File className="w-4 h-4" />
+                                      Liens OneDrive ({course.oneDriveLinks.length})
+                                    </h5>
+                                    <div className="space-y-2">
+                                      {course.oneDriveLinks.map(link => (
+                                        <div key={link.id} className="flex items-center justify-between p-2 bg-slate-900/50 rounded">
+                                          <a
+                                            href={link.url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-2 flex-1 hover:text-indigo-300 transition-colors"
+                                          >
+                                            <File className="w-4 h-4 text-blue-400" />
+                                            <span className="text-sm text-white">{link.name}</span>
+                                          </a>
+                                          <button
+                                            onClick={() => deleteOneDriveLink(course.id, link.id)}
+                                            className="text-red-400 hover:text-red-300"
+                                          >
+                                            <X className="w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={async () => {
+                                      const link = prompt('Coller le lien OneDrive :');
+                                      if (link && user) {
+                                        const name = prompt('Nom du document (optionnel) :') || 'Document OneDrive';
+                                        try {
+                                          const { error } = await supabase
+                                            .from('shared_course_links')
+                                            .insert([{
+                                              course_id: course.id,
+                                              url: link.trim(),
+                                              name: name.trim(),
+                                              added_by: user.id
+                                            }]);
+                                          
+                                          if (error) throw error;
+                                          
+                                          // Reload courses to display the new link
+                                          await loadCourses();
+                                        } catch (error) {
+                                          console.error('Error adding link:', error);
+                                          alert('Erreur lors de l\'ajout du lien');
+                                        }
+                                      }
+                                    }}
+                                    className="flex-1 px-4 py-2 bg-indigo-600/30 border border-indigo-500/50 text-indigo-300 rounded-lg hover:bg-indigo-600/50 transition-all font-semibold text-sm"
+                                  >
+                                    <Upload className="w-4 h-4 inline mr-2" />
+                                    Ajouter lien OneDrive
+                                  </button>
+                                  <button
+                                    onClick={() => markAsReviewed(course.id)}
+                                    className="px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm"
+                                  >
+                                    Marquer révisé
+                                  </button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
@@ -4978,6 +5114,130 @@ function App() {
                 onClick={addCustomEvent}
                 disabled={!newEvent.subject || !newEvent.time || (!newEvent.week && !newEvent.date)}
                 className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Ajouter
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Ajouter Cours */}
+      {showAddCourse && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-slate-800 rounded-2xl p-8 max-w-md w-full border border-indigo-500/30 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-2xl font-bold text-white mb-6">Ajouter un cours</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Matière</label>
+                <select
+                  value={newCourse.subject}
+                  onChange={(e) => setNewCourse({...newCourse, subject: e.target.value})}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value="">Sélectionner...</option>
+                  {subjects.map(subject => (
+                    <option key={subject} value={subject}>{subject}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Chapitre</label>
+                <input
+                  type="text"
+                  value={newCourse.chapter}
+                  onChange={(e) => setNewCourse({...newCourse, chapter: e.target.value})}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                  placeholder="Nom du chapitre"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Contenu (optionnel)</label>
+                <textarea
+                  value={newCourse.content}
+                  onChange={(e) => setNewCourse({...newCourse, content: e.target.value})}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                  rows="3"
+                  placeholder="Description du cours..."
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">Liens OneDrive</label>
+                
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={newLinkName}
+                    onChange={(e) => setNewLinkName(e.target.value)}
+                    className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                    placeholder="Nom du document (optionnel)"
+                  />
+                  
+                  <div className="flex gap-2">
+                    <input
+                      type="url"
+                      value={newOneDriveLink}
+                      onChange={(e) => setNewOneDriveLink(e.target.value)}
+                      className="flex-1 px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                      placeholder="https://onedrive.live.com/..."
+                    />
+                    <button
+                      onClick={() => addOneDriveLink(true)}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+
+                {newCourse.oneDriveLinks && newCourse.oneDriveLinks.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    {newCourse.oneDriveLinks.map(link => (
+                      <div key={link.id} className="flex items-center justify-between p-2 bg-slate-900 rounded-lg">
+                        <div className="flex items-center gap-2 flex-1">
+                          <File className="w-4 h-4 text-blue-400" />
+                          <span className="text-sm text-white truncate">{link.name}</span>
+                        </div>
+                        <button
+                          onClick={() => deleteOneDriveLinkFromNewCourse(link.id)}
+                          className="text-red-400 hover:text-red-300"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowAddCourse(false);
+                  setNewCourse({
+                    subject: '',
+                    chapter: '',
+                    content: '',
+                    difficulty: 3,
+                    priority: 3,
+                    dateAdded: new Date().toISOString().split('T')[0],
+                    oneDriveLinks: []
+                  });
+                  setNewOneDriveLink('');
+                  setNewLinkName('');
+                }}
+                className="flex-1 px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={addCourse}
+                className="flex-1 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg hover:shadow-lg transition-all font-semibold"
               >
                 Ajouter
               </button>
