@@ -15,6 +15,16 @@ export const getStartHour = (timeStr) => {
   return match ? parseInt(match[1], 10) : null;
 };
 
+const getStartMinutes = (timeStr) => {
+  if (!timeStr) return null;
+  const match = timeStr.match(/^(\d{1,2})(?:[h:](\d{2}))?/i);
+  if (!match) return null;
+  const hour = parseInt(match[1], 10);
+  const minutes = match[2] ? parseInt(match[2], 10) : 0;
+  if (Number.isNaN(hour) || Number.isNaN(minutes)) return null;
+  return (hour * 60) + minutes;
+};
+
 /**
  * Combines base schedule courses with custom events for a specific day and week.
  * Custom events replace base schedule courses that occur at the same time.
@@ -28,15 +38,10 @@ export const getStartHour = (timeStr) => {
 export const getDaySchedule = (baseSchedule, customEvents, week, day) => {
   const base = baseSchedule || [];
   const custom = customEvents.filter(e => e.week === week && e.day === day);
-  
-  // If no custom events, return just the base schedule
-  if (custom.length === 0) {
-    return base;
-  }
-  
+
   // Create a Set of start hours for custom events
   const customStartHours = new Set(
-    custom.map(e => getStartHour(e.time)).filter(h => h !== null)
+   custom.map(e => getStartHour(e.time)).filter(h => h !== null)
   );
   
   // Filter base courses to exclude those that have the same start hour as custom events
@@ -49,11 +54,15 @@ export const getDaySchedule = (baseSchedule, customEvents, week, day) => {
   // Combine filtered base courses with custom events
   const combined = [...filteredBase, ...custom];
   
-  // Sort by start hour for chronological display
+  // Sort by start time for chronological display
   combined.sort((a, b) => {
-    const hourA = getStartHour(a.time) || 0;
-    const hourB = getStartHour(b.time) || 0;
-    return hourA - hourB;
+    const timeA = getStartMinutes(a.time);
+    const timeB = getStartMinutes(b.time);
+
+    if (timeA === null && timeB === null) return 0;
+    if (timeA === null) return 1;
+    if (timeB === null) return -1;
+    return timeA - timeB;
   });
   
   return combined;
