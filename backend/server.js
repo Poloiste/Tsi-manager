@@ -1653,23 +1653,66 @@ io.on('connection', (socket) => {
 // PROXY ICS — Emploi du temps universitaire
 // ============================================
 
-// Simple in-memory cache: { data, fetchedAt }
-let icsCache = null;
+// In-memory cache by normalized ICS URL: Map<url, { data, fetchedAt }>
+const icsCache = new Map();
 const ICS_CACHE_TTL_MS = 15 * 60 * 1000; // 15 minutes
+const ICS_HOSTNAME = 'edt.univ-angers.fr';
+const ICS_PATH_PREFIX = '/edt/ics';
+const ICS_ID_REGEX = /^[A-Za-z0-9]+$/;
+
+function normalizeIcsUrl(rawUrl) {
+  if (!rawUrl || typeof rawUrl !== 'string') {
+    return null;
+  }
+
+  let parsed;
+  try {
+    parsed = new URL(rawUrl.replace(/^webcal:\/\//i, 'https://'));
+  } catch {
+    return null;
+  }
+
+  const id = parsed.searchParams.get('id');
+  if (parsed.hostname !== ICS_HOSTNAME || !parsed.pathname.startsWith(ICS_PATH_PREFIX) || !id || !ICS_ID_REGEX.test(id)) {
+    return null;
+  }
+
+  return `https://${ICS_HOSTNAME}${ICS_PATH_PREFIX}?id=${id}`;
+}
 
 app.get('/api/ics-proxy', async (req, res) => {
   try {
-    // Serve from cache if still fresh
-    if (icsCache && Date.now() - icsCache.fetchedAt < ICS_CACHE_TTL_MS) {
-      res.set('Content-Type', 'text/calendar; charset=utf-8');
-      res.set('X-Cache', 'HIT');
-      return res.send(icsCache.data);
+    const requestedUserId = req.query.user_id;
+    let icsUrl = process.env.ICS_URL || 'webcal://edt.univ-angers.fr/edt/ics?id=G9F8A5BD6AB5F88EDE0530100007FD17D';
+
+    if (requestedUserId) {
+      const { data: userSource, error: userSourceError } = await supabase
+        .from('user_schedule_sources')
+        .select('ics_url')
+        .eq('user_id', requestedUserId)
+        .maybeSingle();
+
+      if (userSourceError) throw userSourceError;
+      if (userSource?.ics_url) {
+        icsUrl = userSource.ics_url;
+      }
     }
 
-    const ICS_URL = (process.env.ICS_URL || 'webcal://edt.univ-angers.fr/edt/ics?id=G9F8A5BD6AB5F88EDE0530100007FD17D')
-      .replace(/^webcal:\/\//i, 'https://');
+    const normalizedIcsUrl = normalizeIcsUrl(icsUrl);
+    if (!normalizedIcsUrl) {
+      throw new Error('Invalid ICS URL. Only edt.univ-angers.fr links with a valid id are allowed.');
+    }
 
-    const response = await fetch(ICS_URL, {
+    const cached = icsCache.get(normalizedIcsUrl);
+
+    // Serve from cache if still fresh
+    if (cached && Date.now() - cached.fetchedAt < ICS_CACHE_TTL_MS) {
+      res.set('Content-Type', 'text/calendar; charset=utf-8');
+      res.set('X-Cache', 'HIT');
+      return res.send(cached.data);
+    }
+
+    const response = await fetch(normalizedIcsUrl, {
       headers: { 'User-Agent': 'TSI-Manager/1.0' },
       signal: AbortSignal.timeout(10000)
     });
@@ -1685,7 +1728,7 @@ app.get('/api/ics-proxy', async (req, res) => {
       throw new Error('Response does not appear to be a valid ICS file');
     }
 
-    icsCache = { data: text, fetchedAt: Date.now() };
+    icsCache.set(normalizedIcsUrl, { data: text, fetchedAt: Date.now() });
 
     res.set('Content-Type', 'text/calendar; charset=utf-8');
     res.set('X-Cache', 'MISS');

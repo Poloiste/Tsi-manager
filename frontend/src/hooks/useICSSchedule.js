@@ -1,11 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
 import { parseICS } from '../utils/icsParser';
 
-export function getICSProxyUrl() {
+export function getICSProxyUrl(userId) {
   const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:3000';
   const normalizedApiUrl = apiUrl.replace(/\/api\/?$/, '');
+  const baseUrl = `${normalizedApiUrl}/api/ics-proxy`;
 
-  return `${normalizedApiUrl}/api/ics-proxy`;
+  if (!userId) {
+    return baseUrl;
+  }
+
+  const params = new URLSearchParams({ user_id: userId });
+  return `${baseUrl}?${params.toString()}`;
 }
 
 /**
@@ -17,7 +23,7 @@ export function getICSProxyUrl() {
  *  - error: string | null
  *  - refresh(): re-fetch the ICS
  */
-export function useICSSchedule() {
+export function useICSSchedule(userId) {
   const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,7 +32,7 @@ export function useICSSchedule() {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch(getICSProxyUrl());
+      const response = await fetch(getICSProxyUrl(userId));
       if (!response.ok) {
         const text = await response.text();
         let msg;
@@ -46,7 +52,7 @@ export function useICSSchedule() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     fetchICS();

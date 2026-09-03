@@ -143,7 +143,10 @@ function App() {
   });
 
   // ICS schedule from university calendar
-  const { getBaseSchedule: getICSBaseSchedule, isLoading: icsLoading, error: icsError, refresh: refreshICS } = useICSSchedule();
+  const { getBaseSchedule: getICSBaseSchedule, isLoading: icsLoading, error: icsError, refresh: refreshICS } = useICSSchedule(user?.id);
+  const [showIcsUrlConfig, setShowIcsUrlConfig] = useState(false);
+  const [icsUrlInput, setIcsUrlInput] = useState('');
+  const [isSavingIcsUrl, setIsSavingIcsUrl] = useState(false);
 
   // États pour Cours et Flashcards
   const [courses, setCourses] = useState([]);
@@ -1028,14 +1031,94 @@ function App() {
     }
   };
 
+  const isValidUniversityIcsUrl = (value) => {
+    if (!value || typeof value !== 'string') return false;
+
+    try {
+      const parsed = new URL(value.replace(/^webcal:\/\//i, 'https://'));
+      const id = parsed.searchParams.get('id');
+      return (
+        parsed.hostname === 'edt.univ-angers.fr' &&
+        parsed.pathname.startsWith('/edt/ics') &&
+        !!id &&
+        /^[A-Za-z0-9]+$/.test(id)
+      );
+    } catch {
+      return false;
+    }
+  };
+
+  const loadUserIcsUrl = async () => {
+    if (!user) {
+      setIcsUrlInput('');
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('user_schedule_sources')
+        .select('ics_url')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      setIcsUrlInput(data?.ics_url || '');
+    } catch (error) {
+      console.error('Error loading ICS URL:', error);
+      setIcsUrlInput('');
+    }
+  };
+
+  const saveUserIcsUrl = async () => {
+    if (!user) return;
+
+    const normalizedUrl = icsUrlInput.trim();
+    if (!normalizedUrl) {
+      alert('Collez un lien d\'emploi du temps avant de sauvegarder.');
+      return;
+    }
+
+    if (!isValidUniversityIcsUrl(normalizedUrl)) {
+      alert('Lien invalide. Utilisez un lien edt.univ-angers.fr avec un paramètre id.');
+      return;
+    }
+
+    try {
+      setIsSavingIcsUrl(true);
+      const { error } = await supabase
+        .from('user_schedule_sources')
+        .upsert(
+          [{
+            user_id: user.id,
+            ics_url: normalizedUrl
+          }],
+          { onConflict: 'user_id' }
+        );
+
+      if (error) throw error;
+
+      await refreshICS();
+      setShowIcsUrlConfig(false);
+      showSuccess('Lien d\'emploi du temps sauvegardé.');
+    } catch (error) {
+      console.error('Error saving ICS URL:', error);
+      alert('Erreur lors de la sauvegarde du lien d\'emploi du temps.');
+    } finally {
+      setIsSavingIcsUrl(false);
+    }
+  };
+
   useEffect(() => {
     const loadData = async () => {
       if (user) {
         await Promise.all([
           loadCourses(),
           loadFlashcards(),
-          loadEvents()
+          loadEvents(),
+          loadUserIcsUrl()
         ]);
+      } else {
+        setIcsUrlInput('');
       }
       setIsLoading(false);
     };
@@ -3125,6 +3208,41 @@ function App() {
                   )}
                 </div>
               )}
+
+              <div className="mb-6 max-w-3xl mx-auto">
+                <div className="flex justify-center">
+                  <button
+                    onClick={() => setShowIcsUrlConfig((prev) => !prev)}
+                    className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all font-semibold text-sm"
+                  >
+                    {showIcsUrlConfig ? 'Fermer la configuration EDT' : 'Configurer mon lien EDT'}
+                  </button>
+                </div>
+
+                {showIcsUrlConfig && (
+                  <div className={`mt-3 p-4 rounded-xl border ${themeClasses.bg.card} ${themeClasses.border.subtle}`}>
+                    <p className={`text-sm mb-3 ${themeClasses.text.accent}`}>
+                      Collez votre lien ICS (edt.univ-angers.fr). Il sera sauvegardé sur votre compte.
+                    </p>
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <input
+                        type="url"
+                        value={icsUrlInput}
+                        onChange={(e) => setIcsUrlInput(e.target.value)}
+                        placeholder="https://edt.univ-angers.fr/edt/ics?id=..."
+                        className={`flex-1 px-3 py-2 rounded-lg border ${themeClasses.bg.secondary} ${themeClasses.border.subtle} ${themeClasses.text.primary} text-sm`}
+                      />
+                      <button
+                        onClick={saveUserIcsUrl}
+                        disabled={isSavingIcsUrl}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 disabled:opacity-60 disabled:cursor-not-allowed transition-all font-semibold text-sm"
+                      >
+                        {isSavingIcsUrl ? 'Sauvegarde...' : 'Sauvegarder'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               {/* Sélecteur de semaine */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mb-8">
