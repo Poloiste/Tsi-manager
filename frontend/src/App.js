@@ -338,7 +338,6 @@ function App() {
 
   const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
   const subjects = ['Anglais', 'Culture et communication', 'Vie de l\'entreprise', 'Outils mathématiques et logiciels', 'PPP', 'Systèmes d\'information numériques', 'Informatique', 'Electronique', 'Energie', 'S.A.E'];
-  const daysUntil = Math.floor((new Date('2027-04-15') - new Date()) / (1000 * 60 * 60 * 24));
 
   // Fonction de recherche globale
   const handleSearch = (query) => {
@@ -2857,13 +2856,8 @@ function App() {
               </div>
             )}
 
-            {/* Right section - Days counter and logout */}
+            {/* Right section - actions and logout */}
             <div className="flex items-center gap-2 sm:gap-4">
-              <div className="text-right hidden sm:block">
-                <div className="text-xl sm:text-2xl font-bold text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text">{daysUntil}</div>
-                <div className="text-xs text-indigo-300">jours avant concours</div>
-              </div>
-              
               {/* Hamburger menu button - Mobile only */}
               <button
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
@@ -2988,10 +2982,6 @@ function App() {
               
               {/* Mobile-only actions */}
               <div className={`pt-2 border-t ${themeClasses.border.subtle}`}>
-                <div className="px-4 py-2 text-center">
-                  <div className="text-2xl font-bold text-transparent bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text">{daysUntil}</div>
-                  <div className="text-xs text-indigo-300">jours avant concours</div>
-                </div>
                 <button
                   onClick={() => {
                     setShowHelpPage(true);
