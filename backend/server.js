@@ -24,11 +24,58 @@ const allowedOrigins = Array.from(new Set(parseAllowedOrigins(
 )));
 
 const allowRequestsWithoutOrigin = process.env.ALLOW_REQUESTS_WITHOUT_ORIGIN === 'true';
+const rateLimitWindowMs = 15 * 60 * 1000;
+const apiRateLimitMax = Number(process.env.API_RATE_LIMIT_MAX) || 300;
+const socketRateLimitMax = Number(process.env.SOCKET_RATE_LIMIT_MAX) || 200;
+
 const isAllowedOrigin = (origin) => {
   if (!origin) {
     return allowRequestsWithoutOrigin;
   }
   return allowedOrigins.includes(origin);
+};
+
+const socketConnectionAttemptsByIp = new Map();
+
+const getClientIpAddress = (request) => {
+  const forwardedFor = request.headers['x-forwarded-for'];
+  if (typeof forwardedFor === 'string' && forwardedFor.length > 0) {
+    return forwardedFor.split(',')[0].trim();
+  }
+  return request.socket?.remoteAddress || request.connection?.remoteAddress || 'unknown';
+};
+
+const cleanupExpiredSocketAttempts = (now) => {
+  if (socketConnectionAttemptsByIp.size < 1000) {
+    return;
+  }
+
+  for (const [ipAddress, attemptData] of socketConnectionAttemptsByIp.entries()) {
+    if (now - attemptData.windowStart >= rateLimitWindowMs) {
+      socketConnectionAttemptsByIp.delete(ipAddress);
+    }
+  }
+};
+
+const canAcceptSocketConnection = (request) => {
+  const now = Date.now();
+  cleanupExpiredSocketAttempts(now);
+
+  const ipAddress = getClientIpAddress(request);
+  const attempts = socketConnectionAttemptsByIp.get(ipAddress);
+
+  if (!attempts || now - attempts.windowStart >= rateLimitWindowMs) {
+    socketConnectionAttemptsByIp.set(ipAddress, { count: 1, windowStart: now });
+    return true;
+  }
+
+  if (attempts.count >= socketRateLimitMax) {
+    return false;
+  }
+
+  attempts.count += 1;
+  socketConnectionAttemptsByIp.set(ipAddress, attempts);
+  return true;
 };
 
 const corsOptions = {
@@ -53,20 +100,23 @@ const io = new Server(server, {
     },
     methods: ['GET', 'POST'],
     credentials: true
+  },
+  allowRequest: (request, callback) => {
+    callback(null, canAcceptSocketConnection(request));
   }
 });
 
 const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: Number(process.env.API_RATE_LIMIT_MAX) || 300,
+  windowMs: rateLimitWindowMs,
+  max: apiRateLimitMax,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { error: 'Too many requests, please try again later.' }
 });
 
 const socketLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: Number(process.env.SOCKET_RATE_LIMIT_MAX) || 200,
+  windowMs: rateLimitWindowMs,
+  max: socketRateLimitMax,
   standardHeaders: 'draft-8',
   legacyHeaders: false,
   message: { error: 'Too many socket connection attempts, please try again later.' }
