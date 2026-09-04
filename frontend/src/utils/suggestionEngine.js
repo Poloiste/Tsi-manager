@@ -34,6 +34,22 @@ const V2_SCORING = {
   maxChaptersPerSubject: 2
 };
 
+const defaultParseLocalDate = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+  return null;
+};
+
+const defaultCalculateDaysBetween = (startDate, endDate) => {
+  if (!(startDate instanceof Date) || !(endDate instanceof Date)) return 0;
+  const normalizedStart = new Date(startDate);
+  const normalizedEnd = new Date(endDate);
+  normalizedStart.setHours(0, 0, 0, 0);
+  normalizedEnd.setHours(0, 0, 0, 0);
+  return Math.floor((normalizedEnd - normalizedStart) / (1000 * 60 * 60 * 24));
+};
+
 const normalizeNumber = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
@@ -637,11 +653,17 @@ const computeV2Suggestions = (context, deps) => {
 };
 
 export const getSuggestedReviewsByMode = (context, deps) => {
+  const safeDeps = {
+    calculateReviewPriority: deps?.calculateReviewPriority || (() => ({ priority: 0 })),
+    parseLocalDate: deps?.parseLocalDate || defaultParseLocalDate,
+    calculateDaysBetween: deps?.calculateDaysBetween || defaultCalculateDaysBetween
+  };
+
   const mode = context.settings.suggestionEngineMode;
 
   if (mode === SUGGESTION_ENGINE_MODES.LEGACY) {
-    return toUnifiedOutputContract(computeLegacySuggestions(context, deps));
+    return toUnifiedOutputContract(computeLegacySuggestions(context, safeDeps));
   }
 
-  return toUnifiedOutputContract(computeV2Suggestions(context, deps));
+  return toUnifiedOutputContract(computeV2Suggestions(context, safeDeps));
 };

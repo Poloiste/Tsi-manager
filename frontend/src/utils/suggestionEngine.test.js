@@ -163,4 +163,30 @@ describe('suggestionEngine', () => {
     expect(suggestions[0].hasClassTomorrow).toBe(true);
     expect(suggestions[0].chapters[0].fromTomorrowCourse).toBe(true);
   });
+
+  test('v2 keeps dated tests usable when date deps are not injected', () => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowDate = tomorrow.toISOString().split('T')[0];
+
+    const context = createSuggestionContext({
+      day: 'Lundi',
+      weekNum: 10,
+      currentWeek: 10,
+      currentDayName: 'Lundi',
+      days,
+      subjects: ['Maths'],
+      courses: [{ id: 'c1', subject: 'Maths', chapter: 'Suites', mastery: 30, reviewCount: 1, priority: 60 }],
+      revisionSettings: { ...DEFAULT_REVISION_SETTINGS_V2, suggestionEngineMode: SUGGESTION_ENGINE_MODES.V2 },
+      upcomingTests: [{ subject: 'Maths', type: 'DS', date: tomorrowDate, day: 'Mardi', week: 10, daysUntil: 1 }],
+      nextDayScheduleEvents: []
+    });
+
+    const suggestions = getSuggestedReviewsByMode(context, {
+      calculateReviewPriority: defaultDeps.calculateReviewPriority
+    });
+
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].chapters[0].reason).toContain('DS');
+  });
 });
