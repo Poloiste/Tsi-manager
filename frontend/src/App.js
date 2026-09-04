@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
@@ -233,6 +233,8 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchResults, setSearchResults] = useState({ courses: [], flashcards: [] });
+  const [dashboardSearchQuery, setDashboardSearchQuery] = useState('');
+  const [dashboardSearchFilter, setDashboardSearchFilter] = useState('all');
   
   // États pour Import/Export de flashcards
   const [showImportExport, setShowImportExport] = useState(false);
@@ -258,6 +260,7 @@ function App() {
   // États pour Quiz
   const [quizView, setQuizView] = useState('home'); // 'home' | 'setup' | 'session' | 'results'
   const [quizError, setQuizError] = useState(null);
+  const [quizHistorySearchQuery, setQuizHistorySearchQuery] = useState('');
   
   // États pour Chat/Discussions (kept for groups view)
   const [channels, setChannels] = useState([]);
@@ -336,11 +339,11 @@ function App() {
     }
   });
 
-  const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  const days = FRENCH_WEEK_DAYS;
   const subjects = ['Anglais', 'Culture et communication', 'Vie de l\'entreprise', 'Outils mathématiques et logiciels', 'PPP', 'Systèmes d\'information numériques', 'Informatique', 'Electronique', 'Energie', 'S.A.E'];
 
   // Fonction de recherche globale
-  const handleSearch = (query) => {
+  const handleSearch = (query, tab = activeTab) => {
     setSearchQuery(query);
     
     if (query.trim().length < 2) {
@@ -352,18 +355,19 @@ function App() {
     const lowerQuery = query.toLowerCase();
     
     // Filtrer selon l'onglet actif
-    if (activeTab === 'flashcards') {
+    if (tab === 'flashcards') {
       // Recherche dans les flashcards uniquement
       const matchingFlashcards = flashcards.filter(fc =>
         fc.question.toLowerCase().includes(lowerQuery) ||
-        fc.answer.toLowerCase().includes(lowerQuery)
+        fc.answer.toLowerCase().includes(lowerQuery) ||
+        (fc.authorName && fc.authorName.toLowerCase().includes(lowerQuery))
       );
       
       setSearchResults({
         courses: [],
         flashcards: matchingFlashcards.slice(0, 5)
       });
-    } else if (activeTab === 'courses') {
+    } else if (tab === 'courses') {
       // Recherche dans les cours uniquement
       const matchingCourses = courses.filter(course => 
         course.subject.toLowerCase().includes(lowerQuery) ||
@@ -381,7 +385,7 @@ function App() {
   };
 
   // Fonctions
-  const getUpcomingTests = (currentWeek, daysAhead = 14, referenceYear = currentYear) => {
+  const getUpcomingTests = useCallback((currentWeekParam, daysAhead = 14, referenceYear = currentYear) => {
     const tests = [];
     const today = new Date();
     const todayNormalized = normalizeToMidnight(today);
@@ -397,7 +401,7 @@ function App() {
           daysUntil = calculateDaysBetween(todayNormalized, eventDate);
         } else {
           const dayIndex = days.indexOf(event.day);
-          const eventYear = resolveEventWeekYear(event.week, currentWeek, referenceYear);
+          const eventYear = resolveEventWeekYear(event.week, currentWeekParam, referenceYear);
 
           if (Number.isFinite(event.week) && dayIndex >= 0) {
             const weekStart = getWeekStartDate(eventYear, event.week);
@@ -410,7 +414,7 @@ function App() {
             eventDate.setDate(weekStartLocal.getDate() + dayIndex);
             daysUntil = calculateDaysBetween(todayNormalized, eventDate);
           } else {
-            const weekOffset = event.week - currentWeek;
+            const weekOffset = event.week - currentWeekParam;
             daysUntil = (weekOffset * 7) + dayIndex;
           }
         }
@@ -423,7 +427,7 @@ function App() {
             week: event.week,
             year: event.date
               ? parseLocalDate(event.date)?.getFullYear()
-              : resolveEventWeekYear(event.week, currentWeek, referenceYear),
+              : resolveEventWeekYear(event.week, currentWeekParam, referenceYear),
             date: event.date,
             daysUntil: daysUntil,
             time: event.time
@@ -433,7 +437,7 @@ function App() {
     });
     
     return tests.sort((a, b) => a.daysUntil - b.daysUntil);
-  };
+  }, [customEvents, days, currentYear]);
 
   // eslint-disable-next-line no-unused-vars
   const getWeekIntensity = (weekNum) => {
@@ -660,6 +664,146 @@ function App() {
     if (!user) return 'Anonyme';
     return user.user_metadata?.name || user.email?.split('@')[0] || 'Anonyme';
   };
+
+  const upcomingTestsForDashboard = useMemo(
+    () => getUpcomingTests(currentWeek, 30, currentYear),
+    [getUpcomingTests, currentWeek, currentYear]
+  );
+
+  const quizHistory = useMemo(
+    () => (Array.isArray(quiz.quizHistory) ? quiz.quizHistory : []),
+    [quiz.quizHistory]
+  );
+  const totalSRSFlashcards = (srs?.stats?.due || 0) + (srs?.stats?.learning || 0) + (srs?.stats?.mastered || 0) + (srs?.stats?.new || 0);
+  const averageMastery = courses.length > 0
+    ? Math.round(courses.reduce((sum, c) => sum + c.mastery, 0) / courses.length)
+    : 0;
+
+  const dashboardAlerts = useMemo(() => {
+    const alerts = [];
+    const dueCards = srs?.stats?.due || 0;
+    const testsIn48h = upcomingTestsForDashboard.filter(test => test.daysUntil >= 0 && test.daysUntil <= 2).length;
+    const testsThisWeek = upcomingTestsForDashboard.filter(test => test.daysUntil >= 0 && test.daysUntil <= 7).length;
+    const lastActivity = userProfile?.last_activity_date ? parseLocalDate(userProfile.last_activity_date) : null;
+    const daysSinceActivity = lastActivity
+      ? calculateDaysBetween(normalizeToMidnight(lastActivity), normalizeToMidnight(new Date()))
+      : 0;
+
+    if (dueCards > 0) {
+      alerts.push({
+        id: 'due-cards',
+        level: 'high',
+        label: `${dueCards} carte${dueCards > 1 ? 's' : ''} à réviser aujourd'hui`
+      });
+    }
+    if (testsIn48h > 0) {
+      alerts.push({
+        id: 'tests-48h',
+        level: 'high',
+        label: `${testsIn48h} évaluation${testsIn48h > 1 ? 's' : ''} dans les 48h`
+      });
+    }
+    if (testsThisWeek > 0) {
+      alerts.push({
+        id: 'tests-week',
+        level: 'medium',
+        label: `${testsThisWeek} échéance${testsThisWeek > 1 ? 's' : ''} cette semaine`
+      });
+    }
+    if (daysSinceActivity >= 1 && (userProfile?.current_streak || 0) > 0) {
+      alerts.push({
+        id: 'streak-risk',
+        level: 'medium',
+        label: `Streak en danger (${userProfile.current_streak} jours)`
+      });
+    }
+    if (alerts.length === 0) {
+      alerts.push({
+        id: 'all-good',
+        level: 'low',
+        label: 'Aucune alerte critique'
+      });
+    }
+
+    return alerts;
+  }, [srs?.stats?.due, upcomingTestsForDashboard, userProfile]);
+
+  const searchableUsers = useMemo(() => {
+    const usersMap = new Map();
+
+    const addUser = (name, source, metadata = {}) => {
+      if (!name) return;
+      const normalized = name.trim();
+      if (!normalized) return;
+      const key = normalized.toLowerCase();
+      const existing = usersMap.get(key);
+
+      if (!existing) {
+        usersMap.set(key, { name: normalized, source, ...metadata });
+        return;
+      }
+
+      usersMap.set(key, { ...existing, ...metadata });
+    };
+    addUser(getUserDisplayName(user), 'Profil');
+    flashcards.forEach(card => addUser(card.authorName, 'Flashcards', { courseId: card.courseId }));
+
+    return Array.from(usersMap.values());
+  }, [user, flashcards]);
+
+  const dashboardSearchResults = useMemo(() => {
+    const query = dashboardSearchQuery.trim().toLowerCase();
+    if (query.length < 2) {
+      return { exams: [], sessions: [], users: [] };
+    }
+
+    const includesQuery = (value) => String(value || '').toLowerCase().includes(query);
+    const isAll = dashboardSearchFilter === 'all';
+
+    const exams = (isAll || dashboardSearchFilter === 'exam')
+      ? upcomingTestsForDashboard
+        .filter(test => (
+          includesQuery(test.subject) ||
+          includesQuery(test.type) ||
+          includesQuery(test.day) ||
+          includesQuery(test.time) ||
+          includesQuery(test.week) ||
+          includesQuery(test.year)
+        ))
+        .slice(0, 6)
+      : [];
+
+    const sessions = (isAll || dashboardSearchFilter === 'session')
+      ? quizHistory
+        .filter(session => (
+          includesQuery(session.title) ||
+          includesQuery(session.mode) ||
+          includesQuery(session.score)
+        ))
+        .slice(0, 6)
+      : [];
+
+    const users = (isAll || dashboardSearchFilter === 'user')
+      ? searchableUsers
+        .filter(foundUser => includesQuery(foundUser.name))
+        .slice(0, 6)
+      : [];
+
+    return { exams, sessions, users };
+  }, [dashboardSearchQuery, dashboardSearchFilter, upcomingTestsForDashboard, quizHistory, searchableUsers]);
+
+  const filteredQuizHistory = useMemo(() => {
+    const query = quizHistorySearchQuery.trim().toLowerCase();
+    if (!query) return quizHistory;
+
+    const includesQuery = (value) => String(value || '').toLowerCase().includes(query);
+    return quizHistory.filter(session => (
+      includesQuery(session.title) ||
+      includesQuery(session.mode) ||
+      includesQuery(session.score) ||
+      includesQuery(session.completed_at)
+    ));
+  }, [quizHistory, quizHistorySearchQuery]);
 
   // Toggle expansion for tree view
   const toggleSubject = (subject) => {
@@ -4390,6 +4534,208 @@ function App() {
                 <p className="text-indigo-300 text-lg">Vue d'ensemble de votre parcours d'apprentissage</p>
               </div>
 
+              {/* Tableau de bord clair */}
+              <div className="bg-slate-900/60 border border-slate-700/60 rounded-3xl p-6 md:p-8 space-y-8">
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-4">Tableau de bord rapide</h3>
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="rounded-xl border border-indigo-500/30 bg-indigo-900/20 p-4">
+                      <p className="text-xs text-indigo-300 uppercase tracking-wider">Cartes dues</p>
+                      <p className="text-2xl font-bold text-white mt-1">{srs?.stats?.due || 0}</p>
+                    </div>
+                    <div className="rounded-xl border border-purple-500/30 bg-purple-900/20 p-4">
+                      <p className="text-xs text-purple-300 uppercase tracking-wider">Maîtrise</p>
+                      <p className="text-2xl font-bold text-white mt-1">{averageMastery}%</p>
+                    </div>
+                    <div className="rounded-xl border border-cyan-500/30 bg-cyan-900/20 p-4">
+                      <p className="text-xs text-cyan-300 uppercase tracking-wider">Sessions quiz</p>
+                      <p className="text-2xl font-bold text-white mt-1">{quizHistory.length}</p>
+                    </div>
+                    <div className="rounded-xl border border-red-500/30 bg-red-900/20 p-4">
+                      <p className="text-xs text-red-300 uppercase tracking-wider">Échéances (30j)</p>
+                      <p className="text-2xl font-bold text-white mt-1">{upcomingTestsForDashboard.length}</p>
+                    </div>
+                    <div className="rounded-xl border border-green-500/30 bg-green-900/20 p-4">
+                      <p className="text-xs text-green-300 uppercase tracking-wider">Cartes SRS</p>
+                      <p className="text-2xl font-bold text-white mt-1">{totalSRSFlashcards}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                  <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5">
+                    <h4 className="text-lg font-bold text-white mb-4">📅 Prochaines échéances</h4>
+                    {upcomingTestsForDashboard.length === 0 ? (
+                      <p className="text-sm text-slate-400">Aucune échéance trouvée.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {upcomingTestsForDashboard.slice(0, 5).map((test, index) => (
+                          <button
+                            key={`${test.subject}-${test.type}-${index}`}
+                            onClick={() => {
+                              if (Number.isFinite(test.year)) setCurrentYear(test.year);
+                              if (Number.isFinite(test.week)) setCurrentWeek(test.week);
+                              if (test.day) setSelectedDay(test.day);
+                              setActiveTab('planning');
+                            }}
+                            className="w-full text-left rounded-lg border border-slate-700 hover:border-indigo-500 bg-slate-900/50 px-4 py-3 transition-all"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-semibold text-white truncate">{test.subject} • {test.type}</span>
+                              <span className="text-xs font-bold text-red-300 whitespace-nowrap">
+                                {test.daysUntil === 0 ? "Aujourd'hui" : test.daysUntil === 1 ? 'Demain' : `J-${test.daysUntil}`}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1">{test.day || 'Jour non précisé'} • {test.time || 'Horaire non précisé'}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5">
+                    <h4 className="text-lg font-bold text-white mb-4">🚨 Alertes</h4>
+                    <div className="space-y-3">
+                      {dashboardAlerts.map(alertItem => (
+                        <div
+                          key={alertItem.id}
+                          className={`rounded-lg border px-4 py-3 ${
+                            alertItem.level === 'high'
+                              ? 'border-red-500/40 bg-red-900/20 text-red-200'
+                              : alertItem.level === 'medium'
+                              ? 'border-yellow-500/40 bg-yellow-900/20 text-yellow-200'
+                              : 'border-green-500/40 bg-green-900/20 text-green-200'
+                          }`}
+                        >
+                          <p className="text-sm font-semibold">{alertItem.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5">
+                  <h4 className="text-lg font-bold text-white mb-4">🔎 Recherche rapide</h4>
+                  <div className="flex flex-col lg:flex-row gap-3 mb-4">
+                    <div className="flex-1 flex items-center gap-2 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2">
+                      <Search className="w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        value={dashboardSearchQuery}
+                        onChange={(e) => setDashboardSearchQuery(e.target.value)}
+                        placeholder="Rechercher un examen, utilisateur, session..."
+                        className="bg-transparent text-white placeholder-slate-500 outline-none w-full text-sm"
+                      />
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {[
+                        { id: 'all', label: 'Tout' },
+                        { id: 'exam', label: 'Examens' },
+                        { id: 'user', label: 'Utilisateurs' },
+                        { id: 'session', label: 'Sessions' }
+                      ].map(filter => (
+                        <button
+                          key={filter.id}
+                          onClick={() => setDashboardSearchFilter(filter.id)}
+                          aria-pressed={dashboardSearchFilter === filter.id}
+                          className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                            dashboardSearchFilter === filter.id
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-slate-900/60 border border-slate-700 text-slate-300 hover:border-indigo-500'
+                          }`}
+                        >
+                          {filter.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {dashboardSearchQuery.trim().length < 2 ? (
+                    <p className="text-sm text-slate-400">Saisissez au moins 2 caractères.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-4">
+                        <p className="text-xs text-slate-400 uppercase tracking-wider mb-3">Examens ({dashboardSearchResults.exams.length})</p>
+                        <div className="space-y-2">
+                          {dashboardSearchResults.exams.length === 0 ? (
+                            <p className="text-xs text-slate-500">Aucun résultat</p>
+                          ) : dashboardSearchResults.exams.map((exam, index) => (
+                            <button
+                              key={`${exam.subject}-${exam.type}-${index}`}
+                              onClick={() => {
+                                if (Number.isFinite(exam.year)) setCurrentYear(exam.year);
+                                if (Number.isFinite(exam.week)) setCurrentWeek(exam.week);
+                                if (exam.day) setSelectedDay(exam.day);
+                                setActiveTab('planning');
+                              }}
+                              className="w-full text-left rounded-lg border border-slate-700 hover:border-indigo-500 px-3 py-2 transition-all"
+                            >
+                              <p className="text-sm text-white font-semibold truncate">{exam.subject} • {exam.type}</p>
+                              <p className="text-xs text-slate-400">{exam.day || 'Jour non précisé'} • {exam.time || 'Horaire non précisé'}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-4">
+                        <p className="text-xs text-slate-400 uppercase tracking-wider mb-3">Sessions ({dashboardSearchResults.sessions.length})</p>
+                        <div className="space-y-2">
+                          {dashboardSearchResults.sessions.length === 0 ? (
+                            <p className="text-xs text-slate-500">Aucun résultat</p>
+                          ) : dashboardSearchResults.sessions.map((session, index) => (
+                            <button
+                              key={`${session.id || session.completed_at || session.title || 'session'}-${index}`}
+                              onClick={() => {
+                                setActiveTab('quiz');
+                                setQuizView('home');
+                                setQuizHistorySearchQuery(session.title || '');
+                              }}
+                              className="w-full text-left rounded-lg border border-slate-700 hover:border-indigo-500 px-3 py-2 transition-all"
+                            >
+                              <p className="text-sm text-white font-semibold truncate">{session.title}</p>
+                              <p className="text-xs text-slate-400">
+                                {session.mode} • {session.score ?? 0}% • {session.completed_at ? new Date(session.completed_at).toLocaleDateString('fr-FR') : 'Date inconnue'}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-4">
+                        <p className="text-xs text-slate-400 uppercase tracking-wider mb-3">Utilisateurs ({dashboardSearchResults.users.length})</p>
+                        <div className="space-y-2">
+                          {dashboardSearchResults.users.length === 0 ? (
+                            <p className="text-xs text-slate-500">Aucun résultat</p>
+                          ) : dashboardSearchResults.users.map((foundUser) => (
+                            <button
+                              key={`${foundUser.name}-${foundUser.source}`}
+                              onClick={() => {
+                                if (foundUser.source === 'Flashcards') {
+                                  if (foundUser.courseId) {
+                                    const relatedCourse = courses.find(course => course.id === foundUser.courseId);
+                                    if (relatedCourse) setSelectedCourseForFlashcards(relatedCourse);
+                                  }
+                                  setActiveTab('flashcards');
+                                  setSearchQuery(foundUser.name);
+                                  handleSearch(foundUser.name, 'flashcards');
+                                  setShowSearchResults(true);
+                                  return;
+                                }
+                                setActiveTab('stats');
+                              }}
+                              className="w-full text-left rounded-lg border border-slate-700 hover:border-indigo-500 px-3 py-2 transition-all"
+                            >
+                              <p className="text-sm text-white font-semibold truncate">{foundUser.name}</p>
+                              <p className="text-xs text-slate-400">Source: {foundUser.source}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Section Profil Utilisateur */}
               {userProfile && (
                 <div className="bg-gradient-to-br from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-3xl p-8">
@@ -4779,20 +5125,35 @@ function App() {
                         📊 Historique des Quiz
                       </h3>
 
+                      <div className="mb-6 flex items-center gap-2 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2">
+                        <Search className="w-4 h-4 text-slate-400" />
+                        <input
+                          type="text"
+                          value={quizHistorySearchQuery}
+                          onChange={(e) => setQuizHistorySearchQuery(e.target.value)}
+                          placeholder="Filtrer par titre, mode, score..."
+                          className="bg-transparent text-white placeholder-slate-500 outline-none w-full text-sm"
+                        />
+                      </div>
+
                       {quiz.isLoading ? (
                         <div className="text-center py-12 text-slate-400">
                           <div className="animate-spin w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
                           Chargement...
                         </div>
-                      ) : (!quiz.quizHistory || !Array.isArray(quiz.quizHistory) || quiz.quizHistory.length === 0) ? (
+                      ) : (filteredQuizHistory.length === 0) ? (
                         <div className="text-center py-12 text-slate-400">
                           <div className="text-6xl mb-4">📝</div>
-                          <p className="text-xl">Aucun quiz complété pour le moment</p>
-                          <p className="text-sm mt-2">Lancez votre premier quiz pour commencer !</p>
+                          <p className="text-xl">
+                            {quizHistory.length === 0 ? 'Aucun quiz complété pour le moment' : 'Aucune session ne correspond à ce filtre'}
+                          </p>
+                          <p className="text-sm mt-2">
+                            {quizHistory.length === 0 ? 'Lancez votre premier quiz pour commencer !' : 'Essayez un autre mot-clé'}
+                          </p>
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          {quiz.quizHistory.map(q => {
+                          {filteredQuizHistory.map(q => {
                             const scoreColor = q.score >= 90 ? 'text-green-400' : q.score >= 70 ? 'text-blue-400' : q.score >= 50 ? 'text-yellow-400' : 'text-red-400';
                             const modeEmoji = q.mode === 'training' ? '🎯' : q.mode === 'exam' ? '📝' : '🎓';
                             const timeAgo = (() => {
