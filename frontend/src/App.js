@@ -22,7 +22,13 @@ import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './uti
 import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
 import { getISOWeek, getCurrentISOWeek, formatWeekLabel, isoWeeksInYear } from './utils/weekUtils';
 import { useICSSchedule } from './hooks/useICSSchedule';
-import { getPreparationDays, getUrgencyMultiplier, getSuggestedDuration, baseScoreByType, buildFallbackSuggestionsFromSchedule } from './utils/suggestionHelpers';
+import {
+  DEFAULT_REVISION_SETTINGS_V2,
+  SUGGESTION_ENGINE_MODES,
+  createSuggestionContext,
+  getSuggestedReviewsByMode,
+  normalizeRevisionSettings
+} from './utils/suggestionEngine';
 import { useSRS } from './hooks/useSRS';
 import { useQuiz } from './hooks/useQuiz';
 import { getCardStatus, getStatusEmoji, getStatusLabel, isDifficultyCorrect } from './utils/srsAlgorithm';
@@ -292,13 +298,13 @@ function App() {
   const [showRevisionSettings, setShowRevisionSettings] = useState(false);
   const [revisionSettings, setRevisionSettings] = useState(() => {
     const saved = localStorage.getItem('revisionSettings');
-    return saved ? JSON.parse(saved) : {
-      startTime: '19:15',
-      totalDuration: 120, // minutes
-      sessionDuration: 45, // minutes
-      prioritySubjects: [],
-      restDays: ['Vendredi', 'Samedi']
-    };
+    if (!saved) return normalizeRevisionSettings(DEFAULT_REVISION_SETTINGS_V2);
+
+    try {
+      return normalizeRevisionSettings(JSON.parse(saved));
+    } catch {
+      return normalizeRevisionSettings(DEFAULT_REVISION_SETTINGS_V2);
+    }
   });
 
   const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
@@ -530,250 +536,32 @@ function App() {
     }
   };
 
-  // Helper function: Calculate days from a specific day to a test
-  const calculateDaysFromDayToTest = (fromDay, test) => {
-    const dayIndex = days.indexOf(fromDay);
-    const testDayIndex = days.indexOf(test.day);
-    
-    // If test has an exact date, use it
-    if (test.date) {
-      const today = new Date();
-      const testDate = parseLocalDate(test.date);
-      const todayNormalized = normalizeToMidnight(today);
-      
-      // Calculate total days from today to test
-      const totalDaysToTest = calculateDaysBetween(todayNormalized, testDate);
-      
-      // Calculate days from current day of week to the specified day
-      const todayDayIndex = days.indexOf(getDayName());
-      let daysToSpecifiedDay = dayIndex - todayDayIndex;
-      
-      // Adjust for next week if needed
-      if (daysToSpecifiedDay < 0) {
-        daysToSpecifiedDay += 7;
-      }
-      
-      // Days from the specified day to the test
-      return totalDaysToTest - daysToSpecifiedDay;
-    } else {
-      // Fallback to week/day calculation
-      const weekOffset = test.week - currentWeek;
-      let daysUntil = (weekOffset * 7) + (testDayIndex - dayIndex);
-      return daysUntil;
-    }
-  };
-
   const getSuggestedReviews = (day, weekNum = currentWeek) => {
-    // Check if it's a rest day
-    if (revisionSettings.restDays.includes(day)) {
-      return [];
-    }
-
-    // Calculate available time based on settings
-    const totalSlots = Math.floor(revisionSettings.totalDuration / revisionSettings.sessionDuration);
-    
-    // Get all upcoming tests (extend window to catch preparation period)
+    const settings = normalizeRevisionSettings(revisionSettings);
     const upcomingTests = getUpcomingTests(weekNum, 14);
-
-    // Get next day's ICS schedule events to boost subjects taught the next day
-    // (so suggestions for Monday are based on Tuesday's courses, etc.)
     const nextDayIndex = (days.indexOf(day) + 1) % days.length;
     const nextDay = days[nextDayIndex];
     const nextDayWeekNum = nextDayIndex === 0 ? weekNum + 1 : weekNum;
-    const dayScheduleEvents = getICSBaseSchedule(currentYear, nextDayWeekNum, nextDay);
-    const scheduledSubjects = dayScheduleEvents.map(e => e.subject.toLowerCase());
-    const isScheduledToday = (subject) =>
-      scheduledSubjects.some(s => s.includes(subject.toLowerCase()) || subject.toLowerCase().includes(s));
-    
-    // Calculate priority scores for each subject based on the specific day
-    const subjectScores = {};
-    subjects.forEach(subject => {
-      let score = 0;
-      
-      // Base score from manual priority
-      if (revisionSettings.prioritySubjects.includes(subject)) {
-        score += 20;
-      }
-      
-      // Find upcoming tests for this subject
-      const subjectTests = upcomingTests.filter(test => 
-        test.subject.toLowerCase().includes(subject.toLowerCase()) || 
-        subject.toLowerCase().includes(test.subject.toLowerCase())
-      );
-      
-      // For each test, calculate if this day should include preparation
-      const relevantTests = [];
-      subjectTests.forEach(test => {
-        const daysUntilFromThisDay = calculateDaysFromDayToTest(day, test);
-        const prepDays = getPreparationDays(test.type);
-        
-        // Check if we're in the preparation window
-        if (daysUntilFromThisDay > 0 && daysUntilFromThisDay <= prepDays) {
-          const baseScore = baseScoreByType[test.type] || 30;
-          const urgencyMultiplier = getUrgencyMultiplier(daysUntilFromThisDay, test.type);
-          const testScore = baseScore * urgencyMultiplier;
-          
-          score += testScore;
-          relevantTests.push({
-            ...test,
-            daysUntilFromThisDay,
-            suggestedDuration: getSuggestedDuration(test.type, daysUntilFromThisDay)
-          });
-        }
-      });
-      
-      // Find courses for this subject
-      const subjectCourses = courses.filter(c => c.subject === subject);
-      if (subjectCourses.length > 0) {
-        // Bonus if low mastery
-        const avgMastery = subjectCourses.reduce((sum, c) => sum + (c.mastery || 0), 0) / subjectCourses.length;
-        score += (100 - avgMastery) * 0.2;
-        
-        // Bonus if not reviewed recently
-        const NEVER_REVIEWED_VALUE = Number.MAX_SAFE_INTEGER;
-        const oldestReview = subjectCourses.reduce((oldest, c) => {
-          if (!c.lastReviewed) return NEVER_REVIEWED_VALUE;
-          const days = Math.floor((new Date() - new Date(c.lastReviewed)) / (1000 * 60 * 60 * 24));
-          return Math.min(oldest, days);
-        }, 0);
-        score += Math.min(oldestReview * 2, 30);
-      }
-      
-      // Bonus if the subject has a class on this day (post-course review)
-      if (isScheduledToday(subject)) {
-        score += 25;
-      }
-      
-      subjectScores[subject] = { score, tests: relevantTests, hasClassToday: isScheduledToday(subject) };
-    });
-    
-    // Build week context for compatibility
-    const weekContext = { upcomingTests };
-    
-    // Calculate priority for all courses with enriched data
-    const coursesWithPriority = courses.map(course => {
-      const subjectData = subjectScores[course.subject];
-      const hasRelevantTest = subjectData?.tests?.length > 0;
-      const firstTest = hasRelevantTest ? subjectData.tests[0] : null;
-      
-      return {
-        ...course,
-        ...calculateReviewPriority(course, weekContext),
-        subjectScore: subjectData?.score || 0,
-        relevantTest: firstTest,
-        suggestedDuration: firstTest?.suggestedDuration || '30min - 45min'
-      };
+    const nextDayScheduleEvents = getICSBaseSchedule(currentYear, nextDayWeekNum, nextDay);
+
+    const context = createSuggestionContext({
+      day,
+      weekNum,
+      currentWeek,
+      days,
+      subjects,
+      courses,
+      revisionSettings: settings,
+      upcomingTests,
+      nextDayScheduleEvents,
+      currentDayName: getDayName()
     });
 
-    // Group courses by subject
-    const coursesBySubject = {};
-    coursesWithPriority.forEach(course => {
-      if (!coursesBySubject[course.subject]) {
-        coursesBySubject[course.subject] = [];
-      }
-      coursesBySubject[course.subject].push(course);
+    return getSuggestedReviewsByMode(context, {
+      calculateReviewPriority,
+      parseLocalDate,
+      calculateDaysBetween
     });
-
-    // Sort subjects by their score (highest priority first)
-    const sortedSubjects = Object.keys(coursesBySubject).sort((a, b) => {
-      const scoreA = subjectScores[a]?.score || 0;
-      const scoreB = subjectScores[b]?.score || 0;
-      return scoreB - scoreA;
-    });
-
-    // Build suggestions organized by subject with 1-2 chapters per subject
-    const suggestionsBySubject = [];
-    let totalChaptersSelected = 0;
-
-    for (const subject of sortedSubjects) {
-      if (totalChaptersSelected >= totalSlots) break;
-      
-      const subjectData = subjectScores[subject];
-      const subjectCourses = coursesBySubject[subject];
-      
-      // Sort chapters by urgency and priority within this subject (create copy to avoid mutation)
-      const sortedChapters = [...subjectCourses].sort((a, b) => {
-        // First by urgency
-        const urgencyOrder = { high: 3, medium: 2, low: 1 };
-        const urgencyA = a.relevantTest ? (
-          a.relevantTest.daysUntilFromThisDay <= 2 ? 'high' : 
-          a.relevantTest.daysUntilFromThisDay <= 3 ? 'medium' : 'low'
-        ) : (a.priority > 80 ? 'medium' : 'low');
-        const urgencyB = b.relevantTest ? (
-          b.relevantTest.daysUntilFromThisDay <= 2 ? 'high' : 
-          b.relevantTest.daysUntilFromThisDay <= 3 ? 'medium' : 'low'
-        ) : (b.priority > 80 ? 'medium' : 'low');
-        
-        if (urgencyOrder[urgencyA] !== urgencyOrder[urgencyB]) {
-          return urgencyOrder[urgencyB] - urgencyOrder[urgencyA];
-        }
-        
-        // Then by priority score
-        return b.priority - a.priority;
-      });
-
-      // Select top 1-2 chapters for this subject
-      const chaptersToInclude = sortedChapters.slice(0, Math.min(2, totalSlots - totalChaptersSelected));
-      
-      if (chaptersToInclude.length > 0 && (subjectData?.score > 20 || chaptersToInclude[0].priority > 25)) {
-        // Enrich chapters with urgency and reason
-        const enrichedChapters = chaptersToInclude.map(course => {
-          const hasTest = course.relevantTest != null;
-          const test = course.relevantTest;
-          
-          // Determine urgency based on days until test
-          let urgency = 'low';
-          let reasonText = 'Révision recommandée';
-          
-          if (hasTest) {
-            const daysUntil = test.daysUntilFromThisDay;
-            
-            if (daysUntil <= 1) {
-              urgency = 'high';
-              reasonText = `🎯 ${test.type} dans ${daysUntil} jour${daysUntil > 1 ? 's' : ''} - Révision ${test.type === 'DS' || test.type === 'Examen' ? 'approfondie' : 'intensive'}`;
-            } else if (daysUntil <= 2) {
-              urgency = 'high';
-              reasonText = `🎯 ${test.type} dans ${daysUntil} jours`;
-            } else if (daysUntil <= 3) {
-              urgency = 'medium';
-              reasonText = `🎯 ${test.type} dans ${daysUntil} jours`;
-            } else {
-              urgency = 'low';
-              reasonText = `🎯 ${test.type} dans ${daysUntil} jours - Préparation progressive`;
-            }
-          } else if (subjectData?.hasClassToday) {
-            urgency = 'medium';
-            reasonText = '🏫 Cours aujourd\'hui - Consolidez ce que vous avez appris';
-          } else if (course.priority > 80) {
-            urgency = 'medium';
-            reasonText = 'Révision urgente';
-          }
-          
-          return {
-            ...course,
-            reason: reasonText,
-            urgency: urgency,
-            fromTodayCourse: !hasTest && !!subjectData?.hasClassToday
-          };
-        });
-
-        suggestionsBySubject.push({
-          subject: subject,
-          subjectScore: subjectData?.score || 0,
-          relevantTests: subjectData?.tests || [],
-          hasClassToday: !!subjectData?.hasClassToday,
-          chapters: enrichedChapters
-        });
-
-        totalChaptersSelected += enrichedChapters.length;
-      }
-    }
-
-    if (suggestionsBySubject.length > 0) {
-      return suggestionsBySubject;
-    }
-
-    return buildFallbackSuggestionsFromSchedule(dayScheduleEvents, coursesWithPriority, totalSlots);
   };
 
   // eslint-disable-next-line no-unused-vars
@@ -1198,7 +986,7 @@ function App() {
 
   // Save revision settings to localStorage
   useEffect(() => {
-    localStorage.setItem('revisionSettings', JSON.stringify(revisionSettings));
+    localStorage.setItem('revisionSettings', JSON.stringify(normalizeRevisionSettings(revisionSettings)));
   }, [revisionSettings]);
 
   // Auto-scroll vers le bas quand de nouveaux messages arrivent
@@ -3496,20 +3284,23 @@ function App() {
                         </div>
                       )}
 
-                      {/* Cours du jour (emploi du temps) */}
+                      {/* Cours du lendemain (emploi du temps) */}
                       {(() => {
-                        const todayEvents = getICSBaseSchedule(currentYear, currentWeek, selectedDay);
-                        if (todayEvents.length === 0) return null;
+                        const nextDayIndex = (days.indexOf(selectedDay) + 1) % days.length;
+                        const nextDay = days[nextDayIndex];
+                        const nextDayWeekNum = nextDayIndex === 0 ? currentWeek + 1 : currentWeek;
+                        const nextDayEvents = getICSBaseSchedule(currentYear, nextDayWeekNum, nextDay);
+                        if (nextDayEvents.length === 0) return null;
                         return (
                           <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-blue-500/30 rounded-2xl p-6">
                             <h3 className="text-xl font-bold text-blue-300 mb-4 flex items-center gap-2">
-                              🏫 Cours du jour — {selectedDay}
+                              🏫 Cours de demain — {nextDay}
                               <span className="text-xs font-normal text-blue-400 bg-blue-900/40 px-2 py-1 rounded-full">
                                 Révisions suggérées en priorité
                               </span>
                             </h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                              {todayEvents.map((event, idx) => (
+                              {nextDayEvents.map((event, idx) => (
                                 <div key={idx} className="flex items-start gap-3 p-3 bg-slate-900/50 rounded-lg border border-blue-500/20">
                                   <span className={`px-2 py-1 rounded text-xs font-bold shrink-0 ${getTypeColor(event.type)}`}>
                                     {event.type}
@@ -3578,9 +3369,9 @@ function App() {
                                               🎯 {subjectGroup.relevantTests[0].type} dans {subjectGroup.relevantTests[0].daysUntilFromThisDay}j
                                             </span>
                                           )}
-                                          {subjectGroup.hasClassToday && (
+                                          {subjectGroup.hasClassTomorrow && (
                                             <span className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-lg text-xs font-semibold border border-blue-500/30">
-                                              🏫 Cours aujourd'hui
+                                              🏫 Cours demain
                                             </span>
                                           )}
                                         </div>
@@ -3614,9 +3405,9 @@ function App() {
                                                     ⚠️ BIENTÔT
                                                   </span>
                                                 )}
-                                                {course.fromTodayCourse && (
+                                                {course.fromTomorrowCourse && (
                                                   <span className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs font-semibold">
-                                                    🏫 Cours aujourd'hui
+                                                    🏫 Cours demain
                                                   </span>
                                                 )}
                                               </div>
@@ -5868,19 +5659,6 @@ function App() {
             <h3 className="text-2xl font-bold text-white mb-6">⚙️ Paramètres de révision</h3>
             
             <div className="space-y-6">
-              {/* Heure de début */}
-              <div>
-                <label className="block text-sm font-semibold text-indigo-300 mb-2">
-                  🕐 Heure de début des révisions
-                </label>
-                <input
-                  type="time"
-                  value={revisionSettings.startTime}
-                  onChange={(e) => setRevisionSettings({...revisionSettings, startTime: e.target.value})}
-                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
-                />
-              </div>
-
               {/* Durée totale */}
               <div>
                 <label className="block text-sm font-semibold text-indigo-300 mb-2">
@@ -5918,6 +5696,29 @@ function App() {
                 </select>
                 <p className="text-xs text-slate-400 mt-1">
                   Temps consacré à chaque matière suggérée
+                </p>
+              </div>
+
+              {/* Moteur de suggestion */}
+              <div>
+                <label className="block text-sm font-semibold text-indigo-300 mb-2">
+                  🧠 Moteur de suggestion
+                </label>
+                <select
+                  value={revisionSettings.suggestionEngineMode}
+                  onChange={(e) => setRevisionSettings({
+                    ...revisionSettings,
+                    suggestionEngineMode: e.target.value === SUGGESTION_ENGINE_MODES.LEGACY
+                      ? SUGGESTION_ENGINE_MODES.LEGACY
+                      : SUGGESTION_ENGINE_MODES.V2
+                  })}
+                  className="w-full px-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-white focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value={SUGGESTION_ENGINE_MODES.V2}>V2 (recommandé)</option>
+                  <option value={SUGGESTION_ENGINE_MODES.LEGACY}>Legacy (comparaison)</option>
+                </select>
+                <p className="text-xs text-slate-400 mt-1">
+                  Le mode legacy permet une migration progressive pendant la phase pilote.
                 </p>
               </div>
 

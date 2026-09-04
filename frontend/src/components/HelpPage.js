@@ -164,6 +164,9 @@ export function HelpPage({ isDark = true }) {
           L'algorithme analyse votre emploi du temps et vous suggère automatiquement quoi réviser en priorité
           en fonction de vos prochains DS, colles et DM.
         </p>
+        <p>
+          Le moteur V2 (activé par défaut) privilégie aussi les matières prévues le lendemain pour mieux anticiper les cours.
+        </p>
         
         <h3>Niveaux d'urgence</h3>
         <ul>
@@ -180,6 +183,7 @@ export function HelpPage({ isDark = true }) {
           <li>Le type d'évaluation (DS = prioritaire, Colle = important, DM = normal)</li>
           <li>Le temps restant avant l'évaluation</li>
           <li>Votre progression actuelle dans la matière</li>
+          <li>Les cours prévus le lendemain</li>
         </ul>
       </section>
       
@@ -220,9 +224,9 @@ export function HelpPage({ isDark = true }) {
         
         <h3>Options disponibles</h3>
         <ul>
-          <li><strong>Heure de début</strong> : À quelle heure commencer vos révisions</li>
           <li><strong>Durée totale</strong> : Combien de temps réviser chaque jour</li>
           <li><strong>Durée par session</strong> : Durée de chaque session avant une pause</li>
+          <li><strong>Moteur de suggestion</strong> : V2 (recommandé) ou Legacy (comparaison)</li>
           <li><strong>Matières prioritaires</strong> : Sélectionnez les matières à privilégier</li>
           <li><strong>Jours de repos</strong> : Choisissez les jours sans révision</li>
         </ul>

@@ -169,7 +169,7 @@ export const buildFallbackSuggestionsFromSchedule = (scheduleEvents = [], course
       subject,
       subjectScore: matchingCourses[0]?.priority || 25,
       relevantTests: [],
-      hasClassToday: false,
+      hasClassTomorrow: false,
       chapters
     });
 
