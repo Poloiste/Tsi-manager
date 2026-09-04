@@ -11,6 +11,18 @@ export function HelpPage({ isDark = true }) {
     }
   };
 
+  const navigationItems = [
+    { id: 'auth', label: '🔐 Connexion' },
+    { id: 'planning', label: '📅 Planning' },
+    { id: 'courses', label: '📚 Cours' },
+    { id: 'flashcards', label: '🎴 Flashcards' },
+    { id: 'quiz', label: '📝 Quiz' },
+    { id: 'discussions', label: '💬 Discussions' },
+    { id: 'notifications', label: '🔔 Notifications' },
+    { id: 'stats', label: '📊 Progression' },
+    { id: 'tools', label: '🛠️ Outils' }
+  ];
+
   return (
     <div className={`
       help-page min-h-screen
@@ -19,382 +31,254 @@ export function HelpPage({ isDark = true }) {
       <h1 className={isDark ? 'text-white' : 'text-gray-900'}>
         📚 Guide d'utilisation de TSI Manager
       </h1>
-      
+      <p className={`mb-8 ${isDark ? 'text-slate-300' : 'text-gray-600'}`}>
+        Retrouvez ici toutes les fonctionnalités actuellement disponibles pour organiser vos cours, révisions et échanges à l'université.
+      </p>
+
       <nav className="help-nav">
-        <a href="#auth" onClick={(e) => { e.preventDefault(); scrollToSection('auth'); }}>
-          🔐 Authentification
-        </a>
-        <a href="#channels" onClick={(e) => { e.preventDefault(); scrollToSection('channels'); }}>
-          💬 Salons
-        </a>
-        <a href="#flashcards" onClick={(e) => { e.preventDefault(); scrollToSection('flashcards'); }}>
-          🎴 Flashcards
-        </a>
-        <a href="#suggestions" onClick={(e) => { e.preventDefault(); scrollToSection('suggestions'); }}>
-          📚 Suggestions
-        </a>
-        <a href="#schedule" onClick={(e) => { e.preventDefault(); scrollToSection('schedule'); }}>
-          📅 Planning
-        </a>
-        <a href="#settings" onClick={(e) => { e.preventDefault(); scrollToSection('settings'); }}>
-          ⚙️ Paramètres
-        </a>
-        <a href="#groups" onClick={(e) => { e.preventDefault(); scrollToSection('groups'); }}>
-          👥 Groupes
-        </a>
-        <a href="#achievements" onClick={(e) => { e.preventDefault(); scrollToSection('achievements'); }}>
-          🏆 Succès
-        </a>
-        <a href="#quiz" onClick={(e) => { e.preventDefault(); scrollToSection('quiz'); }}>
-          🎯 Quiz
-        </a>
-        <a href="#stats" onClick={(e) => { e.preventDefault(); scrollToSection('stats'); }}>
-          📊 Statistiques
-        </a>
-        <a href="#theme" onClick={(e) => { e.preventDefault(); scrollToSection('theme'); }}>
-          🌙 Thème
-        </a>
+        {navigationItems.map((item) => (
+          <a key={item.id} href={`#${item.id}`} onClick={(e) => { e.preventDefault(); scrollToSection(item.id); }}>
+            {item.label}
+          </a>
+        ))}
       </nav>
-      
+
       <section id="auth">
-        <h2>🔐 Authentification</h2>
+        <h2>🔐 Connexion et démarrage</h2>
         <p>
-          Pour utiliser TSI Manager, vous devez créer un compte ou vous connecter avec vos identifiants.
+          TSI Manager fonctionne avec un compte personnel. Une fois connecté, vous accédez à votre planning, vos cours, vos flashcards, vos quiz et vos statistiques.
         </p>
-        <h3>Créer un compte</h3>
+        <h3>Première connexion</h3>
         <p>
-          1. Cliquez sur "S'inscrire" sur la page de connexion<br/>
-          2. Entrez votre adresse email et choisissez un mot de passe sécurisé<br/>
-          3. Vérifiez votre email pour confirmer votre compte<br/>
-          4. Connectez-vous avec vos identifiants
+          1. Créez votre compte avec votre adresse email<br/>
+          2. Confirmez votre adresse si nécessaire<br/>
+          3. Connectez-vous pour ouvrir l'application<br/>
+          4. Le tutoriel d'accueil apparaît automatiquement lors de la première visite
         </p>
-        <h3>Se connecter</h3>
+        <h3>Navigation générale</h3>
         <p>
-          1. Entrez votre email et mot de passe<br/>
-          2. Cliquez sur "Se connecter"<br/>
-          3. Vous serez redirigé vers la page d'accueil
+          Les onglets principaux sont : Planning, Cours, Révision, Quiz, Discussions et Stats. En haut à droite, vous retrouvez aussi l'aide, les notifications, le changement de thème et la déconnexion.
         </p>
       </section>
-      
-      <section id="channels">
-        <h2>💬 Salons de discussion</h2>
+
+      <section id="planning">
+        <h2>📅 Planning universitaire</h2>
         <p>
-          Les salons de discussion fonctionnent comme sur Discord. Vous pouvez créer des catégories pour organiser
-          vos salons, et des salons publics ou privés pour discuter avec d'autres utilisateurs.
+          Le planning centralise votre emploi du temps universitaire, vos évaluations et vos priorités de révision.
         </p>
-        
-        <h3>Créer une catégorie</h3>
+        <h3>Synchroniser l'emploi du temps</h3>
         <p>
-          1. Cliquez sur le bouton "+" à côté de "Discussions" dans la barre latérale<br/>
-          2. Entrez le nom de la catégorie<br/>
-          3. Cliquez sur "Créer"<br/>
-          4. La catégorie apparaît dans la liste
+          1. Ouvrez l'onglet Planning<br/>
+          2. Cliquez sur "Configurer l’EDT" ou "Changer l’EDT"<br/>
+          3. Collez votre lien ICS universitaire (edt.univ-angers.fr)<br/>
+          4. Sauvegardez pour synchroniser automatiquement les cours
         </p>
-        
-        <h3>Créer un canal</h3>
+        <h3>Gérer les semaines et les jours</h3>
         <p>
-          1. Cliquez sur le bouton "+" à côté d'une catégorie<br/>
-          2. Entrez le nom du canal<br/>
-          3. Choisissez la visibilité : Public ou Privé<br/>
-          4. Cliquez sur "Créer"<br/>
-          5. Le canal apparaît dans la catégorie
+          Utilisez les flèches pour changer de semaine, le bouton "Aujourd'hui" pour revenir à la semaine courante, puis cliquez sur un jour pour afficher son détail.
         </p>
-        
-        <h3>Canaux privés</h3>
+        <h3>Ajouter une évaluation ou un événement personnel</h3>
         <p>
-          Les canaux privés ne sont visibles que par les membres invités. Seul le créateur et les modérateurs
-          peuvent gérer les membres.
+          Avec le bouton "Ajouter", vous pouvez créer un événement en choisissant une matière, un type et un horaire.
         </p>
+        <ul>
+          <li>Types disponibles : DS, DM, Colle, Examen, TP noté</li>
+          <li>Choix par date précise ou par semaine/jour</li>
+          <li>Heure et durée personnalisables</li>
+          <li>Suppression possible des événements ajoutés manuellement</li>
+        </ul>
+        <h3>Suggestions intelligentes</h3>
         <p>
-          <strong>Gérer les membres d'un canal privé :</strong><br/>
-          1. Survolez le canal privé que vous avez créé<br/>
-          2. Cliquez sur l'icône d'engrenage (⚙️) qui apparaît<br/>
-          3. Dans le modal, recherchez des utilisateurs par nom ou email<br/>
-          4. Cliquez sur "+" pour ajouter un membre<br/>
-          5. Cliquez sur l'icône poubelle pour retirer un membre
+          Le bloc "Suggestions" utilise votre emploi du temps, vos évaluations à venir, votre niveau de maîtrise et les matières prévues le lendemain pour recommander quoi réviser en priorité.
         </p>
-        
-        <h3>Envoyer des messages</h3>
+        <h3>Paramètres de révision</h3>
+        <ul>
+          <li>Durée totale de révision disponible</li>
+          <li>Durée par session ou par matière</li>
+          <li>Moteur de suggestion V2 ou Legacy</li>
+          <li>Matières prioritaires</li>
+          <li>Jours de repos sans suggestion</li>
+        </ul>
+        <h3>Rappels complémentaires</h3>
         <p>
-          1. Sélectionnez un canal<br/>
-          2. Tapez votre message dans le champ en bas<br/>
-          3. Appuyez sur Entrée ou cliquez sur "Envoyer"<br/>
-          4. Votre message apparaît dans le canal
+          Des rappels visuels sont aussi affichés dans cette vue, notamment pour penser au portfolio et à la messagerie Zimbra.
         </p>
       </section>
-      
+
+      <section id="courses">
+        <h2>📚 Bibliothèque de cours</h2>
+        <p>
+          L'onglet Cours sert à organiser vos matières, vos chapitres et les ressources associées.
+        </p>
+        <h3>Ajouter un cours</h3>
+        <p>
+          1. Cliquez sur "Ajouter un cours"<br/>
+          2. Choisissez la matière<br/>
+          3. Renseignez le chapitre<br/>
+          4. Ajoutez une description si besoin<br/>
+          5. Associez un ou plusieurs liens OneDrive
+        </p>
+        <h3>Ressources et suivi</h3>
+        <ul>
+          <li>Organisation par matière puis par chapitre</li>
+          <li>Ajout et suppression de liens OneDrive</li>
+          <li>Affichage de la date d'ajout, du taux de maîtrise et du nombre de révisions</li>
+          <li>Bouton "Marquer révisé" pour mettre à jour la progression</li>
+        </ul>
+        <h3>Recherche</h3>
+        <p>
+          Une barre de recherche est disponible dans l'onglet Cours pour retrouver rapidement une matière ou un chapitre.
+        </p>
+      </section>
+
       <section id="flashcards">
-        <h2>🎴 Flashcards et Révisions</h2>
+        <h2>🎴 Flashcards et révision SRS</h2>
         <p>
-          Les flashcards sont des cartes de révision avec une question au recto et une réponse au verso.
-          Elles vous aident à mémoriser efficacement vos cours.
+          Les flashcards servent à mémoriser activement vos cours avec un système de répétition espacée.
         </p>
-        
-        <h3>Créer une flashcard</h3>
+        <h3>Créer et modifier des cartes</h3>
+        <ul>
+          <li>Association de chaque carte à un cours</li>
+          <li>Question et réponse personnalisées</li>
+          <li>Prévisualisation avant enregistrement</li>
+          <li>Support du LaTeX pour les formules</li>
+        </ul>
+        <h3>Révisions du jour</h3>
         <p>
-          1. Allez dans l'onglet "Cours"<br/>
-          2. Sélectionnez un cours ou créez-en un nouveau<br/>
-          3. Cliquez sur "➕ Créer 1ère carte" ou "Ajouter une carte"<br/>
-          4. Remplissez la question (recto) et la réponse (verso)<br/>
-          5. Vous pouvez utiliser LaTeX pour les formules mathématiques (entre $ ou $$)<br/>
-          6. Cliquez sur "Créer"
+          L'écran principal de révision affiche vos cartes à revoir selon quatre catégories : à réviser, en apprentissage, maîtrisées et nouvelles.
         </p>
-        
-        <h3>Réviser avec les flashcards</h3>
+        <h3>Import / Export</h3>
+        <ul>
+          <li>Import CSV</li>
+          <li>Import Anki au format texte tabulé</li>
+          <li>Import Noji IA au format JSON</li>
+          <li>Import Notion depuis un tableau Markdown</li>
+          <li>Export des flashcards par cours</li>
+        </ul>
+        <h3>Recherche</h3>
         <p>
-          1. Allez dans l'onglet "Révisions"<br/>
-          2. Cliquez sur "🎯 Réviser" pour un cours<br/>
-          3. Lisez la question et essayez de répondre mentalement<br/>
-          4. Cliquez sur "Voir la réponse"<br/>
-          5. Évaluez votre réponse : Facile, Moyen, ou Difficile<br/>
-          6. L'algorithme ajustera la fréquence de révision en fonction de votre réponse
-        </p>
-        
-        <h3>Système de répétition espacée (SRS)</h3>
-        <p>
-          TSI Manager utilise un algorithme de répétition espacée pour optimiser vos révisions.
-          Les cartes que vous maîtrisez seront revues moins souvent, tandis que les cartes difficiles
-          reviendront plus fréquemment.
+          Une recherche dédiée est aussi disponible dans l'onglet Révision pour retrouver une carte plus vite.
         </p>
       </section>
-      
-      <section id="suggestions">
-        <h2>📚 Suggestions de révision</h2>
-        <p>
-          L'algorithme analyse votre emploi du temps et vous suggère automatiquement quoi réviser en priorité
-          en fonction de vos prochains DS, colles et DM.
-        </p>
-        <p>
-          Le moteur V2 (activé par défaut) privilégie aussi les matières prévues le lendemain pour mieux anticiper les cours.
-        </p>
-        
-        <h3>Niveaux d'urgence</h3>
-        <ul>
-          <li><strong>🔥 URGENT</strong> : Test dans 1-2 jours - À réviser immédiatement !</li>
-          <li><strong>⚠️ BIENTÔT</strong> : Test dans 3-4 jours - Commencez à réviser</li>
-          <li><strong>📖 NORMAL</strong> : Test dans 5+ jours - Révision régulière recommandée</li>
-        </ul>
-        
-        <h3>Score de priorité</h3>
-        <p>
-          Chaque suggestion a un score calculé en fonction de :
-        </p>
-        <ul>
-          <li>Le type d'évaluation (DS = prioritaire, Colle = important, DM = normal)</li>
-          <li>Le temps restant avant l'évaluation</li>
-          <li>Votre progression actuelle dans la matière</li>
-          <li>Les cours prévus le lendemain</li>
-        </ul>
-      </section>
-      
-      <section id="schedule">
-        <h2>📅 Emploi du temps</h2>
-        <p>
-          L'emploi du temps affiche vos cours de la semaine. Vous pouvez également ajouter vos DS, 
-          Colles et DM personnalisés pour mieux vous organiser.
-        </p>
-        
-        <h3>Ajouter un événement</h3>
-        <p>
-          1. Cliquez sur "+ Ajouter un événement"<br/>
-          2. Remplissez les informations :<br/>
-          &nbsp;&nbsp;&nbsp;- Titre de l'événement<br/>
-          &nbsp;&nbsp;&nbsp;- Type (DS, Colle, DM, ou Autre)<br/>
-          &nbsp;&nbsp;&nbsp;- Matière<br/>
-          &nbsp;&nbsp;&nbsp;- Date<br/>
-          &nbsp;&nbsp;&nbsp;- Heure (optionnel)<br/>
-          &nbsp;&nbsp;&nbsp;- Salle (optionnel)<br/>
-          3. Cliquez sur "Ajouter"<br/>
-          4. L'événement apparaît dans votre planning
-        </p>
-        
-        <h3>Modifier ou supprimer un événement</h3>
-        <p>
-          1. Cliquez sur l'événement dans le planning<br/>
-          2. Modifiez les informations ou cliquez sur "Supprimer"<br/>
-          3. Confirmez la suppression si nécessaire
-        </p>
-      </section>
-      
-      <section id="settings">
-        <h2>⚙️ Paramètres de révision</h2>
-        <p>
-          Personnalisez vos sessions de révision selon vos préférences et votre emploi du temps.
-        </p>
-        
-        <h3>Options disponibles</h3>
-        <ul>
-          <li><strong>Durée totale</strong> : Combien de temps réviser chaque jour</li>
-          <li><strong>Durée par session</strong> : Durée de chaque session avant une pause</li>
-          <li><strong>Moteur de suggestion</strong> : V2 (recommandé) ou Legacy (comparaison)</li>
-          <li><strong>Matières prioritaires</strong> : Sélectionnez les matières à privilégier</li>
-          <li><strong>Jours de repos</strong> : Choisissez les jours sans révision</li>
-        </ul>
-        
-        <h3>Accéder aux paramètres</h3>
-        <p>
-          Cliquez sur l'icône d'engrenage (⚙️) dans la barre de navigation.
-        </p>
-      </section>
-      
-      <section id="groups">
-        <h2>👥 Groupes d'étude</h2>
-        <p>
-          Les groupes d'étude vous permettent de collaborer avec d'autres étudiants, partager des ressources
-          et réviser ensemble.
-        </p>
-        
-        <h3>Créer un groupe</h3>
-        <p>
-          1. Cliquez sur "Créer un groupe" dans l'onglet Discussions<br/>
-          2. Entrez le nom du groupe<br/>
-          3. Ajoutez une description (optionnel)<br/>
-          4. Choisissez si le groupe est public ou privé<br/>
-          5. Cliquez sur "Créer"
-        </p>
-        
-        <h3>Rejoindre un groupe</h3>
-        <p>
-          1. Parcourez la liste des groupes publics<br/>
-          2. Cliquez sur "Rejoindre" sur le groupe de votre choix<br/>
-          3. Vous recevrez une notification de confirmation
-        </p>
-        
-        <h3>Fonctionnalités des groupes</h3>
-        <ul>
-          <li>Chat en temps réel avec tous les membres</li>
-          <li>Partage de fichiers (PDF, images, documents)</li>
-          <li>Classement des membres selon leur activité</li>
-          <li>Création de canaux thématiques</li>
-        </ul>
-      </section>
-      
-      <section id="achievements">
-        <h2>🏆 Succès et XP</h2>
-        <p>
-          Gagnez de l'expérience (XP) en révisant et débloquez des badges pour célébrer vos progrès !
-        </p>
-        
-        <h3>Comment gagner de l'XP</h3>
-        <ul>
-          <li><strong>Bonne réponse</strong> : +10 XP</li>
-          <li><strong>Mauvaise réponse</strong> : +2 XP (pour l'effort !)</li>
-          <li><strong>Session complète</strong> : +25 XP bonus</li>
-          <li><strong>Streak de 7 jours</strong> : +100 XP</li>
-          <li><strong>Première révision du jour</strong> : +5 XP</li>
-        </ul>
-        
-        <h3>Niveaux et rangs</h3>
-        <p>
-          Vous progressez en niveau au fur et à mesure que vous gagnez de l'XP. Chaque niveau débloque
-          de nouveaux badges et fonctionnalités.
-        </p>
-        
-        <h3>Badges disponibles</h3>
-        <ul>
-          <li>🔰 Débutant - Première connexion</li>
-          <li>📖 Lecteur assidu - 10 sessions complétées</li>
-          <li>🎯 Expert - 100 cartes maîtrisées</li>
-          <li>🔥 En feu - Streak de 30 jours</li>
-          <li>👑 Champion - Classé #1 dans un groupe</li>
-        </ul>
-      </section>
-      
+
       <section id="quiz">
-        <h2>🎯 Quiz</h2>
+        <h2>📝 Quiz</h2>
         <p>
-          Testez vos connaissances avec des quiz personnalisés basés sur vos flashcards.
+          Les quiz utilisent vos flashcards pour vous entraîner dans un format plus proche d'une évaluation.
         </p>
-        
-        <h3>Créer un quiz</h3>
-        <p>
-          1. Allez dans l'onglet "Quiz"<br/>
-          2. Sélectionnez les matières à inclure<br/>
-          3. Choisissez le nombre de questions<br/>
-          4. Définissez le temps limite (optionnel)<br/>
-          5. Cliquez sur "Commencer le quiz"
-        </p>
-        
-        <h3>Répondre aux questions</h3>
-        <p>
-          1. Lisez attentivement la question<br/>
-          2. Sélectionnez votre réponse parmi les choix proposés<br/>
-          3. Cliquez sur "Suivant" pour passer à la question suivante<br/>
-          4. À la fin, consultez vos résultats et votre score
-        </p>
-        
-        <h3>Types de questions</h3>
+        <h3>Lancer un quiz</h3>
         <ul>
-          <li>Questions à choix multiples</li>
-          <li>Questions vrai/faux</li>
-          <li>Questions à réponse courte</li>
-          <li>Questions de correspondance</li>
+          <li>Quiz rapide : 10 questions toutes matières</li>
+          <li>Nouveau quiz personnalisé avec titre optionnel</li>
+          <li>Sélection des matières incluses</li>
+          <li>Choix du nombre de questions et de la limite de temps</li>
+        </ul>
+        <h3>Modes disponibles</h3>
+        <ul>
+          <li>Entraînement : correction immédiate</li>
+          <li>Examen : correction détaillée à la fin</li>
+          <li>Préparation DS : session intensive</li>
+        </ul>
+        <h3>Après le quiz</h3>
+        <p>
+          La page de résultat affiche le score, le temps passé, la correction détaillée, l'historique des quiz et les statistiques globales.
+        </p>
+      </section>
+
+      <section id="discussions">
+        <h2>💬 Discussions</h2>
+        <p>
+          L'espace Discussions reprend une organisation de type Discord pour centraliser les échanges entre étudiants.
+        </p>
+        <h3>Organisation</h3>
+        <ul>
+          <li>Création de catégories</li>
+          <li>Création de salons dans une catégorie</li>
+          <li>Salons publics ou privés</li>
+          <li>Suppression des salons ou catégories créés par vous</li>
+        </ul>
+        <h3>Salons privés</h3>
+        <p>
+          Le créateur d'un salon privé peut gérer les membres depuis l'icône dédiée affichée au survol du salon.
+        </p>
+        <h3>Messagerie</h3>
+        <ul>
+          <li>Messages en temps réel</li>
+          <li>Indicateur de messages non lus</li>
+          <li>Accès rapide aux salons depuis la barre latérale</li>
         </ul>
       </section>
-      
+
+      <section id="notifications">
+        <h2>🔔 Notifications</h2>
+        <p>
+          Le centre de notifications regroupe vos rappels et alertes. Il est accessible depuis l'icône cloche en haut de l'application.
+        </p>
+        <h3>Depuis le centre de notifications</h3>
+        <ul>
+          <li>Consulter les notifications non lues</li>
+          <li>Marquer une notification comme lue</li>
+          <li>Tout marquer comme lu</li>
+          <li>Ouvrir directement les paramètres de notifications</li>
+        </ul>
+        <h3>Paramètres disponibles</h3>
+        <ul>
+          <li>Notifications navigateur</li>
+          <li>Rappel quotidien avec heure configurable</li>
+          <li>Rappel si des cartes sont dues</li>
+          <li>Alerte streak en danger</li>
+          <li>Rappel avant une évaluation</li>
+          <li>Objectif quotidien de cartes et notification d'objectif atteint</li>
+        </ul>
+      </section>
+
       <section id="stats">
-        <h2>📊 Statistiques</h2>
+        <h2>📊 Progression et statistiques</h2>
         <p>
-          Suivez votre progression avec des graphiques détaillés et des heatmaps d'activité.
+          L'onglet Stats vous aide à suivre votre régularité et vos progrès sur le long terme.
         </p>
-        
-        <h3>Métriques disponibles</h3>
+        <h3>Vue d'ensemble</h3>
         <ul>
-          <li><strong>Taux de réussite</strong> : Pourcentage de bonnes réponses</li>
-          <li><strong>Cartes révisées</strong> : Nombre total de cartes étudiées</li>
-          <li><strong>Temps de révision</strong> : Heures passées à réviser</li>
-          <li><strong>Streak actuel</strong> : Jours consécutifs de révision</li>
-          <li><strong>Meilleur streak</strong> : Record de jours consécutifs</li>
-          <li><strong>XP total</strong> : Points d'expérience accumulés</li>
+          <li>XP total</li>
+          <li>Streak actuel</li>
+          <li>Nombre de révisions</li>
+          <li>Maîtrise moyenne</li>
+          <li>Nombre d'évaluations à venir</li>
         </ul>
-        
-        <h3>Heatmap d'activité</h3>
+        <h3>Gamification</h3>
         <p>
-          La heatmap affiche votre activité de révision sur l'année. Les jours avec plus de révisions
-          sont plus foncés. C'est une excellente façon de visualiser votre régularité.
+          Vous débloquez des badges au fil de votre progression. Une heatmap annuelle permet aussi de visualiser votre activité jour après jour.
         </p>
-        
-        <h3>Graphiques par matière</h3>
+        <h3>Statistiques SRS</h3>
         <p>
-          Consultez vos statistiques détaillées par matière pour identifier vos points forts
-          et les domaines à améliorer.
+          La page détaille également la répartition des cartes à réviser, en apprentissage, maîtrisées et nouvelles, avec un accès direct aux sessions correspondantes.
         </p>
       </section>
-      
-      <section id="theme">
-        <h2>🌙 Thème</h2>
+
+      <section id="tools">
+        <h2>🛠️ Outils pratiques</h2>
+        <h3>Thème</h3>
         <p>
-          Basculez entre le mode sombre et le mode clair selon vos préférences.
+          Utilisez le bouton soleil/lune en haut à droite pour passer du mode sombre au mode clair. Votre préférence est mémorisée automatiquement.
         </p>
-        
-        <h3>Changer de thème</h3>
+        <h3>Aide</h3>
         <p>
-          1. Cliquez sur l'icône soleil/lune (☀️/🌙) dans la barre de navigation<br/>
-          2. Le thème change instantanément<br/>
-          3. Votre préférence est sauvegardée automatiquement
+          Le bouton "Aide" ouvre ce guide complet à tout moment, y compris sur mobile depuis le menu.
         </p>
-        
-        <h3>Avantages du mode sombre</h3>
+        <h3>Conseil d'utilisation</h3>
         <ul>
-          <li>Réduit la fatigue oculaire dans les environnements sombres</li>
-          <li>Économise la batterie sur les écrans OLED</li>
-          <li>Look moderne et élégant</li>
-        </ul>
-        
-        <h3>Avantages du mode clair</h3>
-        <ul>
-          <li>Meilleure lisibilité en pleine lumière</li>
-          <li>Contraste plus élevé pour certains contenus</li>
-          <li>Look professionnel et épuré</li>
+          <li>Commencez par configurer votre EDT</li>
+          <li>Ajoutez vos chapitres et vos liens de cours</li>
+          <li>Créez vos flashcards, puis utilisez le SRS et les quiz pour vous entraîner</li>
         </ul>
       </section>
-      
+
       <div className={`
         mt-12 pt-8 border-t text-center
         ${isDark ? 'border-slate-700 text-slate-400' : 'border-gray-200 text-gray-600'}
       `}>
         <p>
-          Besoin d'aide supplémentaire ? Contactez-nous dans le canal #support ou par email.
+          Besoin d'aide supplémentaire ? Consultez l'équipe pédagogique ou votre canal d'entraide habituel.
         </p>
         <p className="mt-4 text-sm">
           © {new Date().getFullYear()} TSI Manager - Tous droits réservés
@@ -403,3 +287,5 @@ export function HelpPage({ isDark = true }) {
     </div>
   );
 }
+
+export default HelpPage;
