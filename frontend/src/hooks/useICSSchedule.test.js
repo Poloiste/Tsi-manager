@@ -48,4 +48,16 @@ describe('useICSSchedule', () => {
 
     expect(global.fetch).toHaveBeenCalledWith('https://example.com/api/ics-proxy');
   });
+
+  it('passes user_id query param when a user id is provided', async () => {
+    process.env.REACT_APP_API_URL = 'https://example.com';
+
+    const { result } = renderHook(() => useICSSchedule('user-123'));
+
+    await waitFor(() => {
+      expect(result.current.isLoading).toBe(false);
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith('https://example.com/api/ics-proxy?user_id=user-123');
+  });
 });
