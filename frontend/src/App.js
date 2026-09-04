@@ -420,7 +420,9 @@ function App() {
             type: event.type,
             day: event.day,
             week: event.week,
-            year: event.date ? new Date(event.date).getFullYear() : resolveEventWeekYear(event.week, currentWeek, referenceYear),
+            year: event.date
+              ? parseLocalDate(event.date)?.getFullYear()
+              : resolveEventWeekYear(event.week, currentWeek, referenceYear),
             date: event.date,
             daysUntil: daysUntil,
             time: event.time
