@@ -3211,12 +3211,11 @@ function App() {
 
               <div className="mb-6 max-w-3xl mx-auto">
                 <div className="flex justify-center">
-                  <button
-                    onClick={() => setShowIcsUrlConfig((prev) => !prev)}
-                    className="px-4 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-all font-semibold text-sm"
-                  >
-                    {showIcsUrlConfig ? 'Fermer la configuration EDT' : 'Configurer mon lien EDT'}
-                  </button>
+                  <span className={`text-sm ${themeClasses.text.accent}`}>
+                    {icsUrlInput.trim()
+                      ? 'Lien EDT configuré. Vous pouvez le modifier à tout moment.'
+                      : 'Aucun lien EDT configuré pour le moment.'}
+                  </span>
                 </div>
 
                 {showIcsUrlConfig && (
@@ -3282,7 +3281,7 @@ function App() {
                   </button>
                 </div>
 
-                <div className="flex gap-2 sm:gap-4 w-full sm:w-auto">
+                <div className="flex flex-wrap gap-2 sm:gap-4 w-full sm:w-auto justify-center">
                   <button
                     onClick={() => {
                       const { year, week } = getCurrentISOWeek();
@@ -3294,6 +3293,24 @@ function App() {
                   >
                     <Calendar className="w-4 h-4" />
                     <span className="text-sm sm:text-base">Aujourd'hui</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowIcsUrlConfig((prev) => !prev)}
+                    className={`flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-2 rounded-lg flex items-center justify-center gap-2 transition-all min-h-[44px] font-semibold ${
+                      showIcsUrlConfig
+                        ? 'bg-slate-600 hover:bg-slate-500 text-white'
+                        : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                    }`}
+                  >
+                    <Calendar className="w-4 h-4" />
+                    <span className="text-sm sm:text-base">
+                      {showIcsUrlConfig
+                        ? 'Fermer EDT'
+                        : icsUrlInput.trim()
+                        ? 'Changer l’EDT'
+                        : 'Configurer l’EDT'}
+                    </span>
                   </button>
 
                   <button
