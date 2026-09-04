@@ -549,15 +549,10 @@ function App() {
     }
   };
 
-  const getSuggestedReviews = (day, weekNum = currentWeek) => {
+  const getSuggestedReviews = (day, weekNum = currentWeek, yearNum = currentYear) => {
     const settings = normalizeRevisionSettings(revisionSettings);
     const upcomingTests = getUpcomingTests(weekNum, 14);
-    const suggestionScheduleTarget = getSuggestionScheduleTarget({
-      day,
-      week: weekNum,
-      year: currentYear,
-      days
-    });
+    const suggestionScheduleTarget = getSuggestionScheduleInfo(day, weekNum, yearNum);
     const nextDayScheduleEvents = getICSBaseSchedule(
       suggestionScheduleTarget.targetYear,
       suggestionScheduleTarget.targetWeek,
@@ -583,6 +578,14 @@ function App() {
       calculateDaysBetween
     });
   };
+
+  const getSuggestionScheduleInfo = (day, weekNum = currentWeek, yearNum = currentYear) =>
+    getSuggestionScheduleTarget({
+      day,
+      week: weekNum,
+      year: yearNum,
+      days
+    });
 
   // eslint-disable-next-line no-unused-vars
   const getCoursesBySubject = () => {
@@ -3306,12 +3309,7 @@ function App() {
 
                       {/* Cours du lendemain (emploi du temps) */}
                       {(() => {
-                        const suggestionScheduleTarget = getSuggestionScheduleTarget({
-                          day: selectedDay,
-                          week: currentWeek,
-                          year: currentYear,
-                          days
-                        });
+                        const suggestionScheduleTarget = getSuggestionScheduleInfo(selectedDay, currentWeek, currentYear);
                         const nextDayEvents = getICSBaseSchedule(
                           suggestionScheduleTarget.targetYear,
                           suggestionScheduleTarget.targetWeek,
@@ -3351,14 +3349,9 @@ function App() {
                       {/* Suggestions du jour sélectionné */}
                       <div className="grid grid-cols-1 gap-6">
                         {(() => {
-                          const suggestionScheduleTarget = getSuggestionScheduleTarget({
-                            day: selectedDay,
-                            week: currentWeek,
-                            year: currentYear,
-                            days
-                          });
+                          const suggestionScheduleTarget = getSuggestionScheduleInfo(selectedDay, currentWeek, currentYear);
                           const scheduleLabel = suggestionScheduleTarget.isWeekendBridge ? 'Cours lundi' : 'Cours demain';
-                          const suggestionsBySubject = getSuggestedReviews(selectedDay, currentWeek);
+                          const suggestionsBySubject = getSuggestedReviews(selectedDay, currentWeek, currentYear);
                           const totalChapters = suggestionsBySubject.reduce((sum, s) => sum + s.chapters.length, 0);
 
                           return (
