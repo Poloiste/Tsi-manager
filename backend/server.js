@@ -1,8 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
 const http = require('http');
 const { Server } = require('socket.io');
 const supabase = require('./config/supabase');
@@ -10,130 +8,18 @@ const supabase = require('./config/supabase');
 const app = express();
 const server = http.createServer(app);
 
-const parseAllowedOrigins = (...originInputs) => originInputs
-  .flatMap(value => (value || '').split(','))
-  .map(origin => origin.trim())
-  .filter(Boolean);
-
-const allowedOrigins = Array.from(new Set(parseAllowedOrigins(
-  process.env.FRONTEND_URL,
-  process.env.ALLOWED_ORIGINS,
-  process.env.FRONTEND_URLS,
-  'http://localhost:3000',
-  'http://localhost:3001'
-)));
-
-const allowRequestsWithoutOrigin = process.env.ALLOW_REQUESTS_WITHOUT_ORIGIN === 'true';
-const rateLimitWindowMs = 15 * 60 * 1000;
-const apiRateLimitMax = Number(process.env.API_RATE_LIMIT_MAX) || 300;
-const socketRateLimitMax = Number(process.env.SOCKET_RATE_LIMIT_MAX) || 200;
-
-const isAllowedOrigin = (origin) => {
-  if (!origin) {
-    return allowRequestsWithoutOrigin;
-  }
-  return allowedOrigins.includes(origin);
-};
-
-const socketConnectionAttemptsByIp = new Map();
-
-const getClientIpAddress = (request) => {
-  const forwardedFor = request.headers['x-forwarded-for'];
-  if (typeof forwardedFor === 'string' && forwardedFor.length > 0) {
-    return forwardedFor.split(',')[0].trim();
-  }
-  return request.socket?.remoteAddress || request.connection?.remoteAddress || 'unknown';
-};
-
-const cleanupExpiredSocketAttempts = (now) => {
-  if (socketConnectionAttemptsByIp.size < 1000) {
-    return;
-  }
-
-  for (const [ipAddress, attemptData] of socketConnectionAttemptsByIp.entries()) {
-    if (now - attemptData.windowStart >= rateLimitWindowMs) {
-      socketConnectionAttemptsByIp.delete(ipAddress);
-    }
-  }
-};
-
-const canAcceptSocketConnection = (request) => {
-  const now = Date.now();
-  cleanupExpiredSocketAttempts(now);
-
-  const ipAddress = getClientIpAddress(request);
-  const attempts = socketConnectionAttemptsByIp.get(ipAddress);
-
-  if (!attempts || now - attempts.windowStart >= rateLimitWindowMs) {
-    socketConnectionAttemptsByIp.set(ipAddress, { count: 1, windowStart: now });
-    return true;
-  }
-
-  if (attempts.count >= socketRateLimitMax) {
-    return false;
-  }
-
-  attempts.count += 1;
-  socketConnectionAttemptsByIp.set(ipAddress, attempts);
-  return true;
-};
-
-const corsOptions = {
-  origin: (origin, callback) => {
-    if (isAllowedOrigin(origin)) {
-      return callback(null, true);
-    }
-    return callback(new Error('Origin not allowed by CORS'));
-  },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  credentials: true
-};
-
 // Configure Socket.IO with CORS
 const io = new Server(server, {
   cors: {
-    origin: (origin, callback) => {
-      if (isAllowedOrigin(origin)) {
-        return callback(null, true);
-      }
-      return callback(new Error('Origin not allowed by CORS'));
-    },
+    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
     methods: ['GET', 'POST'],
     credentials: true
-  },
-  allowRequest: (request, callback) => {
-    callback(null, canAcceptSocketConnection(request));
   }
-});
-
-const apiLimiter = rateLimit({
-  windowMs: rateLimitWindowMs,
-  max: apiRateLimitMax,
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
-  message: { error: 'Too many requests, please try again later.' }
 });
 
 // Middlewares
-app.disable('x-powered-by');
-app.use('/api', helmet({
-  contentSecurityPolicy: {
-    useDefaults: true,
-    directives: {
-      'default-src': ["'self'"],
-      'connect-src': ["'self'", 'https:', 'wss:']
-    }
-  }
-}));
-app.use(cors(corsOptions));
-app.use(express.json({ limit: '100kb' }));
-app.use('/api', apiLimiter);
-app.use((error, req, res, next) => {
-  if (error?.message === 'Origin not allowed by CORS') {
-    return res.status(403).json({ error: 'Origin not allowed' });
-  }
-  return next(error);
-});
+app.use(cors());
+app.use(express.json());
 
 // Middleware to ensure all API responses have proper Content-Type
 app.use('/api', (req, res, next) => {
