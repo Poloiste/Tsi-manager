@@ -84,6 +84,12 @@ export const normalizeRevisionSettings = (settings = {}) => {
   };
 };
 
+const isConfiguredRestDay = (day, restDays = []) => {
+  const normalizedDay = normalizeText(day);
+  if (!normalizedDay) return false;
+  return restDays.some((restDay) => normalizeText(restDay) === normalizedDay);
+};
+
 const calculateDaysFromDayToTest = ({ fromDay, test, days, currentWeek, currentDayName, today = new Date(), parseLocalDate, calculateDaysBetween }) => {
   const dayIndex = days.indexOf(fromDay);
   const testDayIndex = days.indexOf(test.day);
@@ -171,7 +177,7 @@ export const createSuggestionContext = ({
 };
 
 const computeLegacySuggestions = (context, deps) => {
-  if (context.settings.restDays.includes(context.day)) {
+  if (isConfiguredRestDay(context.day, context.settings.restDays)) {
     return [];
   }
 
@@ -468,14 +474,20 @@ const buildSubjectScoresV2 = (context) => {
 };
 
 const buildSuggestionsFromScoresV2 = (context, subjectScores, calculateReviewPriority) => {
+  const subjectScoreKeys = Object.keys(subjectScores);
+  const resolveSubjectKey = (subject) =>
+    subjectScoreKeys.find((key) => subjectsMatch(key, subject)) || subject;
+
   const weekContext = { upcomingTests: context.upcomingTests };
 
   const coursesWithPriority = context.courses.map((course) => {
-    const subjectData = subjectScores[course.subject] || { score: 0, tests: [] };
+    const resolvedSubjectKey = resolveSubjectKey(course.subject);
+    const subjectData = subjectScores[resolvedSubjectKey] || { score: 0, tests: [] };
     const firstRelevantTest = subjectData.tests?.[0] || null;
 
     return {
       ...course,
+      subjectKey: resolvedSubjectKey,
       ...calculateReviewPriority(course, weekContext),
       subjectScore: subjectData.score || 0,
       relevantTest: firstRelevantTest,
@@ -484,8 +496,9 @@ const buildSuggestionsFromScoresV2 = (context, subjectScores, calculateReviewPri
   });
 
   const coursesBySubject = coursesWithPriority.reduce((acc, course) => {
-    if (!acc[course.subject]) acc[course.subject] = [];
-    acc[course.subject].push(course);
+    const key = course.subjectKey || course.subject;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(course);
     return acc;
   }, {});
 
@@ -596,7 +609,7 @@ const buildSuggestionsFromScoresV2 = (context, subjectScores, calculateReviewPri
 };
 
 const computeV2Suggestions = (context, deps) => {
-  if (context.settings.restDays.includes(context.day)) {
+  if (isConfiguredRestDay(context.day, context.settings.restDays)) {
     return [];
   }
 

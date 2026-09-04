@@ -73,6 +73,24 @@ describe('suggestionEngine', () => {
     expect(suggestions).toEqual([]);
   });
 
+  test('rest day matching is case-insensitive after normalization', () => {
+    const context = createSuggestionContext({
+      day: 'Vendredi',
+      weekNum: 10,
+      currentWeek: 10,
+      currentDayName: 'Lundi',
+      days,
+      subjects: ['Maths'],
+      courses: [{ id: 'c1', subject: 'Maths', chapter: 'Suites', mastery: 50, reviewCount: 0 }],
+      revisionSettings: { ...DEFAULT_REVISION_SETTINGS_V2, restDays: ['vendredi'] },
+      upcomingTests: [],
+      nextDayScheduleEvents: [{ subject: 'Maths' }]
+    });
+
+    const suggestions = getSuggestedReviewsByMode(context, defaultDeps);
+    expect(suggestions).toEqual([]);
+  });
+
   test('v2 prioritizes test and keeps unified tomorrow contract', () => {
     const context = createSuggestionContext({
       day: 'Lundi',
