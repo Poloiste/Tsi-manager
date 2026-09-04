@@ -402,11 +402,13 @@ function App() {
 
           if (Number.isFinite(event.week) && dayIndex >= 0) {
             const weekStart = getWeekStartDate(eventYear, event.week);
-            const eventDate = new Date(
+            const weekStartLocal = parseLocalDate([
               weekStart.getUTCFullYear(),
-              weekStart.getUTCMonth(),
-              weekStart.getUTCDate() + dayIndex
-            );
+              String(weekStart.getUTCMonth() + 1).padStart(2, '0'),
+              String(weekStart.getUTCDate()).padStart(2, '0')
+            ].join('-'));
+            const eventDate = new Date(weekStartLocal);
+            eventDate.setDate(weekStartLocal.getDate() + dayIndex);
             daysUntil = calculateDaysBetween(todayNormalized, eventDate);
           } else {
             const weekOffset = event.week - currentWeek;
