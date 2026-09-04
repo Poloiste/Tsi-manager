@@ -20,7 +20,7 @@ import { useNotifications } from './hooks/useNotifications';
 import { ONBOARDING_COMPLETED_KEY } from './constants';
 import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './utils/dateUtils';
 import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
-import { getISOWeek, getCurrentISOWeek, formatWeekLabel, isoWeeksInYear } from './utils/weekUtils';
+import { getISOWeek, getCurrentISOWeek, formatWeekLabel, getWeekStartDate, isoWeeksInYear } from './utils/weekUtils';
 import { getSuggestionScheduleTarget } from './utils/suggestionSchedule';
 import { useICSSchedule } from './hooks/useICSSchedule';
 import {
@@ -134,6 +134,22 @@ const SUGGESTION_REMINDERS = [
     text: 'Pense à ouvrir ta messagerie Zimbra'
   }
 ];
+
+const resolveEventWeekYear = (eventWeek, referenceWeek, referenceYear) => {
+  if (!Number.isFinite(eventWeek) || !Number.isFinite(referenceWeek) || !Number.isFinite(referenceYear)) {
+    return referenceYear;
+  }
+
+  if (referenceWeek >= isoWeeksInYear(referenceYear) - 1 && eventWeek < referenceWeek) {
+    return referenceYear + 1;
+  }
+
+  if (referenceWeek <= 2 && eventWeek > referenceWeek + 2) {
+    return referenceYear - 1;
+  }
+
+  return referenceYear;
+};
 
 // ==================== MAIN APP ====================
 function App() {
@@ -366,9 +382,10 @@ function App() {
   };
 
   // Fonctions
-  const getUpcomingTests = (currentWeek, daysAhead = 14) => {
+  const getUpcomingTests = (currentWeek, daysAhead = 14, referenceYear = currentYear) => {
     const tests = [];
     const today = new Date();
+    const todayNormalized = normalizeToMidnight(today);
     
     customEvents.forEach(event => {
       if (event.type === 'DS' || event.type === 'DM' || event.type === 'Colle' || event.type === 'Examen' || event.type === 'TP Noté') {
@@ -378,13 +395,23 @@ function App() {
         if (event.date) {
           // Parser la date en composants locaux pour éviter les problèmes UTC
           const eventDate = parseLocalDate(event.date);
-          const todayNormalized = normalizeToMidnight(today);
           daysUntil = calculateDaysBetween(todayNormalized, eventDate);
         } else {
-          // Sinon calculer approximativement avec semaine/jour
-          const weekOffset = event.week - currentWeek;
           const dayIndex = days.indexOf(event.day);
-          daysUntil = (weekOffset * 7) + dayIndex;
+          const eventYear = resolveEventWeekYear(event.week, currentWeek, referenceYear);
+
+          if (Number.isFinite(event.week) && dayIndex >= 0) {
+            const weekStart = getWeekStartDate(eventYear, event.week);
+            const eventDate = new Date(
+              weekStart.getUTCFullYear(),
+              weekStart.getUTCMonth(),
+              weekStart.getUTCDate() + dayIndex
+            );
+            daysUntil = calculateDaysBetween(todayNormalized, eventDate);
+          } else {
+            const weekOffset = event.week - currentWeek;
+            daysUntil = (weekOffset * 7) + dayIndex;
+          }
         }
         
         if (daysUntil >= 0 && daysUntil <= daysAhead) {
@@ -393,6 +420,7 @@ function App() {
             type: event.type,
             day: event.day,
             week: event.week,
+            year: event.date ? new Date(event.date).getFullYear() : resolveEventWeekYear(event.week, currentWeek, referenceYear),
             date: event.date,
             daysUntil: daysUntil,
             time: event.time
@@ -551,7 +579,7 @@ function App() {
 
   const getSuggestedReviews = (day, weekNum = currentWeek, yearNum = currentYear) => {
     const settings = normalizeRevisionSettings(revisionSettings);
-    const upcomingTests = getUpcomingTests(weekNum, 14);
+    const upcomingTests = getUpcomingTests(weekNum, 14, yearNum);
     const suggestionScheduleTarget = getSuggestionScheduleInfo(day, weekNum, yearNum);
     const nextDayScheduleEvents = getICSBaseSchedule(
       suggestionScheduleTarget.targetYear,
