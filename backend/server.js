@@ -44,6 +44,37 @@ app.use('/api', (req, res, next) => {
   next();
 });
 
+const getBearerToken = (authorizationHeader = '') => {
+  if (typeof authorizationHeader !== 'string' || !authorizationHeader.startsWith('Bearer ')) {
+    return null;
+  }
+  return authorizationHeader.slice('Bearer '.length).trim() || null;
+};
+
+const requireAuthenticatedUserForRoute = async (req, res, next) => {
+  try {
+    const token = getBearerToken(req.headers.authorization);
+    if (!token) {
+      return res.status(401).json({ error: 'Missing authorization token' });
+    }
+
+    const { data, error } = await supabase.auth.getUser(token);
+    if (error || !data?.user?.id) {
+      return res.status(401).json({ error: 'Invalid authorization token' });
+    }
+
+    if (req.params.userId !== data.user.id) {
+      return res.status(403).json({ error: 'Access denied for this user scope' });
+    }
+
+    req.authenticatedUserId = data.user.id;
+    next();
+  } catch (error) {
+    console.error('Auth validation error:', error);
+    res.status(500).json({ error: 'Authentication validation failed' });
+  }
+};
+
 // ============================================
 // ROUTES DONNÉES PERSONNELLES
 // ============================================
@@ -194,9 +225,9 @@ app.delete('/api/user/:userId/schedule/:id', async (req, res) => {
 });
 
 // ===== DS/DM/COLLES =====
-app.get('/api/user/:userId/exams', async (req, res) => {
+app.get('/api/user/:userId/exams', requireAuthenticatedUserForRoute, async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.authenticatedUserId;
     const { type } = req.query; // Filter by type (DS, DM, Colle)
     
     let query = supabase
@@ -216,9 +247,9 @@ app.get('/api/user/:userId/exams', async (req, res) => {
   }
 });
 
-app.post('/api/user/:userId/exams', async (req, res) => {
+app.post('/api/user/:userId/exams', requireAuthenticatedUserForRoute, async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.authenticatedUserId;
     const { type, subject, date, duration, coefficient, notes } = req.body;
     
     const { data, error } = await supabase
@@ -243,9 +274,10 @@ app.post('/api/user/:userId/exams', async (req, res) => {
   }
 });
 
-app.put('/api/user/:userId/exams/:id', async (req, res) => {
+app.put('/api/user/:userId/exams/:id', requireAuthenticatedUserForRoute, async (req, res) => {
   try {
-    const { userId, id } = req.params;
+    const userId = req.authenticatedUserId;
+    const { id } = req.params;
     const { type, subject, date, duration, coefficient, notes } = req.body;
     
     const { data, error } = await supabase
@@ -264,9 +296,10 @@ app.put('/api/user/:userId/exams/:id', async (req, res) => {
   }
 });
 
-app.delete('/api/user/:userId/exams/:id', async (req, res) => {
+app.delete('/api/user/:userId/exams/:id', requireAuthenticatedUserForRoute, async (req, res) => {
   try {
-    const { userId, id } = req.params;
+    const userId = req.authenticatedUserId;
+    const { id } = req.params;
     
     const { error } = await supabase
       .from('user_exams')
