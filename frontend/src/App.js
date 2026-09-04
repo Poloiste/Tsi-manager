@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
@@ -233,6 +233,8 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchResults, setShowSearchResults] = useState(false);
   const [searchResults, setSearchResults] = useState({ courses: [], flashcards: [] });
+  const [dashboardSearchQuery, setDashboardSearchQuery] = useState('');
+  const [dashboardSearchFilter, setDashboardSearchFilter] = useState('all');
   
   // États pour Import/Export de flashcards
   const [showImportExport, setShowImportExport] = useState(false);
@@ -660,6 +662,124 @@ function App() {
     if (!user) return 'Anonyme';
     return user.user_metadata?.name || user.email?.split('@')[0] || 'Anonyme';
   };
+
+  const upcomingTestsForDashboard = getUpcomingTests(currentWeek, 30, currentYear);
+
+  const quizHistory = useMemo(
+    () => (Array.isArray(quiz.quizHistory) ? quiz.quizHistory : []),
+    [quiz.quizHistory]
+  );
+  const totalSRSFlashcards = (srs?.stats?.due || 0) + (srs?.stats?.learning || 0) + (srs?.stats?.mastered || 0) + (srs?.stats?.new || 0);
+  const averageMastery = courses.length > 0
+    ? Math.round(courses.reduce((sum, c) => sum + c.mastery, 0) / courses.length)
+    : 0;
+
+  const dashboardAlerts = useMemo(() => {
+    const alerts = [];
+    const dueCards = srs?.stats?.due || 0;
+    const testsIn48h = upcomingTestsForDashboard.filter(test => test.daysUntil <= 2).length;
+    const testsThisWeek = upcomingTestsForDashboard.filter(test => test.daysUntil <= 7).length;
+    const lastActivity = userProfile?.last_activity_date ? parseLocalDate(userProfile.last_activity_date) : null;
+    const daysSinceActivity = lastActivity
+      ? calculateDaysBetween(normalizeToMidnight(lastActivity), normalizeToMidnight(new Date()))
+      : 0;
+
+    if (dueCards > 0) {
+      alerts.push({
+        id: 'due-cards',
+        level: 'high',
+        label: `${dueCards} carte${dueCards > 1 ? 's' : ''} à réviser aujourd'hui`
+      });
+    }
+    if (testsIn48h > 0) {
+      alerts.push({
+        id: 'tests-48h',
+        level: 'high',
+        label: `${testsIn48h} évaluation${testsIn48h > 1 ? 's' : ''} dans les 48h`
+      });
+    }
+    if (testsThisWeek > 0) {
+      alerts.push({
+        id: 'tests-week',
+        level: 'medium',
+        label: `${testsThisWeek} échéance${testsThisWeek > 1 ? 's' : ''} cette semaine`
+      });
+    }
+    if (daysSinceActivity >= 1 && (userProfile?.current_streak || 0) > 0) {
+      alerts.push({
+        id: 'streak-risk',
+        level: 'medium',
+        label: `Streak en danger (${userProfile.current_streak} jours)`
+      });
+    }
+    if (alerts.length === 0) {
+      alerts.push({
+        id: 'all-good',
+        level: 'low',
+        label: 'Aucune alerte critique'
+      });
+    }
+
+    return alerts;
+  }, [srs?.stats?.due, upcomingTestsForDashboard, userProfile]);
+
+  const searchableUsers = useMemo(() => {
+    const usersMap = new Map();
+    const addUser = (name, source) => {
+      if (!name) return;
+      const normalized = name.trim();
+      if (!normalized) return;
+      const key = normalized.toLowerCase();
+      if (!usersMap.has(key)) {
+        usersMap.set(key, { name: normalized, source });
+      }
+    };
+
+    addUser(getUserDisplayName(user), 'Profil');
+    flashcards.forEach(card => addUser(card.authorName, 'Flashcards'));
+    messages.forEach(message => addUser(message.user_name, 'Chat'));
+
+    return Array.from(usersMap.values());
+  }, [user, flashcards, messages]);
+
+  const dashboardSearchResults = useMemo(() => {
+    const query = dashboardSearchQuery.trim().toLowerCase();
+    if (query.length < 2) {
+      return { exams: [], sessions: [], users: [] };
+    }
+
+    const includesQuery = (value) => String(value || '').toLowerCase().includes(query);
+    const isAll = dashboardSearchFilter === 'all';
+
+    const exams = (isAll || dashboardSearchFilter === 'exam')
+      ? upcomingTestsForDashboard
+        .filter(test => (
+          includesQuery(test.subject) ||
+          includesQuery(test.type) ||
+          includesQuery(test.day) ||
+          includesQuery(test.time)
+        ))
+        .slice(0, 6)
+      : [];
+
+    const sessions = (isAll || dashboardSearchFilter === 'session')
+      ? quizHistory
+        .filter(session => (
+          includesQuery(session.title) ||
+          includesQuery(session.mode) ||
+          includesQuery(session.score)
+        ))
+        .slice(0, 6)
+      : [];
+
+    const users = (isAll || dashboardSearchFilter === 'user')
+      ? searchableUsers
+        .filter(foundUser => includesQuery(foundUser.name))
+        .slice(0, 6)
+      : [];
+
+    return { exams, sessions, users };
+  }, [dashboardSearchQuery, dashboardSearchFilter, upcomingTestsForDashboard, quizHistory, searchableUsers]);
 
   // Toggle expansion for tree view
   const toggleSubject = (subject) => {
@@ -4388,6 +4508,193 @@ function App() {
               <div className="mb-12 text-center">
                 <h2 className="text-5xl font-bold text-white mb-3">📊 Statistiques & Progression</h2>
                 <p className="text-indigo-300 text-lg">Vue d'ensemble de votre parcours d'apprentissage</p>
+              </div>
+
+              {/* Tableau de bord clair */}
+              <div className="bg-slate-900/60 border border-slate-700/60 rounded-3xl p-6 md:p-8 space-y-8">
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-4">Tableau de bord rapide</h3>
+                  <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+                    <div className="rounded-xl border border-indigo-500/30 bg-indigo-900/20 p-4">
+                      <p className="text-xs text-indigo-300 uppercase tracking-wider">Cartes dues</p>
+                      <p className="text-2xl font-bold text-white mt-1">{srs?.stats?.due || 0}</p>
+                    </div>
+                    <div className="rounded-xl border border-purple-500/30 bg-purple-900/20 p-4">
+                      <p className="text-xs text-purple-300 uppercase tracking-wider">Maîtrise</p>
+                      <p className="text-2xl font-bold text-white mt-1">{averageMastery}%</p>
+                    </div>
+                    <div className="rounded-xl border border-cyan-500/30 bg-cyan-900/20 p-4">
+                      <p className="text-xs text-cyan-300 uppercase tracking-wider">Sessions quiz</p>
+                      <p className="text-2xl font-bold text-white mt-1">{quizHistory.length}</p>
+                    </div>
+                    <div className="rounded-xl border border-red-500/30 bg-red-900/20 p-4">
+                      <p className="text-xs text-red-300 uppercase tracking-wider">Échéances (30j)</p>
+                      <p className="text-2xl font-bold text-white mt-1">{upcomingTestsForDashboard.length}</p>
+                    </div>
+                    <div className="rounded-xl border border-green-500/30 bg-green-900/20 p-4">
+                      <p className="text-xs text-green-300 uppercase tracking-wider">Cartes SRS</p>
+                      <p className="text-2xl font-bold text-white mt-1">{totalSRSFlashcards}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                  <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5">
+                    <h4 className="text-lg font-bold text-white mb-4">📅 Prochaines échéances</h4>
+                    {upcomingTestsForDashboard.length === 0 ? (
+                      <p className="text-sm text-slate-400">Aucune échéance trouvée.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {upcomingTestsForDashboard.slice(0, 5).map((test, index) => (
+                          <button
+                            key={`${test.subject}-${test.type}-${index}`}
+                            onClick={() => {
+                              if (Number.isFinite(test.year)) setCurrentYear(test.year);
+                              if (Number.isFinite(test.week)) setCurrentWeek(test.week);
+                              if (test.day) setSelectedDay(test.day);
+                              setActiveTab('planning');
+                            }}
+                            className="w-full text-left rounded-lg border border-slate-700 hover:border-indigo-500 bg-slate-900/50 px-4 py-3 transition-all"
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-semibold text-white truncate">{test.subject} • {test.type}</span>
+                              <span className="text-xs font-bold text-red-300 whitespace-nowrap">
+                                {test.daysUntil === 0 ? "Aujourd'hui" : test.daysUntil === 1 ? 'Demain' : `J-${test.daysUntil}`}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-400 mt-1">{test.day || 'Jour non précisé'} • {test.time || 'Horaire non précisé'}</p>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5">
+                    <h4 className="text-lg font-bold text-white mb-4">🚨 Alertes</h4>
+                    <div className="space-y-3">
+                      {dashboardAlerts.map(alertItem => (
+                        <div
+                          key={alertItem.id}
+                          className={`rounded-lg border px-4 py-3 ${
+                            alertItem.level === 'high'
+                              ? 'border-red-500/40 bg-red-900/20 text-red-200'
+                              : alertItem.level === 'medium'
+                              ? 'border-yellow-500/40 bg-yellow-900/20 text-yellow-200'
+                              : 'border-green-500/40 bg-green-900/20 text-green-200'
+                          }`}
+                        >
+                          <p className="text-sm font-semibold">{alertItem.label}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-700 bg-slate-800/40 p-5">
+                  <h4 className="text-lg font-bold text-white mb-4">🔎 Recherche rapide</h4>
+                  <div className="flex flex-col lg:flex-row gap-3 mb-4">
+                    <div className="flex-1 flex items-center gap-2 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2">
+                      <Search className="w-4 h-4 text-slate-400" />
+                      <input
+                        type="text"
+                        value={dashboardSearchQuery}
+                        onChange={(e) => setDashboardSearchQuery(e.target.value)}
+                        placeholder="Rechercher un examen, utilisateur, session..."
+                        className="bg-transparent text-white placeholder-slate-500 outline-none w-full text-sm"
+                      />
+                    </div>
+                    <div className="flex gap-2 flex-wrap">
+                      {[
+                        { id: 'all', label: 'Tout' },
+                        { id: 'exam', label: 'Examens' },
+                        { id: 'user', label: 'Utilisateurs' },
+                        { id: 'session', label: 'Sessions' }
+                      ].map(filter => (
+                        <button
+                          key={filter.id}
+                          onClick={() => setDashboardSearchFilter(filter.id)}
+                          className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                            dashboardSearchFilter === filter.id
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-slate-900/60 border border-slate-700 text-slate-300 hover:border-indigo-500'
+                          }`}
+                        >
+                          {filter.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {dashboardSearchQuery.trim().length < 2 ? (
+                    <p className="text-sm text-slate-400">Saisissez au moins 2 caractères.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-4">
+                        <p className="text-xs text-slate-400 uppercase tracking-wider mb-3">Examens ({dashboardSearchResults.exams.length})</p>
+                        <div className="space-y-2">
+                          {dashboardSearchResults.exams.length === 0 ? (
+                            <p className="text-xs text-slate-500">Aucun résultat</p>
+                          ) : dashboardSearchResults.exams.map((exam, index) => (
+                            <button
+                              key={`${exam.subject}-${exam.type}-${index}`}
+                              onClick={() => {
+                                if (Number.isFinite(exam.year)) setCurrentYear(exam.year);
+                                if (Number.isFinite(exam.week)) setCurrentWeek(exam.week);
+                                if (exam.day) setSelectedDay(exam.day);
+                                setActiveTab('planning');
+                              }}
+                              className="w-full text-left rounded-lg border border-slate-700 hover:border-indigo-500 px-3 py-2 transition-all"
+                            >
+                              <p className="text-sm text-white font-semibold truncate">{exam.subject} • {exam.type}</p>
+                              <p className="text-xs text-slate-400">{exam.day || 'Jour non précisé'} • {exam.time || 'Horaire non précisé'}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-4">
+                        <p className="text-xs text-slate-400 uppercase tracking-wider mb-3">Sessions ({dashboardSearchResults.sessions.length})</p>
+                        <div className="space-y-2">
+                          {dashboardSearchResults.sessions.length === 0 ? (
+                            <p className="text-xs text-slate-500">Aucun résultat</p>
+                          ) : dashboardSearchResults.sessions.map((session) => (
+                            <button
+                              key={session.id}
+                              onClick={() => {
+                                setActiveTab('quiz');
+                                setQuizView('home');
+                              }}
+                              className="w-full text-left rounded-lg border border-slate-700 hover:border-indigo-500 px-3 py-2 transition-all"
+                            >
+                              <p className="text-sm text-white font-semibold truncate">{session.title}</p>
+                              <p className="text-xs text-slate-400">
+                                {session.mode} • {session.score || 0}% • {session.completed_at ? new Date(session.completed_at).toLocaleDateString('fr-FR') : 'Date inconnue'}
+                              </p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="rounded-xl border border-slate-700 bg-slate-900/50 p-4">
+                        <p className="text-xs text-slate-400 uppercase tracking-wider mb-3">Utilisateurs ({dashboardSearchResults.users.length})</p>
+                        <div className="space-y-2">
+                          {dashboardSearchResults.users.length === 0 ? (
+                            <p className="text-xs text-slate-500">Aucun résultat</p>
+                          ) : dashboardSearchResults.users.map((foundUser) => (
+                            <button
+                              key={`${foundUser.name}-${foundUser.source}`}
+                              onClick={() => setActiveTab(foundUser.source === 'Chat' ? 'chat' : 'flashcards')}
+                              className="w-full text-left rounded-lg border border-slate-700 hover:border-indigo-500 px-3 py-2 transition-all"
+                            >
+                              <p className="text-sm text-white font-semibold truncate">{foundUser.name}</p>
+                              <p className="text-xs text-slate-400">Source: {foundUser.source}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Section Profil Utilisateur */}
