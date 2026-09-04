@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import {
   Calendar, Clock, BookOpen, AlertCircle, Plus, X, Brain, Zap, Sparkles,
   Trash2, Upload, File, ChevronDown, ChevronLeft, ChevronRight, Folder,
@@ -260,6 +260,7 @@ function App() {
   // États pour Quiz
   const [quizView, setQuizView] = useState('home'); // 'home' | 'setup' | 'session' | 'results'
   const [quizError, setQuizError] = useState(null);
+  const [quizHistorySearchQuery, setQuizHistorySearchQuery] = useState('');
   
   // États pour Chat/Discussions (kept for groups view)
   const [channels, setChannels] = useState([]);
@@ -338,11 +339,11 @@ function App() {
     }
   });
 
-  const days = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  const days = FRENCH_WEEK_DAYS;
   const subjects = ['Anglais', 'Culture et communication', 'Vie de l\'entreprise', 'Outils mathématiques et logiciels', 'PPP', 'Systèmes d\'information numériques', 'Informatique', 'Electronique', 'Energie', 'S.A.E'];
 
   // Fonction de recherche globale
-  const handleSearch = (query) => {
+  const handleSearch = (query, tab = activeTab) => {
     setSearchQuery(query);
     
     if (query.trim().length < 2) {
@@ -354,18 +355,19 @@ function App() {
     const lowerQuery = query.toLowerCase();
     
     // Filtrer selon l'onglet actif
-    if (activeTab === 'flashcards') {
+    if (tab === 'flashcards') {
       // Recherche dans les flashcards uniquement
       const matchingFlashcards = flashcards.filter(fc =>
         fc.question.toLowerCase().includes(lowerQuery) ||
-        fc.answer.toLowerCase().includes(lowerQuery)
+        fc.answer.toLowerCase().includes(lowerQuery) ||
+        (fc.authorName && fc.authorName.toLowerCase().includes(lowerQuery))
       );
       
       setSearchResults({
         courses: [],
         flashcards: matchingFlashcards.slice(0, 5)
       });
-    } else if (activeTab === 'courses') {
+    } else if (tab === 'courses') {
       // Recherche dans les cours uniquement
       const matchingCourses = courses.filter(course => 
         course.subject.toLowerCase().includes(lowerQuery) ||
@@ -383,7 +385,7 @@ function App() {
   };
 
   // Fonctions
-  const getUpcomingTests = (currentWeek, daysAhead = 14, referenceYear = currentYear) => {
+  const getUpcomingTests = useCallback((currentWeekParam, daysAhead = 14, referenceYear = currentYear) => {
     const tests = [];
     const today = new Date();
     const todayNormalized = normalizeToMidnight(today);
@@ -399,7 +401,7 @@ function App() {
           daysUntil = calculateDaysBetween(todayNormalized, eventDate);
         } else {
           const dayIndex = days.indexOf(event.day);
-          const eventYear = resolveEventWeekYear(event.week, currentWeek, referenceYear);
+          const eventYear = resolveEventWeekYear(event.week, currentWeekParam, referenceYear);
 
           if (Number.isFinite(event.week) && dayIndex >= 0) {
             const weekStart = getWeekStartDate(eventYear, event.week);
@@ -412,7 +414,7 @@ function App() {
             eventDate.setDate(weekStartLocal.getDate() + dayIndex);
             daysUntil = calculateDaysBetween(todayNormalized, eventDate);
           } else {
-            const weekOffset = event.week - currentWeek;
+            const weekOffset = event.week - currentWeekParam;
             daysUntil = (weekOffset * 7) + dayIndex;
           }
         }
@@ -425,7 +427,7 @@ function App() {
             week: event.week,
             year: event.date
               ? parseLocalDate(event.date)?.getFullYear()
-              : resolveEventWeekYear(event.week, currentWeek, referenceYear),
+              : resolveEventWeekYear(event.week, currentWeekParam, referenceYear),
             date: event.date,
             daysUntil: daysUntil,
             time: event.time
@@ -435,7 +437,7 @@ function App() {
     });
     
     return tests.sort((a, b) => a.daysUntil - b.daysUntil);
-  };
+  }, [customEvents, days, currentYear]);
 
   // eslint-disable-next-line no-unused-vars
   const getWeekIntensity = (weekNum) => {
@@ -663,7 +665,10 @@ function App() {
     return user.user_metadata?.name || user.email?.split('@')[0] || 'Anonyme';
   };
 
-  const upcomingTestsForDashboard = getUpcomingTests(currentWeek, 30, currentYear);
+  const upcomingTestsForDashboard = useMemo(
+    () => getUpcomingTests(currentWeek, 30, currentYear),
+    [getUpcomingTests, currentWeek, currentYear]
+  );
 
   const quizHistory = useMemo(
     () => (Array.isArray(quiz.quizHistory) ? quiz.quizHistory : []),
@@ -677,8 +682,8 @@ function App() {
   const dashboardAlerts = useMemo(() => {
     const alerts = [];
     const dueCards = srs?.stats?.due || 0;
-    const testsIn48h = upcomingTestsForDashboard.filter(test => test.daysUntil <= 2).length;
-    const testsThisWeek = upcomingTestsForDashboard.filter(test => test.daysUntil <= 7).length;
+    const testsIn48h = upcomingTestsForDashboard.filter(test => test.daysUntil >= 0 && test.daysUntil <= 2).length;
+    const testsThisWeek = upcomingTestsForDashboard.filter(test => test.daysUntil >= 0 && test.daysUntil <= 7).length;
     const lastActivity = userProfile?.last_activity_date ? parseLocalDate(userProfile.last_activity_date) : null;
     const daysSinceActivity = lastActivity
       ? calculateDaysBetween(normalizeToMidnight(lastActivity), normalizeToMidnight(new Date()))
@@ -725,22 +730,26 @@ function App() {
 
   const searchableUsers = useMemo(() => {
     const usersMap = new Map();
-    const addUser = (name, source) => {
+
+    const addUser = (name, source, metadata = {}) => {
       if (!name) return;
       const normalized = name.trim();
       if (!normalized) return;
       const key = normalized.toLowerCase();
-      if (!usersMap.has(key)) {
-        usersMap.set(key, { name: normalized, source });
-      }
-    };
+      const existing = usersMap.get(key);
 
+      if (!existing) {
+        usersMap.set(key, { name: normalized, source, ...metadata });
+        return;
+      }
+
+      usersMap.set(key, { ...existing, ...metadata });
+    };
     addUser(getUserDisplayName(user), 'Profil');
-    flashcards.forEach(card => addUser(card.authorName, 'Flashcards'));
-    messages.forEach(message => addUser(message.user_name, 'Chat'));
+    flashcards.forEach(card => addUser(card.authorName, 'Flashcards', { courseId: card.courseId }));
 
     return Array.from(usersMap.values());
-  }, [user, flashcards, messages]);
+  }, [user, flashcards]);
 
   const dashboardSearchResults = useMemo(() => {
     const query = dashboardSearchQuery.trim().toLowerCase();
@@ -757,7 +766,9 @@ function App() {
           includesQuery(test.subject) ||
           includesQuery(test.type) ||
           includesQuery(test.day) ||
-          includesQuery(test.time)
+          includesQuery(test.time) ||
+          includesQuery(test.week) ||
+          includesQuery(test.year)
         ))
         .slice(0, 6)
       : [];
@@ -780,6 +791,19 @@ function App() {
 
     return { exams, sessions, users };
   }, [dashboardSearchQuery, dashboardSearchFilter, upcomingTestsForDashboard, quizHistory, searchableUsers]);
+
+  const filteredQuizHistory = useMemo(() => {
+    const query = quizHistorySearchQuery.trim().toLowerCase();
+    if (!query) return quizHistory;
+
+    const includesQuery = (value) => String(value || '').toLowerCase().includes(query);
+    return quizHistory.filter(session => (
+      includesQuery(session.title) ||
+      includesQuery(session.mode) ||
+      includesQuery(session.score) ||
+      includesQuery(session.completed_at)
+    ));
+  }, [quizHistory, quizHistorySearchQuery]);
 
   // Toggle expansion for tree view
   const toggleSubject = (subject) => {
@@ -4613,6 +4637,7 @@ function App() {
                         <button
                           key={filter.id}
                           onClick={() => setDashboardSearchFilter(filter.id)}
+                          aria-pressed={dashboardSearchFilter === filter.id}
                           className={`px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
                             dashboardSearchFilter === filter.id
                               ? 'bg-indigo-600 text-white'
@@ -4657,18 +4682,19 @@ function App() {
                         <div className="space-y-2">
                           {dashboardSearchResults.sessions.length === 0 ? (
                             <p className="text-xs text-slate-500">Aucun résultat</p>
-                          ) : dashboardSearchResults.sessions.map((session) => (
+                          ) : dashboardSearchResults.sessions.map((session, index) => (
                             <button
-                              key={session.id}
+                              key={`${session.id || session.completed_at || session.title || 'session'}-${index}`}
                               onClick={() => {
                                 setActiveTab('quiz');
                                 setQuizView('home');
+                                setQuizHistorySearchQuery(session.title || '');
                               }}
                               className="w-full text-left rounded-lg border border-slate-700 hover:border-indigo-500 px-3 py-2 transition-all"
                             >
                               <p className="text-sm text-white font-semibold truncate">{session.title}</p>
                               <p className="text-xs text-slate-400">
-                                {session.mode} • {session.score || 0}% • {session.completed_at ? new Date(session.completed_at).toLocaleDateString('fr-FR') : 'Date inconnue'}
+                                {session.mode} • {session.score ?? 0}% • {session.completed_at ? new Date(session.completed_at).toLocaleDateString('fr-FR') : 'Date inconnue'}
                               </p>
                             </button>
                           ))}
@@ -4683,7 +4709,20 @@ function App() {
                           ) : dashboardSearchResults.users.map((foundUser) => (
                             <button
                               key={`${foundUser.name}-${foundUser.source}`}
-                              onClick={() => setActiveTab(foundUser.source === 'Chat' ? 'chat' : 'flashcards')}
+                              onClick={() => {
+                                if (foundUser.source === 'Flashcards') {
+                                  if (foundUser.courseId) {
+                                    const relatedCourse = courses.find(course => course.id === foundUser.courseId);
+                                    if (relatedCourse) setSelectedCourseForFlashcards(relatedCourse);
+                                  }
+                                  setActiveTab('flashcards');
+                                  setSearchQuery(foundUser.name);
+                                  handleSearch(foundUser.name, 'flashcards');
+                                  setShowSearchResults(true);
+                                  return;
+                                }
+                                setActiveTab('stats');
+                              }}
                               className="w-full text-left rounded-lg border border-slate-700 hover:border-indigo-500 px-3 py-2 transition-all"
                             >
                               <p className="text-sm text-white font-semibold truncate">{foundUser.name}</p>
@@ -5086,20 +5125,35 @@ function App() {
                         📊 Historique des Quiz
                       </h3>
 
+                      <div className="mb-6 flex items-center gap-2 bg-slate-900/70 border border-slate-700 rounded-lg px-3 py-2">
+                        <Search className="w-4 h-4 text-slate-400" />
+                        <input
+                          type="text"
+                          value={quizHistorySearchQuery}
+                          onChange={(e) => setQuizHistorySearchQuery(e.target.value)}
+                          placeholder="Filtrer par titre, mode, score..."
+                          className="bg-transparent text-white placeholder-slate-500 outline-none w-full text-sm"
+                        />
+                      </div>
+
                       {quiz.isLoading ? (
                         <div className="text-center py-12 text-slate-400">
                           <div className="animate-spin w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full mx-auto mb-4"></div>
                           Chargement...
                         </div>
-                      ) : (!quiz.quizHistory || !Array.isArray(quiz.quizHistory) || quiz.quizHistory.length === 0) ? (
+                      ) : (filteredQuizHistory.length === 0) ? (
                         <div className="text-center py-12 text-slate-400">
                           <div className="text-6xl mb-4">📝</div>
-                          <p className="text-xl">Aucun quiz complété pour le moment</p>
-                          <p className="text-sm mt-2">Lancez votre premier quiz pour commencer !</p>
+                          <p className="text-xl">
+                            {quizHistory.length === 0 ? 'Aucun quiz complété pour le moment' : 'Aucune session ne correspond à ce filtre'}
+                          </p>
+                          <p className="text-sm mt-2">
+                            {quizHistory.length === 0 ? 'Lancez votre premier quiz pour commencer !' : 'Essayez un autre mot-clé'}
+                          </p>
                         </div>
                       ) : (
                         <div className="space-y-4">
-                          {quiz.quizHistory.map(q => {
+                          {filteredQuizHistory.map(q => {
                             const scoreColor = q.score >= 90 ? 'text-green-400' : q.score >= 70 ? 'text-blue-400' : q.score >= 50 ? 'text-yellow-400' : 'text-red-400';
                             const modeEmoji = q.mode === 'training' ? '🎯' : q.mode === 'exam' ? '📝' : '🎓';
                             const timeAgo = (() => {
