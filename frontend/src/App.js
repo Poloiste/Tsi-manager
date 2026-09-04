@@ -21,6 +21,7 @@ import { ONBOARDING_COMPLETED_KEY } from './constants';
 import { parseLocalDate, normalizeToMidnight, calculateDaysBetween } from './utils/dateUtils';
 import { getDaySchedule as getDayScheduleUtil } from './utils/scheduleUtils';
 import { getISOWeek, getCurrentISOWeek, formatWeekLabel, isoWeeksInYear } from './utils/weekUtils';
+import { getSuggestionScheduleTarget } from './utils/suggestionSchedule';
 import { useICSSchedule } from './hooks/useICSSchedule';
 import {
   DEFAULT_REVISION_SETTINGS_V2,
@@ -121,6 +122,18 @@ const SRS_CATEGORY_MESSAGES = {
 };
 
 const FRENCH_WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+const SUGGESTION_REMINDERS = [
+  {
+    id: 'portfolio',
+    icon: '🗂️',
+    text: 'Pense à compléter ton portfolio'
+  },
+  {
+    id: 'zimbra',
+    icon: '📬',
+    text: 'Pense à ouvrir ta messagerie Zimbra'
+  }
+];
 
 // ==================== MAIN APP ====================
 function App() {
@@ -539,10 +552,17 @@ function App() {
   const getSuggestedReviews = (day, weekNum = currentWeek) => {
     const settings = normalizeRevisionSettings(revisionSettings);
     const upcomingTests = getUpcomingTests(weekNum, 14);
-    const nextDayIndex = (days.indexOf(day) + 1) % days.length;
-    const nextDay = days[nextDayIndex];
-    const nextDayWeekNum = nextDayIndex === 0 ? weekNum + 1 : weekNum;
-    const nextDayScheduleEvents = getICSBaseSchedule(currentYear, nextDayWeekNum, nextDay);
+    const suggestionScheduleTarget = getSuggestionScheduleTarget({
+      day,
+      week: weekNum,
+      year: currentYear,
+      days
+    });
+    const nextDayScheduleEvents = getICSBaseSchedule(
+      suggestionScheduleTarget.targetYear,
+      suggestionScheduleTarget.targetWeek,
+      suggestionScheduleTarget.targetDay
+    );
 
     const context = createSuggestionContext({
       day,
@@ -3286,15 +3306,22 @@ function App() {
 
                       {/* Cours du lendemain (emploi du temps) */}
                       {(() => {
-                        const nextDayIndex = (days.indexOf(selectedDay) + 1) % days.length;
-                        const nextDay = days[nextDayIndex];
-                        const nextDayWeekNum = nextDayIndex === 0 ? currentWeek + 1 : currentWeek;
-                        const nextDayEvents = getICSBaseSchedule(currentYear, nextDayWeekNum, nextDay);
+                        const suggestionScheduleTarget = getSuggestionScheduleTarget({
+                          day: selectedDay,
+                          week: currentWeek,
+                          year: currentYear,
+                          days
+                        });
+                        const nextDayEvents = getICSBaseSchedule(
+                          suggestionScheduleTarget.targetYear,
+                          suggestionScheduleTarget.targetWeek,
+                          suggestionScheduleTarget.targetDay
+                        );
                         if (nextDayEvents.length === 0) return null;
                         return (
                           <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-blue-500/30 rounded-2xl p-6">
                             <h3 className="text-xl font-bold text-blue-300 mb-4 flex items-center gap-2">
-                              🏫 Cours de demain — {nextDay}
+                              {suggestionScheduleTarget.isWeekendBridge ? '🏫 Cours de lundi' : '🏫 Cours de demain'} — {suggestionScheduleTarget.targetDay}
                               <span className="text-xs font-normal text-blue-400 bg-blue-900/40 px-2 py-1 rounded-full">
                                 Révisions suggérées en priorité
                               </span>
@@ -3313,7 +3340,9 @@ function App() {
                               ))}
                             </div>
                             <p className="mt-3 text-xs text-blue-300/70">
-                              💡 Les matières enseignées demain sont prioritaires dans les suggestions ci-dessous.
+                              {suggestionScheduleTarget.isWeekendBridge
+                                ? '💡 Ce week-end, les matières du lundi sont aussi prioritaires dans les suggestions ci-dessous.'
+                                : '💡 Les matières enseignées demain sont prioritaires dans les suggestions ci-dessous.'}
                             </p>
                           </div>
                         );
@@ -3322,19 +3351,14 @@ function App() {
                       {/* Suggestions du jour sélectionné */}
                       <div className="grid grid-cols-1 gap-6">
                         {(() => {
+                          const suggestionScheduleTarget = getSuggestionScheduleTarget({
+                            day: selectedDay,
+                            week: currentWeek,
+                            year: currentYear,
+                            days
+                          });
+                          const scheduleLabel = suggestionScheduleTarget.isWeekendBridge ? 'Cours lundi' : 'Cours demain';
                           const suggestionsBySubject = getSuggestedReviews(selectedDay, currentWeek);
-                          if (suggestionsBySubject.length === 0) {
-                            return (
-                              <div className="bg-slate-800/50 border border-slate-700/50 rounded-2xl p-6 text-center">
-                                <h3 className="text-2xl font-bold text-white mb-2 flex items-center justify-center gap-3">
-                                  <Calendar className="w-6 h-6 text-indigo-400" />
-                                  {selectedDay}
-                                </h3>
-                                <p className="text-slate-400">Aucune suggestion de révision pour ce jour.</p>
-                              </div>
-                            );
-                          }
-
                           const totalChapters = suggestionsBySubject.reduce((sum, s) => sum + s.chapters.length, 0);
 
                           return (
@@ -3354,131 +3378,156 @@ function App() {
                                 </div>
                               </div>
 
-                              <div className="space-y-6">
-                                {suggestionsBySubject.map((subjectGroup, subjectIdx) => (
-                                  <div key={subjectIdx} className="bg-slate-900/30 border border-slate-700/30 rounded-xl p-5">
-                                    {/* Subject Header */}
-                                    <div className="mb-4">
-                                      <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-3">
-                                          <span className={`px-4 py-2 bg-gradient-to-r ${getSubjectColor(subjectGroup.subject)} rounded-lg text-sm font-bold text-white shadow-lg`}>
-                                            📚 {subjectGroup.subject}
+                              {suggestionsBySubject.length === 0 ? (
+                                <div className="text-center py-6">
+                                  <p className="text-slate-400">Aucune suggestion de révision pour ce jour.</p>
+                                </div>
+                              ) : (
+                                <div className="space-y-6">
+                                  {suggestionsBySubject.map((subjectGroup, subjectIdx) => (
+                                    <div key={subjectIdx} className="bg-slate-900/30 border border-slate-700/30 rounded-xl p-5">
+                                      {/* Subject Header */}
+                                      <div className="mb-4">
+                                        <div className="flex items-center justify-between mb-2">
+                                          <div className="flex items-center gap-3">
+                                            <span className={`px-4 py-2 bg-gradient-to-r ${getSubjectColor(subjectGroup.subject)} rounded-lg text-sm font-bold text-white shadow-lg`}>
+                                              📚 {subjectGroup.subject}
+                                            </span>
+                                            {subjectGroup.relevantTests && subjectGroup.relevantTests.length > 0 && (
+                                              <span className="px-3 py-1 bg-red-500/20 text-red-300 rounded-lg text-xs font-semibold border border-red-500/30">
+                                                🎯 {subjectGroup.relevantTests[0].type} dans {subjectGroup.relevantTests[0].daysUntilFromThisDay}j
+                                              </span>
+                                            )}
+                                            {subjectGroup.hasClassTomorrow && (
+                                              <span className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-lg text-xs font-semibold border border-blue-500/30">
+                                                🏫 {scheduleLabel}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <span className="text-xs text-slate-400">
+                                            {subjectGroup.chapters.length} chapitre{subjectGroup.chapters.length > 1 ? 's' : ''} à réviser
                                           </span>
-                                          {subjectGroup.relevantTests && subjectGroup.relevantTests.length > 0 && (
-                                            <span className="px-3 py-1 bg-red-500/20 text-red-300 rounded-lg text-xs font-semibold border border-red-500/30">
-                                              🎯 {subjectGroup.relevantTests[0].type} dans {subjectGroup.relevantTests[0].daysUntilFromThisDay}j
-                                            </span>
-                                          )}
-                                          {subjectGroup.hasClassTomorrow && (
-                                            <span className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-lg text-xs font-semibold border border-blue-500/30">
-                                              🏫 Cours demain
-                                            </span>
-                                          )}
                                         </div>
-                                        <span className="text-xs text-slate-400">
-                                          {subjectGroup.chapters.length} chapitre{subjectGroup.chapters.length > 1 ? 's' : ''} à réviser
-                                        </span>
                                       </div>
-                                    </div>
 
-                                    {/* Chapters List */}
-                                    <div className="space-y-3">
-                                      {subjectGroup.chapters.map((course, chapterIdx) => (
-                                        <div key={course.id} className={`p-4 rounded-lg border ${
-                                          course.urgency === 'high' ? 'border-red-500/50 bg-red-900/10' : 
-                                          course.urgency === 'medium' ? 'border-orange-500/50 bg-orange-900/10' : 
-                                          'border-slate-700/50 bg-slate-800/50'
-                                        }`}>
-                                          <div className="flex items-start justify-between mb-3">
-                                            <div className="flex-1">
-                                              <div className="flex items-center gap-3 mb-2">
-                                                <span className="px-3 py-1 bg-indigo-600/40 text-indigo-200 rounded text-xs font-bold border border-indigo-500/30">
-                                                  📖 Suggestion {chapterIdx + 1}
-                                                </span>
-                                                {course.urgency === 'high' && (
-                                                  <span className="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs font-semibold">
-                                                    🔥 URGENT
+                                      {/* Chapters List */}
+                                      <div className="space-y-3">
+                                        {subjectGroup.chapters.map((course, chapterIdx) => (
+                                          <div key={course.id} className={`p-4 rounded-lg border ${
+                                            course.urgency === 'high' ? 'border-red-500/50 bg-red-900/10' : 
+                                            course.urgency === 'medium' ? 'border-orange-500/50 bg-orange-900/10' : 
+                                            'border-slate-700/50 bg-slate-800/50'
+                                          }`}>
+                                            <div className="flex items-start justify-between mb-3">
+                                              <div className="flex-1">
+                                                <div className="flex items-center gap-3 mb-2">
+                                                  <span className="px-3 py-1 bg-indigo-600/40 text-indigo-200 rounded text-xs font-bold border border-indigo-500/30">
+                                                    📖 Suggestion {chapterIdx + 1}
                                                   </span>
+                                                  {course.urgency === 'high' && (
+                                                    <span className="px-2 py-1 bg-red-500/20 text-red-300 rounded text-xs font-semibold">
+                                                      🔥 URGENT
+                                                    </span>
+                                                  )}
+                                                  {course.urgency === 'medium' && (
+                                                    <span className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded text-xs font-semibold">
+                                                      ⚠️ BIENTÔT
+                                                    </span>
+                                                  )}
+                                                  {course.fromTomorrowCourse && (
+                                                    <span className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs font-semibold">
+                                                      🏫 {scheduleLabel}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                                <h4 className="text-xl font-bold text-white mb-2">
+                                                  {suggestionScheduleTarget.isWeekendBridge && course.chapter === 'Préparer le cours de demain'
+                                                    ? 'Préparer le cours de lundi'
+                                                    : course.chapter}
+                                                </h4>
+                                                <p className="text-sm text-indigo-300 mb-2">
+                                                  💡 {suggestionScheduleTarget.isWeekendBridge
+                                                    ? course.reason.replaceAll('Cours demain', 'Cours lundi')
+                                                    : course.reason}
+                                                </p>
+                                                {course.suggestedDuration && (
+                                                  <p className="text-sm text-green-300 mb-2">⏱️ {course.suggestedDuration} recommandées</p>
                                                 )}
-                                                {course.urgency === 'medium' && (
-                                                  <span className="px-2 py-1 bg-orange-500/20 text-orange-300 rounded text-xs font-semibold">
-                                                    ⚠️ BIENTÔT
-                                                  </span>
-                                                )}
-                                                {course.fromTomorrowCourse && (
-                                                  <span className="px-2 py-1 bg-blue-500/20 text-blue-300 rounded text-xs font-semibold">
-                                                    🏫 Cours demain
-                                                  </span>
-                                                )}
+                                                <div className="flex items-center gap-4 text-sm text-slate-400">
+                                                  <span>🎯 Maîtrise: {course.mastery || 0}%</span>
+                                                  <span>🔄 {course.reviewCount || 0} révision(s)</span>
+                                                  {course.lastReviewed && (
+                                                    <span>📅 {new Date(course.lastReviewed).toLocaleDateString('fr-FR')}</span>
+                                                  )}
+                                                </div>
                                               </div>
-                                              <h4 className="text-xl font-bold text-white mb-2">{course.chapter}</h4>
-                                              <p className="text-sm text-indigo-300 mb-2">💡 {course.reason}</p>
-                                              {course.suggestedDuration && (
-                                                <p className="text-sm text-green-300 mb-2">⏱️ {course.suggestedDuration} recommandées</p>
+                                              {!course.isVirtual && (
+                                                <div className="flex flex-col gap-2">
+                                                  <button
+                                                    onClick={() => markAsReviewed(course.id, 15)}
+                                                    className="px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm whitespace-nowrap"
+                                                  >
+                                                    ✔ Marquer révisé
+                                                  </button>
+                                                </div>
                                               )}
-                                              <div className="flex items-center gap-4 text-sm text-slate-400">
-                                                <span>🎯 Maîtrise: {course.mastery || 0}%</span>
-                                                <span>🔄 {course.reviewCount || 0} révision(s)</span>
-                                                {course.lastReviewed && (
-                                                  <span>📅 {new Date(course.lastReviewed).toLocaleDateString('fr-FR')}</span>
-                                                )}
+                                            </div>
+
+                                            {/* Barre de priorité */}
+                                            <div className="mt-3">
+                                              <div className="flex items-center justify-between mb-2">
+                                                <span className="text-xs text-slate-400">Priorité de révision</span>
+                                                <span className="text-xs font-bold text-white">{Math.round(course.priority)}%</span>
+                                              </div>
+                                              <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                                                <div 
+                                                  className={`h-full transition-all ${
+                                                    course.priority > 80 ? 'bg-gradient-to-r from-red-500 to-orange-500' :
+                                                    course.priority > 50 ? 'bg-gradient-to-r from-orange-500 to-yellow-500' :
+                                                    'bg-gradient-to-r from-green-500 to-emerald-500'
+                                                  }`}
+                                                  style={{ width: `${Math.min(100, course.priority)}%` }}
+                                                ></div>
                                               </div>
                                             </div>
-                                            {!course.isVirtual && (
-                                              <div className="flex flex-col gap-2">
-                                                <button
-                                                  onClick={() => markAsReviewed(course.id, 15)}
-                                                  className="px-4 py-2 bg-green-600/30 border border-green-500/50 text-green-300 rounded-lg hover:bg-green-600/50 transition-all font-semibold text-sm whitespace-nowrap"
-                                                >
-                                                  ✔ Marquer révisé
-                                                </button>
+
+                                            {/* Liens OneDrive */}
+                                            {course.oneDriveLinks && course.oneDriveLinks.length > 0 && (
+                                              <div className="mt-3 p-3 bg-slate-800/50 rounded-lg">
+                                                <p className="text-xs text-slate-400 mb-2">🔎 Documents disponibles:</p>
+                                                <div className="flex flex-wrap gap-2">
+                                                  {course.oneDriveLinks.map(link => (
+                                                    <a
+                                                      key={link.id}
+                                                      href={link.url}
+                                                      target="_blank"
+                                                      rel="noopener noreferrer"
+                                                      className="px-3 py-1 bg-blue-600/30 border border-blue-500/50 text-blue-300 rounded-lg hover:bg-blue-600/50 transition-all text-xs font-semibold flex items-center gap-1"
+                                                    >
+                                                      <File className="w-3 h-3" />
+                                                      {link.name}
+                                                    </a>
+                                                  ))}
+                                                </div>
                                               </div>
                                             )}
                                           </div>
-
-                                          {/* Barre de priorité */}
-                                          <div className="mt-3">
-                                            <div className="flex items-center justify-between mb-2">
-                                              <span className="text-xs text-slate-400">Priorité de révision</span>
-                                              <span className="text-xs font-bold text-white">{Math.round(course.priority)}%</span>
-                                            </div>
-                                            <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                                              <div 
-                                                className={`h-full transition-all ${
-                                                  course.priority > 80 ? 'bg-gradient-to-r from-red-500 to-orange-500' :
-                                                  course.priority > 50 ? 'bg-gradient-to-r from-orange-500 to-yellow-500' :
-                                                  'bg-gradient-to-r from-green-500 to-emerald-500'
-                                                }`}
-                                                style={{ width: `${Math.min(100, course.priority)}%` }}
-                                              ></div>
-                                            </div>
-                                          </div>
-
-                                          {/* Liens OneDrive */}
-                                          {course.oneDriveLinks && course.oneDriveLinks.length > 0 && (
-                                            <div className="mt-3 p-3 bg-slate-800/50 rounded-lg">
-                                              <p className="text-xs text-slate-400 mb-2">🔎 Documents disponibles:</p>
-                                              <div className="flex flex-wrap gap-2">
-                                                {course.oneDriveLinks.map(link => (
-                                                  <a
-                                                    key={link.id}
-                                                    href={link.url}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="px-3 py-1 bg-blue-600/30 border border-blue-500/50 text-blue-300 rounded-lg hover:bg-blue-600/50 transition-all text-xs font-semibold flex items-center gap-1"
-                                                  >
-                                                    <File className="w-3 h-3" />
-                                                    {link.name}
-                                                  </a>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          )}
-                                        </div>
-                                      ))}
+                                        ))}
+                                      </div>
                                     </div>
-                                  </div>
-                                ))}
+                                  ))}
+                                </div>
+                              )}
+
+                              <div className="mt-6 border-t border-slate-700/50 pt-5">
+                                <div className="space-y-3">
+                                  {SUGGESTION_REMINDERS.map((reminder) => (
+                                    <div key={reminder.id} className="flex items-center gap-3 rounded-lg border border-cyan-500/20 bg-cyan-900/10 px-4 py-3">
+                                      <span className="text-lg">{reminder.icon}</span>
+                                      <p className="text-sm font-medium text-cyan-100">{reminder.text}</p>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
 
                             </div>
