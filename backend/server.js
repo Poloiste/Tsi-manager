@@ -23,7 +23,13 @@ const allowedOrigins = Array.from(new Set(parseAllowedOrigins(
   'http://localhost:3001'
 )));
 
-const isAllowedOrigin = (origin) => !origin || allowedOrigins.includes(origin);
+const allowRequestsWithoutOrigin = process.env.ALLOW_REQUESTS_WITHOUT_ORIGIN === 'true';
+const isAllowedOrigin = (origin) => {
+  if (!origin) {
+    return allowRequestsWithoutOrigin;
+  }
+  return allowedOrigins.includes(origin);
+};
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -60,7 +66,9 @@ const apiLimiter = rateLimit({
 
 // Middlewares
 app.disable('x-powered-by');
-app.use(helmet());
+app.use(helmet({
+  contentSecurityPolicy: false
+}));
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '100kb' }));
 app.use('/api', apiLimiter);
