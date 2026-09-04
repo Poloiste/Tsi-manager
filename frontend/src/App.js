@@ -298,12 +298,12 @@ function App() {
   const [showRevisionSettings, setShowRevisionSettings] = useState(false);
   const [revisionSettings, setRevisionSettings] = useState(() => {
     const saved = localStorage.getItem('revisionSettings');
-    if (!saved) return DEFAULT_REVISION_SETTINGS_V2;
+    if (!saved) return normalizeRevisionSettings(DEFAULT_REVISION_SETTINGS_V2);
 
     try {
       return normalizeRevisionSettings(JSON.parse(saved));
     } catch {
-      return DEFAULT_REVISION_SETTINGS_V2;
+      return normalizeRevisionSettings(DEFAULT_REVISION_SETTINGS_V2);
     }
   });
 
@@ -986,7 +986,18 @@ function App() {
 
   // Save revision settings to localStorage
   useEffect(() => {
-    localStorage.setItem('revisionSettings', JSON.stringify(normalizeRevisionSettings(revisionSettings)));
+    let previousSettings = {};
+    try {
+      previousSettings = JSON.parse(localStorage.getItem('revisionSettings') || '{}');
+    } catch {
+      previousSettings = {};
+    }
+
+    const normalizedSettings = normalizeRevisionSettings(revisionSettings);
+    localStorage.setItem('revisionSettings', JSON.stringify({
+      ...previousSettings,
+      ...normalizedSettings
+    }));
   }, [revisionSettings]);
 
   // Auto-scroll vers le bas quand de nouveaux messages arrivent

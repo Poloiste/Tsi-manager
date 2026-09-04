@@ -119,6 +119,7 @@ describe('suggestionEngine', () => {
     expect(suggestions[0].hasClassTomorrow).toBe(true);
     expect(suggestions[0].chapters[0].urgency).toBe('high');
     expect(suggestions[0].chapters[0].reason).toContain('DS');
+    expect(suggestions[0].chapters[0].reason).toContain('demain');
   });
 
   test('fallback creates virtual chapter when no matching course exists', () => {
