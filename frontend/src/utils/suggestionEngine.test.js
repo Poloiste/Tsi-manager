@@ -160,7 +160,7 @@ describe('suggestionEngine', () => {
     const suggestions = getSuggestedReviewsByMode(context, defaultDeps);
 
     expect(suggestions).toHaveLength(1);
-    expect(suggestions[0].hasClassTomorrow).toBeDefined();
-    expect(suggestions[0].chapters[0].fromTomorrowCourse).toBeDefined();
+    expect(suggestions[0].hasClassTomorrow).toBe(true);
+    expect(suggestions[0].chapters[0].fromTomorrowCourse).toBe(true);
   });
 });

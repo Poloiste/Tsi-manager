@@ -986,18 +986,7 @@ function App() {
 
   // Save revision settings to localStorage
   useEffect(() => {
-    let previousSettings = {};
-    try {
-      previousSettings = JSON.parse(localStorage.getItem('revisionSettings') || '{}');
-    } catch {
-      previousSettings = {};
-    }
-
-    const normalizedSettings = normalizeRevisionSettings(revisionSettings);
-    localStorage.setItem('revisionSettings', JSON.stringify({
-      ...previousSettings,
-      ...normalizedSettings
-    }));
+    localStorage.setItem('revisionSettings', JSON.stringify(normalizeRevisionSettings(revisionSettings)));
   }, [revisionSettings]);
 
   // Auto-scroll vers le bas quand de nouveaux messages arrivent

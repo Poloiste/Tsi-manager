@@ -237,13 +237,22 @@ const computeLegacySuggestions = (context, deps) => {
       const avgMastery = subjectCourses.reduce((sum, course) => sum + (course.mastery || 0), 0) / subjectCourses.length;
       score += (100 - avgMastery) * 0.2;
 
-      const oldestReview = subjectCourses.reduce((oldest, course) => {
+      const reviewAges = subjectCourses.map((course) => {
         if (!course.lastReviewed) return NEVER_REVIEWED_VALUE;
-        const days = Math.floor((new Date() - new Date(course.lastReviewed)) / (1000 * 60 * 60 * 24));
-        return Math.min(oldest, days);
+        const age = Math.floor((new Date() - new Date(course.lastReviewed)) / (1000 * 60 * 60 * 24));
+        return Number.isFinite(age) ? Math.max(0, age) : 0;
+      });
+
+      const hasNeverReviewed = reviewAges.includes(NEVER_REVIEWED_VALUE);
+      const oldestReviewAge = reviewAges.reduce((max, value) => {
+        if (value === NEVER_REVIEWED_VALUE) return max;
+        return Math.max(max, value);
       }, 0);
 
-      score += Math.min(oldestReview * 2, 30);
+      score += Math.min(oldestReviewAge * 2, 30);
+      if (hasNeverReviewed) {
+        score += 30;
+      }
     }
 
     if (isScheduledNextDay(subject)) {
