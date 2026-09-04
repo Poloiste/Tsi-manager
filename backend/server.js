@@ -114,17 +114,9 @@ const apiLimiter = rateLimit({
   message: { error: 'Too many requests, please try again later.' }
 });
 
-const socketLimiter = rateLimit({
-  windowMs: rateLimitWindowMs,
-  max: socketRateLimitMax,
-  standardHeaders: 'draft-8',
-  legacyHeaders: false,
-  message: { error: 'Too many socket connection attempts, please try again later.' }
-});
-
 // Middlewares
 app.disable('x-powered-by');
-app.use(helmet({
+app.use('/api', helmet({
   contentSecurityPolicy: {
     useDefaults: true,
     directives: {
@@ -136,7 +128,6 @@ app.use(helmet({
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '100kb' }));
 app.use('/api', apiLimiter);
-app.use('/socket.io/', socketLimiter);
 app.use((error, req, res, next) => {
   if (error?.message === 'Origin not allowed by CORS') {
     return res.status(403).json({ error: 'Origin not allowed' });
