@@ -1,6 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const http = require('http');
 const { Server } = require('socket.io');
 const supabase = require('./config/supabase');
@@ -8,18 +10,66 @@ const supabase = require('./config/supabase');
 const app = express();
 const server = http.createServer(app);
 
+const parseAllowedOrigins = (...originInputs) => originInputs
+  .flatMap(value => (value || '').split(','))
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+const allowedOrigins = Array.from(new Set(parseAllowedOrigins(
+  process.env.FRONTEND_URL,
+  process.env.ALLOWED_ORIGINS,
+  process.env.FRONTEND_URLS,
+  'http://localhost:3000',
+  'http://localhost:3001'
+)));
+
+const isAllowedOrigin = (origin) => !origin || allowedOrigins.includes(origin);
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) {
+      return callback(null, true);
+    }
+    return callback(new Error('Origin not allowed by CORS'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  credentials: true
+};
+
 // Configure Socket.IO with CORS
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3001',
+    origin: (origin, callback) => {
+      if (isAllowedOrigin(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Origin not allowed by CORS'));
+    },
     methods: ['GET', 'POST'],
     credentials: true
   }
 });
 
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: Number(process.env.API_RATE_LIMIT_MAX) || 300,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many requests, please try again later.' }
+});
+
 // Middlewares
-app.use(cors());
-app.use(express.json());
+app.disable('x-powered-by');
+app.use(helmet());
+app.use(cors(corsOptions));
+app.use(express.json({ limit: '100kb' }));
+app.use('/api', apiLimiter);
+app.use((error, req, res, next) => {
+  if (error?.message === 'Origin not allowed by CORS') {
+    return res.status(403).json({ error: 'Origin not allowed' });
+  }
+  return next(error);
+});
 
 // Middleware to ensure all API responses have proper Content-Type
 app.use('/api', (req, res, next) => {
