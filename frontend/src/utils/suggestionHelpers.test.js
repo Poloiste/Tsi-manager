@@ -6,7 +6,9 @@ import {
   getPreparationDays, 
   getUrgencyMultiplier, 
   getSuggestedDuration,
-  buildFallbackSuggestionsFromSchedule
+  buildFallbackSuggestionsFromSchedule,
+  normalizeSubject,
+  subjectsMatch
 } from './suggestionHelpers';
 
 describe('Suggestion System Helper Functions', () => {
@@ -241,6 +243,22 @@ describe('Suggestion System Helper Functions', () => {
       expect(suggestions[0].chapters[0].id).toBe('course-1');
       expect(suggestions[0].chapters[0].isVirtual).toBeUndefined();
       expect(suggestions[0].chapters[0].fromTomorrowCourse).toBe(true);
+    });
+  });
+
+  describe('subject matching helpers', () => {
+    test('should normalize accents and punctuation', () => {
+      expect(normalizeSubject('  Outils mathématiques_et logiciels  ')).toBe('outils mathematiques et logiciels');
+    });
+
+    test('should match close subject variants', () => {
+      expect(subjectsMatch('Maths', 'Mathématiques')).toBe(true);
+      expect(subjectsMatch('S.A.E', 'SAE')).toBe(true);
+      expect(subjectsMatch('Culture et communication', 'communication')).toBe(true);
+    });
+
+    test('should not match unrelated subjects', () => {
+      expect(subjectsMatch('Anglais', 'Electronique')).toBe(false);
     });
   });
 });

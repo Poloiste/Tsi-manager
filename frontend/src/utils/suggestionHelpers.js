@@ -92,16 +92,58 @@ export const baseScoreByType = {
   'TP Noté': 30
 };
 
-const normalizeSubject = (subject = '') => subject.trim().toLowerCase();
+const SUBJECT_STOP_WORDS = new Set(['de', 'du', 'des', 'et', 'en', 'la', 'le', 'les', 'd', 'l']);
 
-const subjectsMatch = (left, right) => {
+export const normalizeSubject = (subject = '') => (
+  subject
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/['’._-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+);
+
+const toCompactSubject = (subject = '') => normalizeSubject(subject).replace(/\s+/g, '');
+
+const tokenizeSubject = (subject = '') => (
+  normalizeSubject(subject)
+    .split(' ')
+    .filter(token => token.length > 1 && !SUBJECT_STOP_WORDS.has(token))
+);
+
+const getTokenSignatures = (subject = '') => (
+  tokenizeSubject(subject)
+    .map(token => (token.length > 4 ? token.slice(0, 4) : token))
+);
+
+export const subjectsMatch = (left, right) => {
   const normalizedLeft = normalizeSubject(left);
   const normalizedRight = normalizeSubject(right);
 
-  return normalizedLeft && normalizedRight && (
-    normalizedLeft.includes(normalizedRight) ||
-    normalizedRight.includes(normalizedLeft)
-  );
+  if (!normalizedLeft || !normalizedRight) {
+    return false;
+  }
+
+  if (normalizedLeft === normalizedRight) {
+    return true;
+  }
+
+  const compactLeft = toCompactSubject(left);
+  const compactRight = toCompactSubject(right);
+
+  if (
+    compactLeft === compactRight ||
+    compactLeft.includes(compactRight) ||
+    compactRight.includes(compactLeft)
+  ) {
+    return true;
+  }
+
+  const leftSignatures = getTokenSignatures(left);
+  const rightSignatures = new Set(getTokenSignatures(right));
+
+  return leftSignatures.some(signature => rightSignatures.has(signature));
 };
 
 /**
