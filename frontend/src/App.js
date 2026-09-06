@@ -122,6 +122,8 @@ const SRS_CATEGORY_MESSAGES = {
 };
 
 const SRS_CHAPTER_MASTERY_INCREASE = {
+  // Deltas de maîtrise (en points) agrégés par chapitre sur une session SRS,
+  // puis moyennés avant synchronisation dans user_revision_progress.
   again: 0,
   hard: 2,
   good: 4,
@@ -2071,16 +2073,19 @@ function App() {
         setSrsFlashcards([]);
         setCurrentSRSIndex(0);
 
-        const reviewedCourseProgress = Array.from(srsSessionCourseProgressRef.current.entries());
-        if (reviewedCourseProgress.length > 0) {
-          for (const [courseId, progress] of reviewedCourseProgress) {
-            const averageIncrease = progress.count > 0
-              ? Math.round(progress.total / progress.count)
-              : 0;
-            await markAsReviewed(courseId, averageIncrease);
+        try {
+          const reviewedCourseProgress = Array.from(srsSessionCourseProgressRef.current.entries());
+          if (reviewedCourseProgress.length > 0) {
+            for (const [courseId, progress] of reviewedCourseProgress) {
+              const averageIncrease = progress.count > 0
+                ? Math.round(progress.total / progress.count)
+                : 0;
+              await markAsReviewed(courseId, averageIncrease);
+            }
           }
+        } finally {
+          srsSessionCourseProgressRef.current = new Map();
         }
-        srsSessionCourseProgressRef.current = new Map();
         
         // Recharger les statistiques
         await srs.getReviewStats();
