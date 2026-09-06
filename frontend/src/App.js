@@ -723,6 +723,7 @@ function App() {
     [quiz.quizHistory]
   );
   const totalSRSFlashcards = (srs?.stats?.due || 0) + (srs?.stats?.learning || 0) + (srs?.stats?.mastered || 0) + (srs?.stats?.new || 0);
+  const totalReviewableSRSFlashcards = (srs?.stats?.due || 0) + (srs?.stats?.new || 0);
   const averageMastery = courses.length > 0
     ? Math.round(courses.reduce((sum, c) => sum + c.mastery, 0) / courses.length)
     : 0;
@@ -1984,7 +1985,11 @@ function App() {
     if (!user) return;
     
     try {
-      const cards = await srs.loadCardsToReview();
+      let cards = await srs.loadCardsToReview();
+
+      if (cards.length === 0) {
+        cards = await srs.loadCardsByCategory('new');
+      }
       
       if (cards.length === 0) {
         alert('🎉 Aucune carte à réviser maintenant !\nRevenez plus tard.');
@@ -4074,11 +4079,11 @@ function App() {
                     
                     <button
                       onClick={startSRSSession}
-                      disabled={!srs || !srs.stats || srs.stats.due === 0}
+                      disabled={!srs || !srs.stats || totalReviewableSRSFlashcards === 0}
                       className="w-full px-8 py-4 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-xl hover:from-red-500 hover:to-orange-500 transition-all font-bold text-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <Brain className="w-6 h-6" />
-                      {(srs?.stats?.due || 0) > 0 ? '🧠 Commencer la révision SRS' : '✅ Aucune carte à réviser'}
+                      {totalReviewableSRSFlashcards > 0 ? '🧠 Commencer la révision SRS' : '✅ Aucune carte à réviser'}
                     </button>
                   </div>
                 </div>
