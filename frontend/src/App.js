@@ -250,6 +250,7 @@ function App() {
   const [isSRSMode, setIsSRSMode] = useState(false);  // Mode révision SRS vs mode normal
   const [srsFlashcards, setSrsFlashcards] = useState([]);  // Cartes SRS avec données
   const [currentSRSIndex, setCurrentSRSIndex] = useState(0);
+  const srsReviewedCourseIdsRef = useRef(new Set());
 
   // Hook SRS
   const srs = useSRS(user?.id);
@@ -1985,6 +1986,7 @@ function App() {
       setIsSRSMode(true);
       setShowFlashcardAnswer(false);
       setFlashcardStats({ correct: 0, incorrect: 0, skipped: 0 });
+      srsReviewedCourseIdsRef.current = new Set();
     } catch (error) {
       console.error('Error starting SRS session:', error);
       alert('Erreur lors du chargement des cartes à réviser');
@@ -2012,6 +2014,7 @@ function App() {
       setIsSRSMode(true);
       setShowFlashcardAnswer(false);
       setFlashcardStats({ correct: 0, incorrect: 0, skipped: 0 });
+      srsReviewedCourseIdsRef.current = new Set();
     } catch (error) {
       console.error('Error starting SRS session by category:', error);
       alert('Erreur lors du chargement des cartes');
@@ -2029,13 +2032,7 @@ function App() {
       await srs.recordReview(currentCard.id, difficulty);
 
       if (currentCard.course_id) {
-        const masteryIncreaseByDifficulty = {
-          again: 0,
-          hard: 2,
-          good: 4,
-          easy: 6
-        };
-        await markAsReviewed(currentCard.course_id, masteryIncreaseByDifficulty[difficulty] ?? 3);
+        srsReviewedCourseIdsRef.current.add(currentCard.course_id);
       }
       
       // Mettre à jour les statistiques de session
@@ -2058,6 +2055,12 @@ function App() {
         setIsSRSMode(false);
         setSrsFlashcards([]);
         setCurrentSRSIndex(0);
+
+        const reviewedCourseIds = Array.from(srsReviewedCourseIdsRef.current);
+        if (reviewedCourseIds.length > 0) {
+          await Promise.all(reviewedCourseIds.map((courseId) => markAsReviewed(courseId, 4)));
+        }
+        srsReviewedCourseIdsRef.current = new Set();
         
         // Recharger les statistiques
         await srs.getReviewStats();
@@ -2075,6 +2078,7 @@ function App() {
     setSrsFlashcards([]);
     setCurrentSRSIndex(0);
     setShowFlashcardAnswer(false);
+    srsReviewedCourseIdsRef.current = new Set();
   };
 
 
