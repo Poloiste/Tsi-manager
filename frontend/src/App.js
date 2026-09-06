@@ -593,6 +593,43 @@ function App() {
       suggestionScheduleTarget.targetWeek,
       suggestionScheduleTarget.targetDay
     );
+    const srsSignalsByCourse = (Array.isArray(flashcards) ? flashcards : []).reduce((acc, card) => {
+      if (!card?.courseId) return acc;
+
+      const courseSignals = acc[card.courseId] || {
+        srsDueCount: 0,
+        srsLearningCount: 0,
+        srsNewCount: 0,
+        srsMasteredCount: 0,
+        srsTotalCount: 0
+      };
+
+      const status = getCardStatus(card.srsData);
+      if (status === 'due') {
+        courseSignals.srsDueCount += 1;
+      } else if (status === 'learning' || status === 'soon') {
+        courseSignals.srsLearningCount += 1;
+      } else if (status === 'new') {
+        courseSignals.srsNewCount += 1;
+      } else if (status === 'mastered') {
+        courseSignals.srsMasteredCount += 1;
+      }
+      courseSignals.srsTotalCount += 1;
+
+      acc[card.courseId] = courseSignals;
+      return acc;
+    }, {});
+
+    const coursesWithSrsSignals = courses.map((course) => ({
+      ...course,
+      ...(srsSignalsByCourse[course.id] || {
+        srsDueCount: 0,
+        srsLearningCount: 0,
+        srsNewCount: 0,
+        srsMasteredCount: 0,
+        srsTotalCount: 0
+      })
+    }));
 
     const context = createSuggestionContext({
       day,
@@ -600,7 +637,7 @@ function App() {
       currentWeek,
       days,
       subjects,
-      courses,
+      courses: coursesWithSrsSignals,
       revisionSettings: settings,
       upcomingTests,
       nextDayScheduleEvents,
@@ -1990,6 +2027,16 @@ function App() {
     try {
       // Enregistrer la révision avec l'algorithme SM-2
       await srs.recordReview(currentCard.id, difficulty);
+
+      if (currentCard.course_id) {
+        const masteryIncreaseByDifficulty = {
+          again: 0,
+          hard: 2,
+          good: 4,
+          easy: 6
+        };
+        await markAsReviewed(currentCard.course_id, masteryIncreaseByDifficulty[difficulty] ?? 3);
+      }
       
       // Mettre à jour les statistiques de session
       if (difficulty === 'again' || difficulty === 'hard') {

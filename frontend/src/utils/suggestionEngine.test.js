@@ -189,4 +189,56 @@ describe('suggestionEngine', () => {
     expect(suggestions).toHaveLength(1);
     expect(suggestions[0].chapters[0].reason).toContain('DS');
   });
+
+  test('v2 prioritizes chapters with due SRS cards', () => {
+    const context = createSuggestionContext({
+      day: 'Lundi',
+      weekNum: 10,
+      currentWeek: 10,
+      currentDayName: 'Lundi',
+      days,
+      subjects: ['Maths', 'Physique'],
+      courses: [
+        {
+          id: 'c1',
+          subject: 'Maths',
+          chapter: 'Suites',
+          mastery: 80,
+          reviewCount: 2,
+          priority: 20,
+          lastReviewed: '2026-09-05',
+          srsDueCount: 2,
+          srsLearningCount: 0,
+          srsNewCount: 0
+        },
+        {
+          id: 'c2',
+          subject: 'Physique',
+          chapter: 'Optique',
+          mastery: 80,
+          reviewCount: 2,
+          priority: 20,
+          lastReviewed: '2026-09-05',
+          srsDueCount: 0,
+          srsLearningCount: 0,
+          srsNewCount: 0
+        }
+      ],
+      revisionSettings: {
+        ...DEFAULT_REVISION_SETTINGS_V2,
+        totalDuration: 30,
+        sessionDuration: 30,
+        suggestionEngineMode: SUGGESTION_ENGINE_MODES.V2
+      },
+      upcomingTests: [],
+      nextDayScheduleEvents: []
+    });
+
+    const suggestions = getSuggestedReviewsByMode(context, defaultDeps);
+
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].subject).toBe('Maths');
+    expect(suggestions[0].chapters[0].urgency).toBe('high');
+    expect(suggestions[0].chapters[0].reason).toContain('SRS');
+  });
 });

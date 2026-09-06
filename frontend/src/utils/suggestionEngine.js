@@ -29,6 +29,10 @@ const V2_SCORING = {
   staleReviewDailyBonus: 2,
   staleReviewBonusCap: 35,
   neverReviewedBonus: 35,
+  srsDueCardBonus: 16,
+  srsLearningCardBonus: 6,
+  srsNewCardBonus: 3,
+  srsSignalBonusCap: 55,
   minSubjectScore: 15,
   minCoursePriority: 20,
   maxChaptersPerSubject: 2
@@ -269,6 +273,14 @@ const computeLegacySuggestions = (context, deps) => {
       if (hasNeverReviewed) {
         score += 30;
       }
+
+      const srsSignalScore = subjectCourses.reduce((sum, course) => (
+        sum
+        + ((course.srsDueCount || 0) * V2_SCORING.srsDueCardBonus)
+        + ((course.srsLearningCount || 0) * V2_SCORING.srsLearningCardBonus)
+        + ((course.srsNewCount || 0) * V2_SCORING.srsNewCardBonus)
+      ), 0);
+      score += Math.min(srsSignalScore, V2_SCORING.srsSignalBonusCap);
     }
 
     if (isScheduledNextDay(subject)) {
@@ -325,11 +337,11 @@ const computeLegacySuggestions = (context, deps) => {
       const urgencyA = a.relevantTest ? (
         a.relevantTest.daysUntilFromThisDay <= 2 ? 'high' :
         a.relevantTest.daysUntilFromThisDay <= 3 ? 'medium' : 'low'
-      ) : (a.priority > 80 ? 'medium' : 'low');
+      ) : ((a.srsDueCount || 0) > 0 ? 'high' : (a.priority > 80 ? 'medium' : 'low'));
       const urgencyB = b.relevantTest ? (
         b.relevantTest.daysUntilFromThisDay <= 2 ? 'high' :
         b.relevantTest.daysUntilFromThisDay <= 3 ? 'medium' : 'low'
-      ) : (b.priority > 80 ? 'medium' : 'low');
+      ) : ((b.srsDueCount || 0) > 0 ? 'high' : (b.priority > 80 ? 'medium' : 'low'));
 
       if (urgencyOrder[urgencyA] !== urgencyOrder[urgencyB]) {
         return urgencyOrder[urgencyB] - urgencyOrder[urgencyA];
@@ -363,6 +375,10 @@ const computeLegacySuggestions = (context, deps) => {
             urgency = 'low';
             reasonText = `🎯 ${test.type} dans ${daysUntil} jours - Préparation progressive`;
           }
+        } else if ((course.srsDueCount || 0) > 0) {
+          const dueCount = course.srsDueCount || 0;
+          urgency = 'high';
+          reasonText = `🧠 ${dueCount} carte${dueCount > 1 ? 's' : ''} SRS à réviser maintenant`;
         } else if (subjectData?.hasClassTomorrow) {
           urgency = 'medium';
           reasonText = '🏫 Cours demain - Consolidez avant le cours';
@@ -481,6 +497,14 @@ const buildSubjectScoresV2 = (context) => {
       if (hasNeverReviewed) {
         score += V2_SCORING.neverReviewedBonus;
       }
+
+      const srsSignalScore = subjectCourses.reduce((sum, course) => (
+        sum
+        + ((course.srsDueCount || 0) * V2_SCORING.srsDueCardBonus)
+        + ((course.srsLearningCount || 0) * V2_SCORING.srsLearningCardBonus)
+        + ((course.srsNewCount || 0) * V2_SCORING.srsNewCardBonus)
+      ), 0);
+      score += Math.min(srsSignalScore, V2_SCORING.srsSignalBonusCap);
     }
 
     const hasClassTomorrow = isScheduledNextDay(subject);
@@ -547,6 +571,7 @@ const buildSuggestionsFromScoresV2 = (context, subjectScores, calculateReviewPri
           if (course.relevantTest.daysUntilFromThisDay <= 4) return 'medium';
           return 'low';
         }
+        if ((course.srsDueCount || 0) > 0) return 'high';
         if (course.priority > 80) return 'medium';
         return 'low';
       };
@@ -591,6 +616,10 @@ const buildSuggestionsFromScoresV2 = (context, subjectScores, calculateReviewPri
           urgency = 'low';
           reason = `🎯 ${test.type} dans ${test.daysUntilFromThisDay} jours - Préparation progressive`;
         }
+      } else if ((course.srsDueCount || 0) > 0) {
+        const dueCount = course.srsDueCount || 0;
+        urgency = 'high';
+        reason = `🧠 ${dueCount} carte${dueCount > 1 ? 's' : ''} SRS à réviser maintenant`;
       } else if (subjectData.hasClassTomorrow) {
         urgency = 'medium';
         reason = '🏫 Cours demain - Consolidation conseillée';
