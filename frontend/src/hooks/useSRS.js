@@ -84,6 +84,31 @@ export function useSRS(userId) {
     }
   }, [userId]);
 
+  const loadNewCards = useCallback(async () => {
+    const { data: allFlashcards, error: allError } = await supabase
+      .from('shared_flashcards')
+      .select('*, shared_courses(subject, chapter)');
+
+    if (allError) throw allError;
+
+    const { data: userSRS, error: srsError } = await supabase
+      .from('user_flashcard_srs')
+      .select('flashcard_id')
+      .eq('user_id', userId);
+
+    if (srsError) throw srsError;
+
+    const reviewedIds = new Set(userSRS.map(s => s.flashcard_id));
+
+    return allFlashcards
+      .filter(card => !reviewedIds.has(card.id))
+      .map(card => ({
+        ...card,
+        srsData: null,
+        course: card.shared_courses
+      }));
+  }, [userId]);
+
   /**
    * Load cards that are due for review (next_review_date <= today)
    * 
@@ -109,8 +134,9 @@ export function useSRS(userId) {
       if (srsError) throw srsError;
 
       if (!srsData || srsData.length === 0) {
-        setCardsToReview([]);
-        return [];
+        const newCards = await loadNewCards();
+        setCardsToReview(newCards);
+        return newCards;
       }
 
       // Get the flashcard details for these cards
@@ -141,7 +167,7 @@ export function useSRS(userId) {
     } finally {
       setIsLoading(false);
     }
-  }, [userId]);
+  }, [loadNewCards, userId]);
 
   /**
    * Load cards by specific category/status
@@ -160,29 +186,7 @@ export function useSRS(userId) {
       // const today = new Date().toISOString().split('T')[0]; // Unused for now
 
       if (category === 'new') {
-        // Load flashcards that don't have SRS data yet
-        const { data: allFlashcards, error: allError } = await supabase
-          .from('shared_flashcards')
-          .select('*, shared_courses(subject, chapter)');
-
-        if (allError) throw allError;
-
-        const { data: userSRS, error: srsError } = await supabase
-          .from('user_flashcard_srs')
-          .select('flashcard_id')
-          .eq('user_id', userId);
-
-        if (srsError) throw srsError;
-
-        const reviewedIds = new Set(userSRS.map(s => s.flashcard_id));
-        const newCards = allFlashcards
-          .filter(card => !reviewedIds.has(card.id))
-          .map(card => ({
-            ...card,
-            srsData: null,
-            course: card.shared_courses
-          }));
-
+        const newCards = await loadNewCards();
         console.log(`[useSRS] Found ${newCards.length} new cards`);
         return newCards;
       }
@@ -240,7 +244,7 @@ export function useSRS(userId) {
     } finally {
       setIsLoading(false);
     }
-  }, [userId]);
+  }, [loadNewCards, userId]);
 
   /**
    * Record a review and update SRS data

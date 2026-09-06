@@ -1985,11 +1985,7 @@ function App() {
     if (!user) return;
     
     try {
-      let cards = await srs.loadCardsToReview();
-
-      if (cards.length === 0) {
-        cards = await srs.loadCardsByCategory('new');
-      }
+      const cards = await srs.loadCardsToReview();
       
       if (cards.length === 0) {
         alert('🎉 Aucune carte à réviser maintenant !\nRevenez plus tard.');
