@@ -250,7 +250,7 @@ function App() {
   const [isSRSMode, setIsSRSMode] = useState(false);  // Mode révision SRS vs mode normal
   const [srsFlashcards, setSrsFlashcards] = useState([]);  // Cartes SRS avec données
   const [currentSRSIndex, setCurrentSRSIndex] = useState(0);
-  const srsReviewedCourseIdsRef = useRef(new Set());
+  const srsSessionCourseProgressRef = useRef(new Map());
 
   // Hook SRS
   const srs = useSRS(user?.id);
@@ -1986,7 +1986,7 @@ function App() {
       setIsSRSMode(true);
       setShowFlashcardAnswer(false);
       setFlashcardStats({ correct: 0, incorrect: 0, skipped: 0 });
-      srsReviewedCourseIdsRef.current = new Set();
+      srsSessionCourseProgressRef.current = new Map();
     } catch (error) {
       console.error('Error starting SRS session:', error);
       alert('Erreur lors du chargement des cartes à réviser');
@@ -2014,7 +2014,7 @@ function App() {
       setIsSRSMode(true);
       setShowFlashcardAnswer(false);
       setFlashcardStats({ correct: 0, incorrect: 0, skipped: 0 });
-      srsReviewedCourseIdsRef.current = new Set();
+      srsSessionCourseProgressRef.current = new Map();
     } catch (error) {
       console.error('Error starting SRS session by category:', error);
       alert('Erreur lors du chargement des cartes');
@@ -2031,8 +2031,21 @@ function App() {
       // Enregistrer la révision avec l'algorithme SM-2
       await srs.recordReview(currentCard.id, difficulty);
 
-      if (currentCard.course_id) {
-        srsReviewedCourseIdsRef.current.add(currentCard.course_id);
+      const courseId = currentCard.courseId || currentCard.course_id;
+      if (courseId) {
+        const masteryIncreaseByDifficulty = {
+          again: 0,
+          hard: 2,
+          good: 4,
+          easy: 6
+        };
+        const previousProgress = srsSessionCourseProgressRef.current.get(courseId) || { total: 0, count: 0 };
+        const increment = masteryIncreaseByDifficulty[difficulty] ?? 3;
+
+        srsSessionCourseProgressRef.current.set(courseId, {
+          total: previousProgress.total + increment,
+          count: previousProgress.count + 1
+        });
       }
       
       // Mettre à jour les statistiques de session
@@ -2056,11 +2069,16 @@ function App() {
         setSrsFlashcards([]);
         setCurrentSRSIndex(0);
 
-        const reviewedCourseIds = Array.from(srsReviewedCourseIdsRef.current);
-        if (reviewedCourseIds.length > 0) {
-          await Promise.all(reviewedCourseIds.map((courseId) => markAsReviewed(courseId, 4)));
+        const reviewedCourseProgress = Array.from(srsSessionCourseProgressRef.current.entries());
+        if (reviewedCourseProgress.length > 0) {
+          await Promise.all(reviewedCourseProgress.map(([courseId, progress]) => {
+            const averageIncrease = progress.count > 0
+              ? Math.round(progress.total / progress.count)
+              : 0;
+            return markAsReviewed(courseId, averageIncrease);
+          }));
         }
-        srsReviewedCourseIdsRef.current = new Set();
+        srsSessionCourseProgressRef.current = new Map();
         
         // Recharger les statistiques
         await srs.getReviewStats();
@@ -2078,7 +2096,7 @@ function App() {
     setSrsFlashcards([]);
     setCurrentSRSIndex(0);
     setShowFlashcardAnswer(false);
-    srsReviewedCourseIdsRef.current = new Set();
+    srsSessionCourseProgressRef.current = new Map();
   };
 
 
