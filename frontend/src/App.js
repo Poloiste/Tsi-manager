@@ -121,6 +121,14 @@ const SRS_CATEGORY_MESSAGES = {
   'new': '✨ Aucune nouvelle carte disponible.\nToutes les cartes ont été révisées au moins une fois !'
 };
 
+const SRS_CHAPTER_MASTERY_INCREASE = {
+  again: 0,
+  hard: 2,
+  good: 4,
+  easy: 6,
+  default: 3
+};
+
 const FRENCH_WEEK_DAYS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
 const SUGGESTION_REMINDERS = [
   {
@@ -2033,14 +2041,8 @@ function App() {
 
       const courseId = currentCard.courseId || currentCard.course_id;
       if (courseId) {
-        const masteryIncreaseByDifficulty = {
-          again: 0,
-          hard: 2,
-          good: 4,
-          easy: 6
-        };
         const previousProgress = srsSessionCourseProgressRef.current.get(courseId) || { total: 0, count: 0 };
-        const increment = masteryIncreaseByDifficulty[difficulty] ?? 3;
+        const increment = SRS_CHAPTER_MASTERY_INCREASE[difficulty] ?? SRS_CHAPTER_MASTERY_INCREASE.default;
 
         srsSessionCourseProgressRef.current.set(courseId, {
           total: previousProgress.total + increment,
@@ -2071,12 +2073,12 @@ function App() {
 
         const reviewedCourseProgress = Array.from(srsSessionCourseProgressRef.current.entries());
         if (reviewedCourseProgress.length > 0) {
-          await Promise.all(reviewedCourseProgress.map(([courseId, progress]) => {
+          for (const [courseId, progress] of reviewedCourseProgress) {
             const averageIncrease = progress.count > 0
               ? Math.round(progress.total / progress.count)
               : 0;
-            return markAsReviewed(courseId, averageIncrease);
-          }));
+            await markAsReviewed(courseId, averageIncrease);
+          }
         }
         srsSessionCourseProgressRef.current = new Map();
         
