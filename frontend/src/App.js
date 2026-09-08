@@ -272,6 +272,7 @@ function App() {
   const [quizView, setQuizView] = useState('home'); // 'home' | 'setup' | 'session' | 'results'
   const [quizError, setQuizError] = useState(null);
   const [quizHistorySearchQuery, setQuizHistorySearchQuery] = useState('');
+  const [quickQuizSubject, setQuickQuizSubject] = useState('');
   
   // États pour Chat/Discussions (kept for groups view)
   const [channels, setChannels] = useState([]);
@@ -722,11 +723,22 @@ function App() {
     () => (Array.isArray(quiz.quizHistory) ? quiz.quizHistory : []),
     [quiz.quizHistory]
   );
+  const quickQuizSubjects = useMemo(
+    () => [...new Set(courses.map(course => course.subject).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b, 'fr', { sensitivity: 'base' })),
+    [courses]
+  );
   const totalSRSFlashcards = (srs?.stats?.due || 0) + (srs?.stats?.learning || 0) + (srs?.stats?.mastered || 0) + (srs?.stats?.new || 0);
   const totalReviewableSRSFlashcards = (srs?.stats?.due || 0) + (srs?.stats?.new || 0);
   const averageMastery = courses.length > 0
     ? Math.round(courses.reduce((sum, c) => sum + c.mastery, 0) / courses.length)
     : 0;
+
+  useEffect(() => {
+    if (quickQuizSubject && !quickQuizSubjects.includes(quickQuizSubject)) {
+      setQuickQuizSubject('');
+    }
+  }, [quickQuizSubject, quickQuizSubjects]);
 
   const dashboardAlerts = useMemo(() => {
     const alerts = [];
@@ -853,6 +865,38 @@ function App() {
       includesQuery(session.completed_at)
     ));
   }, [quizHistory, quizHistorySearchQuery]);
+
+  const startQuickQuiz = useCallback(async () => {
+    if (!quickQuizSubject) {
+      setQuizError('Choisissez une matière pour lancer le quiz rapide.');
+      return;
+    }
+
+    const selectedCourseIds = courses
+      .filter(course => course.subject === quickQuizSubject)
+      .map(course => course.id);
+
+    if (selectedCourseIds.length === 0) {
+      setQuizError('Aucun cours disponible pour cette matière.');
+      return;
+    }
+
+    try {
+      setQuizError(null);
+      await quiz.createQuiz({
+        title: `Quiz Rapide - ${quickQuizSubject}`,
+        mode: 'training',
+        courseIds: selectedCourseIds,
+        questionCount: 10,
+        timeLimitMinutes: null
+      });
+      quiz.startQuiz();
+      setQuizView('session');
+    } catch (error) {
+      console.error('Error starting quick quiz:', error);
+      setQuizError(error.message || 'Erreur lors du démarrage du quiz. Assurez-vous d\'avoir des flashcards.');
+    }
+  }, [courses, quickQuizSubject, quiz]);
 
   // Toggle expansion for tree view
   const toggleSubject = (subject) => {
@@ -5150,30 +5194,40 @@ function App() {
                       <p className="text-indigo-200">Configuration complète et personnalisée</p>
                     </button>
 
-                    <button
-                      onClick={async () => {
-                        try {
-                          setQuizError(null);
-                          await quiz.createQuiz({
-                            title: 'Quiz Rapide',
-                            mode: 'training',
-                            courseIds: courses.map(c => c.id),
-                            questionCount: 10,
-                            timeLimitMinutes: null
-                          });
-                          quiz.startQuiz();
-                          setQuizView('session');
-                        } catch (error) {
-                          console.error('Error starting quick quiz:', error);
-                          setQuizError(error.message || 'Erreur lors du démarrage du quiz. Assurez-vous d\'avoir des flashcards.');
-                        }
-                      }}
-                      className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl p-8 text-left hover:shadow-2xl hover:shadow-purple-500/50 transition-all hover:scale-[1.02] border border-purple-500/20"
-                    >
+                    <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl p-8 text-left border border-purple-500/20 shadow-2xl shadow-purple-500/20">
                       <div className="text-5xl mb-4">⚡</div>
                       <h3 className="text-2xl font-bold text-white mb-2">Quiz Rapide</h3>
-                      <p className="text-purple-200">10 questions, toutes matières</p>
-                    </button>
+                      <p className="text-purple-200 mb-5">10 questions sur une seule matière, choisie au lancement</p>
+                      <label className="block text-sm font-semibold text-white/90 mb-2">
+                        Matière
+                      </label>
+                      <select
+                        value={quickQuizSubject}
+                        onChange={(e) => setQuickQuizSubject(e.target.value)}
+                        className="w-full px-4 py-3 bg-slate-900/70 border border-purple-300/30 rounded-lg text-white focus:border-purple-200 focus:outline-none mb-4"
+                      >
+                        <option value="">Sélectionner une matière...</option>
+                        {quickQuizSubjects.map(subject => (
+                          <option key={subject} value={subject}>{subject}</option>
+                        ))}
+                      </select>
+                      <button
+                        onClick={startQuickQuiz}
+                        disabled={!quickQuizSubject || quickQuizSubjects.length === 0}
+                        className={`w-full py-3 rounded-xl font-bold transition-all ${
+                          quickQuizSubject && quickQuizSubjects.length > 0
+                            ? 'bg-white text-purple-700 hover:bg-purple-50'
+                            : 'bg-white/20 text-white/60 cursor-not-allowed'
+                        }`}
+                      >
+                        Lancer le Quiz Rapide
+                      </button>
+                      {quickQuizSubjects.length === 0 && (
+                        <p className="text-sm text-purple-100/80 mt-3">
+                          Ajoutez d&apos;abord des cours avec des flashcards pour lancer un quiz rapide.
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   {/* Error display */}

@@ -168,7 +168,7 @@ export function HelpPage({ isDark = true }) {
         </p>
         <h3>Lancer un quiz</h3>
         <ul>
-          <li>Quiz rapide : 10 questions toutes matières</li>
+          <li>Quiz rapide : 10 questions d'une seule matière, choisie au lancement</li>
           <li>Nouveau quiz personnalisé avec titre optionnel</li>
           <li>Sélection des matières incluses</li>
           <li>Choix du nombre de questions et de la limite de temps</li>
